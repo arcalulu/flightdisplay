@@ -1,0 +1,3 @@
+# Bibliothèque Python à installer dans l'environnement virtuel.
+# pygame et requests s'installent avec apt (voir README.md).
+FlightRadarAPI

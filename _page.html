@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0b0f14">
+<title>Flight display - administration</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23ffd250' d='M12 2l2 7 8 4v2l-8-2v5l2 2v2l-4-1-4 1v-2l2-2v-5l-8 2v-2l8-4z'/%3E%3C/svg%3E">
+<style>
+:root{--bg:#0b0f14;--card:#141b24;--line:#243040;--txt:#e6edf3;--mut:#8b98a8;--acc:#ffd250;--ok:#3fb950;--bad:#f85149;--warn:#d29922}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--txt);font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--bg);padding:calc(10px + env(safe-area-inset-top)) 14px 10px;border-bottom:1px solid var(--line)}
+header h1{margin:0 0 6px;font-size:18px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:12px;padding:3px 9px;border-radius:99px;background:var(--card);border:1px solid var(--line);color:var(--mut)}
+.chip.ok{color:var(--ok);border-color:#1f4d2b}.chip.bad{color:var(--bad);border-color:#5c1f1c}.chip.warn{color:var(--warn);border-color:#5a4410}
+main{max-width:820px;margin:0 auto;padding:12px 12px calc(150px + env(safe-area-inset-bottom))}
+.tab{display:none}.tab.on{display:block}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:#0e141bf2;backdrop-filter:blur(8px);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:6}
+nav button{flex:1;background:none;border:0;color:var(--mut);padding:12px 0 10px;font-size:13px}
+nav button.on{color:var(--acc)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;margin:0 0 12px;overflow:hidden}
+.card>summary,.card>h2{margin:0;padding:13px 14px;font-size:15px;font-weight:600;cursor:pointer;list-style:none}
+.card>h2{cursor:default}
+.card>summary::after{content:"\25B8";float:right;color:var(--mut)}
+.card[open]>summary::after{content:"\25BE"}
+.body{padding:0 14px 12px}
+.row{padding:10px 0;border-top:1px solid var(--line)}
+.row label{display:block;font-size:14px;margin-bottom:5px}
+.row small{display:block;color:var(--mut);font-size:12px;margin-top:4px}
+.row .flag{color:var(--warn);font-size:11px;margin-left:6px}
+input[type=text],select{width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--line);background:#0e141b;color:var(--txt);font-size:16px}
+input.changed,select.changed{border-color:var(--acc)}
+.sw{display:flex;align-items:center;justify-content:space-between;gap:10px}
+input[type=checkbox]{appearance:none;-webkit-appearance:none;width:52px;height:30px;border-radius:99px;background:#2a3544;position:relative;flex:none;transition:.2s}
+input[type=checkbox]::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:.2s}
+input[type=checkbox]:checked{background:var(--ok)}input[type=checkbox]:checked::after{left:25px}
+input[type=checkbox].changed{outline:2px solid var(--acc)}
+button.b{width:100%;padding:13px;border-radius:10px;border:1px solid var(--line);background:#1b2431;color:var(--txt);font-size:16px;margin:0 0 8px}
+button.b.p{background:var(--acc);color:#1a1400;border-color:var(--acc);font-weight:600}
+button.b.d{background:#3a1613;border-color:#6b2420;color:#ffb4ae}
+button.b:disabled{opacity:.5}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.grid .b{margin:0}
+pre{margin:0;padding:10px;background:#080b10;border:1px solid var(--line);border-radius:10px;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word;max-height:58vh;overflow:auto}
+pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
+.bar{position:fixed;left:0;right:0;bottom:calc(52px + env(safe-area-inset-bottom));padding:8px 12px;background:#0e141bf2;border-top:1px solid var(--line);z-index:5;display:none}
+.bar.on{display:block}.bar .grid{max-width:820px;margin:0 auto}
+.hint{background:#2a2108;border:1px solid #5a4410;color:#f0d78c;padding:10px 12px;border-radius:10px;margin-bottom:12px;display:none;font-size:14px}
+.tools{display:flex;gap:8px;margin-bottom:8px}.tools>*{flex:1}.tools select,.tools input[type=text]{padding:9px 10px;font-size:14px}
+.tools label{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--mut)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}.kv span:nth-child(odd){color:var(--mut)}
+#toast{position:fixed;left:50%;top:calc(70px + env(safe-area-inset-top));transform:translateX(-50%);background:#1f2937;border:1px solid var(--line);padding:10px 16px;border-radius:10px;z-index:20;display:none;max-width:90vw;font-size:14px}
+#toast.bad{border-color:var(--bad);color:#ffb4ae}
+p.note{color:var(--mut);font-size:13px;margin:0 0 10px}
+</style>
+</head>
+<body>
+<header><h1>Flight display</h1><div class="chips" id="chips"></div></header>
+<main>
+<div id="noauth" class="hint">Aucun mot de passe n'est d&eacute;fini (webadmin.ini) : toute personne du r&eacute;seau local peut piloter le Raspberry Pi.</div>
+
+<section class="tab on" id="t-cfg">
+  <div class="hint" id="mapHint">La position ou le rayon de la carte a chang&eacute; : la carte doit &ecirc;tre reconstruite. <button class="b p" style="margin:8px 0 0" onclick="go('map')">Aller &agrave; la reconstruction</button></div>
+  <div id="cfg"></div>
+  <p class="note" id="cfgNote"></p>
+  <button class="b" id="restoreBtn" onclick="restoreCfg()" style="display:none">Revenir &agrave; la version pr&eacute;c&eacute;dente du fichier</button>
+</section>
+
+<section class="tab" id="t-map">
+  <div class="card"><h2>Reconstruire la carte</h2><div class="body">
+    <p class="note">Lance build_map_vector.py avec les r&eacute;glages actuels de config.ini (position, rayon). L'affichage est relanc&eacute; &agrave; la fin pour charger la nouvelle carte.</p>
+    <div class="row sw" style="border:0;padding-top:0"><label for="stopDisp" style="margin:0">Arr&ecirc;ter l'affichage pendant la construction</label><input type="checkbox" id="stopDisp"></div>
+    <button class="b p" id="buildBtn" onclick="startBuild()">Reconstruire la carte</button>
+    <button class="b d" id="cancelBtn" onclick="cancelBuild()" style="display:none">Annuler</button>
+    <div class="chips" style="margin-bottom:8px"><span class="chip" id="buildState">inactif</span></div>
+    <pre id="buildOut">Aucune construction lanc&eacute;e.</pre>
+  </div></div>
+</section>
+
+<section class="tab" id="t-log">
+  <div class="tools">
+    <select id="logN" onchange="loadLogs()"><option>100</option><option selected>300</option><option>1000</option></select>
+    <input type="text" id="logF" placeholder="filtrer" oninput="renderLogs()">
+  </div>
+  <div class="tools">
+    <label><input type="checkbox" id="logAuto" checked> Actualisation auto</label>
+    <button class="b" style="margin:0;padding:9px" onclick="loadLogs(true)">Actualiser</button>
+  </div>
+  <pre id="logOut">Chargement...</pre>
+</section>
+
+<section class="tab" id="t-sys">
+  <div class="card"><h2>Programme (main.py)</h2><div class="body">
+    <button class="b p" onclick="svc('restart')">Relancer le programme</button>
+    <div class="grid"><button class="b" onclick="svc('stop')">Arr&ecirc;ter</button><button class="b" onclick="svc('start')">D&eacute;marrer</button></div>
+  </div></div>
+  <div class="card"><h2>&Eacute;cran</h2><div class="body">
+    <p class="note">La veille arr&ecirc;te l'affichage et coupe le signal HDMI. Le r&eacute;veil relance l'affichage.</p>
+    <div class="grid"><button class="b" onclick="screen('off')">Mettre en veille</button><button class="b p" onclick="screen('on')">Rallumer</button></div>
+  </div></div>
+  <div class="card"><h2>Raspberry Pi</h2><div class="body">
+    <div class="grid"><button class="b d" onclick="power('reboot')">Red&eacute;marrer</button><button class="b d" onclick="power('poweroff')">&Eacute;teindre</button></div>
+    <p class="note">Apr&egrave;s l'extinction, il faut d&eacute;brancher puis rebrancher l'alimentation pour red&eacute;marrer.</p>
+  </div></div>
+  <div class="card"><h2>&Eacute;tat</h2><div class="body"><div class="kv" id="info"></div></div></div>
+</section>
+</main>
+
+<div class="bar" id="saveBar"><div class="grid">
+  <button class="b p" onclick="saveCfg(false)">Enregistrer</button>
+  <button class="b" onclick="saveCfg(true)">Enregistrer + relancer</button>
+</div></div>
+<nav id="nav">
+  <button data-t="cfg" class="on" onclick="go('cfg')">R&eacute;glages</button>
+  <button data-t="map" onclick="go('map')">Carte</button>
+  <button data-t="log" onclick="go('log')">Logs</button>
+  <button data-t="sys" onclick="go('sys')">Syst&egrave;me</button>
+</nav>
+<div id="toast"></div>
+
+<script>
+let CFG = null, initial = {}, cur = 'cfg', logText = '', mapNeeded = false;
+const $ = s => document.querySelector(s);
+
+async function api(path, body) {
+  const opt = body === undefined ? {} : {method: 'POST', headers: {'Content-Type': 'application/json', 'X-Admin': '1'}, body: JSON.stringify(body)};
+  const r = await fetch(path, opt);
+  let data = {};
+  try { data = await r.json(); } catch (e) {}
+  if (!r.ok) throw new Error(data.error || ('Erreur HTTP ' + r.status));
+  return data;
+}
+let toastT = null;
+function toast(msg, bad) {
+  const t = $('#toast');
+  t.textContent = msg; t.className = bad ? 'bad' : ''; t.style.display = 'block';
+  clearTimeout(toastT); toastT = setTimeout(() => t.style.display = 'none', bad ? 6000 : 3000);
+}
+function go(tab) {
+  cur = tab;
+  document.querySelectorAll('.tab').forEach(e => e.classList.toggle('on', e.id === 't-' + tab));
+  document.querySelectorAll('nav button').forEach(e => e.classList.toggle('on', e.dataset.t === tab));
+  $('#saveBar').classList.toggle('on', tab === 'cfg' && dirtyCount() > 0);
+  if (tab === 'log') loadLogs();
+  if (tab === 'map') pollBuild();
+  if (tab === 'sys') pollStatus();
+  window.scrollTo(0, 0);
+}
+
+function fieldVal(p, el) {
+  if (p.type === 'bool') return el.checked ? 'true' : 'false';
+  let v = el.value.trim();
+  if (p.type === 'float') v = v.replace(',', '.');
+  return v;
+}
+function dirtyCount() {
+  if (!CFG) return 0;
+  let n = 0;
+  for (const sec of CFG.sections) for (const p of sec.params) {
+    const el = document.getElementById('f_' + sec.name + '.' + p.key);
+    if (el && fieldVal(p, el) !== initial[sec.name + '.' + p.key]) n++;
+  }
+  return n;
+}
+function onEdit() {
+  for (const sec of CFG.sections) for (const p of sec.params) {
+    const id = sec.name + '.' + p.key, el = document.getElementById('f_' + id);
+    if (el) el.classList.toggle('changed', fieldVal(p, el) !== initial[id]);
+  }
+  $('#saveBar').classList.toggle('on', cur === 'cfg' && dirtyCount() > 0);
+}
+async function loadConfig() {
+  CFG = await api('/api/config');
+  const box = $('#cfg'); box.innerHTML = ''; initial = {};
+  CFG.sections.forEach((sec, i) => {
+    const d = document.createElement('details'); d.className = 'card'; d.open = i === 0;
+    const sm = document.createElement('summary'); sm.textContent = sec.title; d.appendChild(sm);
+    const body = document.createElement('div'); body.className = 'body'; d.appendChild(body);
+    for (const p of sec.params) {
+      const id = sec.name + '.' + p.key;
+      const row = document.createElement('div'); row.className = 'row';
+      const lab = document.createElement('label'); lab.htmlFor = 'f_' + id; lab.textContent = p.label;
+      if (p.needs_map) { const f = document.createElement('span'); f.className = 'flag'; f.textContent = 'recalcule la carte'; lab.appendChild(f); }
+      let el;
+      if (p.type === 'bool') {
+        el = document.createElement('input'); el.type = 'checkbox'; el.checked = String(p.value).toLowerCase() === 'true';
+        const w = document.createElement('div'); w.className = 'sw'; w.appendChild(lab); w.appendChild(el); row.appendChild(w);
+      } else {
+        if (p.type === 'choice') {
+          el = document.createElement('select');
+          for (const o of p.options) { const op = document.createElement('option'); op.value = o; op.textContent = o; el.appendChild(op); }
+          el.value = p.value;
+        } else {
+          el = document.createElement('input'); el.type = 'text'; el.value = p.value;
+          el.inputMode = p.type === 'int' ? 'numeric' : (p.type === 'float' ? 'decimal' : 'text');
+          el.autocomplete = 'off'; el.autocapitalize = 'off'; el.spellcheck = false;
+        }
+        row.appendChild(lab); row.appendChild(el);
+      }
+      el.id = 'f_' + id;
+      el.addEventListener('input', onEdit); el.addEventListener('change', onEdit);
+      initial[id] = fieldVal(p, el);
+      if (p.help || !p.present) {
+        const s = document.createElement('small');
+        s.textContent = (p.help || '') + (p.present ? '' : ((p.help ? ' ' : '') + '(absent du fichier, valeur par d\u00e9faut)'));
+        row.appendChild(s);
+      }
+      body.appendChild(row);
+    }
+    box.appendChild(d);
+  });
+  $('#cfgNote').textContent = 'Fichier : ' + CFG.path + '. Les commentaires du fichier sont conserv\u00e9s. Les changements sont pris en compte au prochain lancement du programme.';
+  $('#restoreBtn').style.display = CFG.has_backup ? 'block' : 'none';
+  onEdit();
+}
+async function saveCfg(restart) {
+  const changes = {};
+  for (const sec of CFG.sections) for (const p of sec.params) {
+    const id = sec.name + '.' + p.key, el = document.getElementById('f_' + id);
+    if (el && fieldVal(p, el) !== initial[id]) changes[id] = fieldVal(p, el);
+  }
+  if (!Object.keys(changes).length) { toast('Aucun changement'); return; }
+  try {
+    const r = await api('/api/config', {changes});
+    toast(r.changed.length + ' r\u00e9glage(s) enregistr\u00e9(s)');
+    if (r.needs_map) { mapNeeded = true; $('#mapHint').style.display = 'block'; }
+    await loadConfig();
+    if (restart) await svc('restart');
+  } catch (e) { toast(e.message, true); }
+}
+async function restoreCfg() {
+  if (!confirm('Remplacer config.ini par la version pr\u00e9c\u00e9dente ?')) return;
+  try { await api('/api/config/restore', {}); toast('Version pr\u00e9c\u00e9dente restaur\u00e9e'); await loadConfig(); } catch (e) { toast(e.message, true); }
+}
+
+async function svc(action) {
+  try { const r = await api('/api/service', {action}); toast(r.message); setTimeout(pollStatus, 1500); } catch (e) { toast(e.message, true); }
+}
+async function screen(action) {
+  if (action === 'off' && !confirm("Mettre l'\u00e9cran en veille ? L'affichage sera arr\u00eat\u00e9.")) return;
+  try { const r = await api('/api/screen', {action}); toast(r.message); setTimeout(pollStatus, 1500); } catch (e) { toast(e.message, true); }
+}
+async function power(action) {
+  const t = action === 'reboot' ? 'Red\u00e9marrer le Raspberry Pi ?' : 'Eteindre le Raspberry Pi ? Il faudra le rebrancher pour le rallumer.';
+  if (!confirm(t)) return;
+  try { const r = await api('/api/power', {action}); toast(r.message); } catch (e) { toast(e.message, true); }
+}
+
+function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function renderLogs() {
+  const f = $('#logF').value.toLowerCase(), out = $('#logOut');
+  const atEnd = out.scrollTop + out.clientHeight >= out.scrollHeight - 30;
+  const html = logText.split('\n').filter(l => !f || l.toLowerCase().includes(f)).map(l => {
+    const c = /traceback|error|erreur|exception|failed/i.test(l) ? 'e' : (/attention|warn|inconnu|ancien/i.test(l) ? 'w' : '');
+    return c ? '<span class="' + c + '">' + esc(l) + '</span>' : esc(l);
+  }).join('\n');
+  out.innerHTML = html || '<span class="m">(vide)</span>';
+  if (atEnd) out.scrollTop = out.scrollHeight;
+}
+async function loadLogs(force) {
+  try { const r = await api('/api/logs?lines=' + $('#logN').value); logText = r.text; renderLogs(); } catch (e) { if (force) toast(e.message, true); }
+}
+
+async function startBuild() {
+  if (!confirm('Lancer la reconstruction de la carte ?')) return;
+  try { await api('/api/build', {stop_display: $('#stopDisp').checked}); mapNeeded = false; $('#mapHint').style.display = 'none'; pollBuild(); } catch (e) { toast(e.message, true); }
+}
+async function cancelBuild() { try { await api('/api/build/cancel', {}); toast('Annulation demand\u00e9e'); } catch (e) { toast(e.message, true); } }
+async function pollBuild() {
+  try {
+    const r = await api('/api/build');
+    const st = $('#buildState');
+    st.textContent = r.running ? 'en cours...' : (r.rc === null ? 'inactif' : (r.rc === 0 ? 'termin\u00e9 avec succ\u00e8s' : 'termin\u00e9 avec erreur (code ' + r.rc + ')'));
+    st.className = 'chip ' + (r.running ? 'warn' : (r.rc === null ? '' : (r.rc === 0 ? 'ok' : 'bad')));
+    $('#buildBtn').disabled = r.running; $('#cancelBtn').style.display = r.running ? 'block' : 'none';
+    if (r.text) { const o = $('#buildOut'), atEnd = o.scrollTop + o.clientHeight >= o.scrollHeight - 30; o.textContent = r.text; if (atEnd) o.scrollTop = o.scrollHeight; }
+    if (r.default_stop !== undefined && !pollBuild.init) { $('#stopDisp').checked = r.default_stop; pollBuild.init = true; }
+  } catch (e) {}
+}
+
+function chip(text, cls) { const s = document.createElement('span'); s.className = 'chip ' + (cls || ''); s.textContent = text; return s; }
+function fmtUp(s) { const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60); return (d ? d + ' j ' : '') + h + ' h ' + m + ' min'; }
+async function pollStatus() {
+  try {
+    const s = await api('/api/status');
+    const c = $('#chips'); c.innerHTML = '';
+    c.appendChild(chip('programme : ' + (s.service === 'active' ? 'actif' : s.service), s.service === 'active' ? 'ok' : 'bad'));
+    c.appendChild(chip(s.screen_off ? '\u00e9cran en veille' : '\u00e9cran actif', s.screen_off ? 'warn' : ''));
+    if (s.build_running) c.appendChild(chip('carte en construction', 'warn'));
+    if (s.temp !== null) c.appendChild(chip(s.temp.toFixed(0) + ' \u00b0C', s.temp > 75 ? 'bad' : (s.temp > 65 ? 'warn' : '')));
+    $('#noauth').style.display = s.auth ? 'none' : 'block';
+    const k = $('#info'); k.innerHTML = '';
+    const rows = [['Nom', s.host], ['Allum\u00e9 depuis', fmtUp(s.uptime)], ['Charge', s.load.map(x => x.toFixed(2)).join(' / ')],
+      ['M\u00e9moire libre', s.mem_avail !== null ? Math.round(s.mem_avail / 1024) + ' / ' + Math.round(s.mem_total / 1024) + ' Mo' : '-'],
+      ['Temp\u00e9rature', s.temp !== null ? s.temp.toFixed(1) + ' \u00b0C' : '-']];
+    for (const [a, b] of rows) { const x = document.createElement('span'), y = document.createElement('span'); x.textContent = a; y.textContent = b; k.appendChild(x); k.appendChild(y); }
+  } catch (e) {}
+}
+
+setInterval(pollStatus, 5000);
+setInterval(() => { if (cur === 'log' && $('#logAuto').checked) loadLogs(); }, 3000);
+setInterval(() => { if (cur === 'map') pollBuild(); }, 2000);
+pollStatus(); pollBuild();
+loadConfig().catch(e => toast(e.message, true));
+</script>
+</body>
+</html>
