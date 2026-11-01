@@ -8,6 +8,10 @@ longitude = 2.3522
 ; Rayon couvert par la carte (km)
 radius_km = 20
 
+[map]
+; Clé API CARTO, nécessaire pour construire la carte (lue par build_map_vector.py)
+carto_key =
+
 [api]
 poll_seconds = 30
 details_pause_seconds = 4
@@ -20,7 +24,8 @@ altitude_unit = ft
 speed_unit = kmh
 max_altitude_ft = 15000
 icon_scale = 1.25
-; Taille de la carte en pixels (voir build_map_vector.py)
+; Taille de la carte en pixels, utilisée par build_map_vector.py pour construire l'image de fond
+; (main.py lit la taille réelle dans map_meta.json). Modifier ces valeurs demande de reconstruire la carte.
 width = 1920
 height = 1080
 

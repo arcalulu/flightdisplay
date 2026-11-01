@@ -103,6 +103,8 @@ PARAMS = [
     C("position", "position", "latitude", "float", "", "Latitude", "Degrés décimaux (ex. 44.8378).", "Maison", min=-90, max=90, needs_map=True),
     C("position", "position", "longitude", "float", "", "Longitude", "Degrés décimaux (ex. -0.5792).", "Maison", min=-180, max=180, needs_map=True),
     C("position", "position", "radius_km", "float", 20, "Rayon de la carte (km)", "Distance couverte par la carte.", "Carte", min=1, max=200, needs_map=True),
+    C("position", "map", "carto_key", "secret", "", "Clé API CARTO", "Nécessaire pour construire la carte (lue par build_map_vector.py).", "Fond de carte", needs_map=True),
+    
     C("api", "api", "poll_seconds", "float", 30, "Intervalle de requête (s)", "Trop bas : risque d'erreur 429.", "Fréquence", min=5, max=600),
     C("api", "api", "details_pause_seconds", "float", 4, "Pause entre les détails (s)", "Délai entre deux requêtes de détails d'avion.", "Fréquence", min=0, max=60),
     C("api", "api", "stale_seconds", "float", 30, "Durée de validité d'une position (s)", "Au-delà, l'avion est retiré de la carte.", "Validité des données", min=5, max=600),
@@ -112,6 +114,8 @@ PARAMS = [
     C("display", "display", "speed_unit", "choice", "kmh", "Unité de vitesse", "", "Unités", options=["kmh", "kt"]),
     C("display", "display", "max_altitude_ft", "int", 0, "Altitude maximale suivie (ft)", "0 = pas de limite. Les avions plus hauts sont ignorés.", "Filtre et icônes", min=0, max=100000),
     C("display", "display", "icon_scale", "float", 1.25, "Taille des icônes", "", "Filtre et icônes", min=0.3, max=5),
+    C("display", "display", "width", "int", 1920, "Largeur de la carte (px)", "Taille de l'image de fond. Demande de reconstruire la carte.", "Taille de la carte", min=320, max=7680, needs_map=True),
+    C("display", "display", "height", "int", 1080, "Hauteur de la carte (px)", "Taille de l'image de fond. Demande de reconstruire la carte.", "Taille de la carte", min=240, max=4320, needs_map=True),
     C("panel", "panel", "width", "int", 480, "Largeur (px, base 1080p)", "", "Fiche photo", min=200, max=1200),
     C("panel", "panel", "rotate_seconds", "float", 12, "Rotation entre avions (s)", "", "Fiche photo", min=3, max=120),
     C("ground", "ground", "show_list", "bool", True, "Afficher la liste", "", "Liste"),

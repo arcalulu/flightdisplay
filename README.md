@@ -15,36 +15,30 @@ Affichage temps réel des avions autour de chez vous sur un Raspberry Pi Zero : 
 
 ## Avertissement important
 
-Ce projet n'est affilié ni à Flightradar24 ni à aucune compagnie. Les données de vol sont obtenues avec la bibliothèque non officielle [FlightRadarAPI](https://github.com/JeanExtreme002/FlightRadarAPI). Les conditions d'utilisation de Flightradar24 réservent l'accès automatisé à l'API officielle (payante) et limitent l'usage du service à un usage personnel et non commercial. Utilisez ce logiciel à titre personnel et éducatif, à vos propres risques, et consultez les [conditions de Flightradar24](https://www.flightradar24.com/terms-of-service). Ne l'utilisez pas pour des décisions liées à la sécurité des vols. Les photos appartiennent à leurs auteurs (JetPhotos) et ne sont pas redistribuées par ce dépôt ; les données cartographiques sont © OpenStreetMap contributors.
+Ce projet n'est affilié ni à Flightradar24 ni à aucune compagnie. Les données de vol sont obtenues avec la bibliothèque non officielle [FlightRadarAPI](https://github.com/JeanExtreme002/FlightRadarAPI). Les conditions d'utilisation de Flightradar24 réservent l'accès automatisé à l'API officielle (payante) et limitent l'usage du service à un usage personnel et non commercial. Utilisez ce logiciel à titre personnel et éducatif, à vos propres risques, et consultez les [conditions de Flightradar24](https://www.flightradar24.com/terms-of-service). Ne l'utilisez pas pour des décisions liées à la sécurité des vols. Les photos appartiennent à leurs auteurs (JetPhotos) et ne sont pas redistribuées par ce dépôt ; les données cartographiques sont © OpenStreetMap contributors, fond de carte © CARTO.
 
 ## Matériel
 
-Raspberry Pi Zero W (ou Zero 2 W), carte microSD de 16 Go ou plus, écran HDMI. Pour le son : écran avec haut-parleurs ou carte son USB.
+Raspberry Pi Zero W (ou Zero 2 W), carte microSD de 16 Go ou plus, écran HDMI. Pour le son : écran avec haut-parleurs ou carte son USB. Il vous faut aussi une clé API CARTO (créée sur votre compte CARTO) pour construire la carte.
 
-## Installation rapide
+## Installation en une commande
 
-Sur un Raspberry Pi OS Lite (32 bits) déjà installé, connecté en SSH avec l'utilisateur `flightdisplay` :
-
-```
-sudo apt update
-sudo apt install -y git python3-venv python3-pygame python3-requests fonts-dejavu-core alsa-utils kbd python3-paho-mqtt
-git clone https://github.com/arcalulu/flightdisplay.git ~/flightdisplay
-cd ~/flightdisplay
-python3 -m venv --system-site-packages venv
-./venv/bin/pip install -r requirements.txt
-cp config.ini.example config.ini
-cp webadmin.ini.example webadmin.ini
-nano config.ini
-./venv/bin/python -u build_map_vector.py
-```
-
-Il reste à créer le service d'affichage (section 5 de la documentation), puis à installer webadmin :
+1. Avec Raspberry Pi Imager, installez **Raspberry Pi OS Lite (32-bit)** sur la carte SD. Dans la personnalisation, renseignez le nom d'hôte, un utilisateur, le Wi-Fi et activez SSH.
+2. Connectez-vous au Pi en SSH, puis tapez :
 
 ```
-sudo bash install_webadmin.sh
+bash <(curl -fsSL https://raw.githubusercontent.com/arcalulu/flightdisplay/main/install.sh)
 ```
 
-Le guide complet, de la carte SD vierge jusqu'au dépannage, est dans [FLIGHT_DISPLAY_DOCUMENTATION.md](FLIGHT_DISPLAY_DOCUMENTATION.md) (à l'étape 4.2, remplacez la copie de fichiers par le `git clone` ci-dessus).
+L'installeur pose quelques questions (adresse ou coordonnées, clé API CARTO, mot de passe de l'interface web, MQTT facultatif), installe tout le nécessaire en affichant sa progression, construit la carte, puis démarre l'affichage et l'interface web. À la fin, un résumé donne l'adresse de l'interface (`http://<nom-du-pi>.local:8080`) et le mot de passe.
+
+Sans `curl` : `sudo apt update && sudo apt install -y git && git clone https://github.com/arcalulu/flightdisplay.git ~/flightdisplay && bash ~/flightdisplay/install.sh`.
+
+Relancer la même commande plus tard met à jour le logiciel et conserve votre configuration.
+
+## Documentation
+
+Le guide complet (installation manuelle, référence de tous les réglages, webadmin, MQTT, dépannage) est dans [docs/FLIGHT_DISPLAY_DOCUMENTATION.md](docs/FLIGHT_DISPLAY_DOCUMENTATION.md).
 
 ## Mettre à jour
 
@@ -55,7 +49,7 @@ fd restart
 sudo systemctl restart flightadmin
 ```
 
-Vos réglages (`config.ini`, `webadmin.ini`) ne sont pas touchés : ils ne sont pas versionnés.
+ou relancer l'installeur. Vos réglages (`config.ini`, `webadmin.ini`) ne sont pas touchés : ils ne sont pas versionnés.
 
 ## Licence
 
