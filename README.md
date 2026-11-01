@@ -44,7 +44,7 @@ Il reste à créer le service d'affichage (section 5 de la documentation), puis 
 sudo bash install_webadmin.sh
 ```
 
-Le guide complet, de la carte SD vierge jusqu'au dépannage, est dans [docs/FLIGHT_DISPLAY_DOCUMENTATION.md](docs/FLIGHT_DISPLAY_DOCUMENTATION.md) (à l'étape 4.2, remplacez la copie de fichiers par le `git clone` ci-dessus).
+Le guide complet, de la carte SD vierge jusqu'au dépannage, est dans [FLIGHT_DISPLAY_DOCUMENTATION.md](FLIGHT_DISPLAY_DOCUMENTATION.md) (à l'étape 4.2, remplacez la copie de fichiers par le `git clone` ci-dessus).
 
 ## Mettre à jour
 
