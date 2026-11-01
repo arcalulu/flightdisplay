@@ -1,0 +1,57 @@
+; Copiez ce fichier en config.ini puis adaptez-le (ou réglez tout depuis webadmin).
+; Toutes les options sont décrites dans docs/FLIGHT_DISPLAY_DOCUMENTATION.md, section 8.
+
+[position]
+; Coordonnées de votre domicile, en degrés décimaux (exemple : Paris, à remplacer)
+latitude = 48.8566
+longitude = 2.3522
+; Rayon couvert par la carte (km)
+radius_km = 20
+
+[map]
+; Clé API CARTO, nécessaire pour construire la carte (lue par build_map_vector.py)
+carto_key =
+
+[api]
+poll_seconds = 30
+details_pause_seconds = 4
+stale_seconds = 30
+
+[display]
+fullscreen = true
+fps = 10
+altitude_unit = ft
+speed_unit = kmh
+max_altitude_ft = 15000
+icon_scale = 1.25
+; Taille de la carte en pixels, utilisée par build_map_vector.py pour construire l'image de fond
+; (main.py lit la taille réelle dans map_meta.json). Modifier ces valeurs demande de reconstruire la carte.
+width = 1920
+height = 1080
+
+[panel]
+width = 480
+rotate_seconds = 12
+
+[ground]
+show_list = true
+max_rows = 8
+width = 780
+; Code IATA de l'aéroport proche (ex. CDG), ou vide
+airport_iata =
+min_speed_kt = 0
+landed_alt_ft = 2000
+landed_keep_minutes = 10
+
+[alert]
+radius_km = 5
+sound = true
+volume = 0.6
+pulse_seconds = 3
+alpha_min = 10
+alpha_max = 60
+min_altitude_ft = 0
+max_altitude_ft = 10000
+sound_on_start = false
+simulate_on_start = false
+simulate_seconds = 3

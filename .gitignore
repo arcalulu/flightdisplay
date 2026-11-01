@@ -1,0 +1,22 @@
+# Réglages personnels et secrets (ne jamais publier)
+config.ini
+webadmin.ini
+types_extra.txt
+*.bak
+*.tmp
+*.swap
+
+# Fichiers générés (la carte révèle l'emplacement de la maison)
+background.png
+map_meta.json
+cache/
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Système
+.DS_Store
+Thumbs.db
