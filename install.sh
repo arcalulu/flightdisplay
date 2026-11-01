@@ -7,6 +7,7 @@
 #
 #  Options : --help   --dry-run (simulation, rien n'est installe)
 #  Relancer le script met a jour le logiciel et conserve votre configuration.
+#  Avant de commencer : une cle API CARTO gratuite est necessaire (voir le README).
 # =============================================================================
 set -uo pipefail
 
@@ -15,6 +16,7 @@ BRANCH="${FD_BRANCH:-main}"
 DRY="${FD_DRY_RUN:-}"
 INPUT="${FD_INPUT:-/dev/tty}"
 LOG="${FD_LOG:-$HOME/flightdisplay-install.log}"
+CARTO_URL="https://carto.com/basemaps/apikey/"
 SERVICE="flightdisplay"
 TOTAL=12
 CUR=0
@@ -28,7 +30,7 @@ for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY=1 ;;
     -h|--help)
-      sed -n '2,10p' "$0" 2>/dev/null | sed 's/^# \{0,1\}//'
+      sed -n '2,11p' "$0" 2>/dev/null | sed 's/^# \{0,1\}//'
       exit 0 ;;
   esac
 done
@@ -223,7 +225,8 @@ PY
 
 collect_answers() {
   title "Vos informations"
-  printf '  %sQuelques questions, puis l'"'"'installation se déroule seule (plusieurs minutes, selon votre Pi et votre connexion).%s\n\n' "$DIM" "$R"
+  printf '  %sQuelques questions, puis l'"'"'installation se déroule seule (plusieurs minutes, selon votre Pi et votre connexion).%s\n' "$DIM" "$R"
+  printf '  %sIl vous faut une clé API CARTO (gratuite, voir la question 4) : %s%s\n\n' "$DIM" "$CARTO_URL" "$R"
 
   printf '  %s1. Votre position%s\n' "$B$BLU" "$R"
   printf '  %sSaisissez votre adresse (elle est envoyée une seule fois au service OpenStreetMap Nominatim\n  pour trouver les coordonnées), ou appuyez sur Entrée pour saisir les coordonnées.%s\n' "$DIM" "$R"
@@ -274,10 +277,18 @@ collect_answers() {
   done
 
   printf '\n  %s4. Clé API CARTO%s\n' "$B$BLU" "$R"
-  printf '  %sNécessaire pour construire la carte. Elle se crée sur votre compte CARTO. La saisie est masquée.%s\n' "$DIM" "$R"
+  printf '  %sLa carte est dessinée à partir du fond de carte CARTO, qui exige une clé API personnelle.\n' "$DIM"
+  printf '  Elle est gratuite pour un usage non commercial (jusqu'"'"'à 5 millions de tuiles par mois : largement\n'
+  printf '  suffisant ici, la carte n'"'"'est téléchargée qu'"'"'à sa construction) et ne demande pas de compte CARTO.%s\n' "$R"
+  printf '  %sPour l'"'"'obtenir en une minute, depuis votre ordinateur ou votre téléphone :%s\n' "$B" "$R"
+  printf '    1) ouvrez %s%s%s\n' "$CYN" "$CARTO_URL" "$R"
+  printf '    2) saisissez votre adresse e-mail et acceptez les conditions (usage personnel, non commercial)\n'
+  printf '    3) copiez la clé reçue par e-mail, puis collez-la ci-dessous (la saisie est masquée)\n'
+  printf '  %sGardez cette clé pour vous : elle est personnelle, ne la partagez pas.%s\n' "$DIM" "$R"
+  printf '  %sL'"'"'installation attend : prenez le temps de la récupérer, puis revenez ici.%s\n' "$DIM" "$R"
   ask CARTO_KEY "Clé API CARTO (Entrée pour passer)" "" secret
   if [ -z "$CARTO_KEY" ]; then
-    warn "Pas de clé : la carte ne sera pas construite maintenant (possible plus tard depuis webadmin)."
+    warn "Pas de clé : la carte ne sera pas construite maintenant (possible plus tard depuis webadmin, Réglages, Carte et position)."
   fi
 
   printf '\n  %s5. Mot de passe de l'"'"'interface web%s\n' "$B$BLU" "$R"
@@ -565,7 +576,7 @@ else
   if soft "Génération de la carte (plusieurs minutes sur un Pi Zero)" build_map; then
     if [ -f "$APP_DIR/background.png" ] && [ -f "$APP_DIR/map_meta.json" ]; then MAP_OK=1; else warn "Le script s'est terminé sans produire la carte."; fi
   else
-    warn "La construction de la carte a échoué : corrigez la clé ou les réglages, puis relancez-la depuis webadmin."
+    warn "La construction de la carte a échoué : vérifiez la clé CARTO (Réglages, Carte et position), puis relancez-la depuis webadmin."
   fi
 fi
 
@@ -605,7 +616,7 @@ printf '\n  %sCommandes utiles%s  fd logs   fd status   fd restart\n' "$B" "$R"
 printf '  %sRéglages%s          tout se règle depuis l'"'"'interface web (onglet Réglages)\n' "$B" "$R"
 printf '  %sDocumentation%s     %s/docs/FLIGHT_DISPLAY_DOCUMENTATION.md\n' "$B" "$R" "$APP_DIR"
 if [ -z "$MAP_OK" ]; then
-  printf '\n  %s%s La carte n'"'"'est pas construite : ouvrez webadmin, onglet Carte, puis « Reconstruire la carte ».%s\n' "$YEL" "$WRN" "$R"
+  printf '\n  %s%s La carte n'"'"'est pas construite : obtenez une clé CARTO (%s), saisissez-la dans webadmin\n    (Réglages, Carte et position), puis onglet Carte, « Reconstruire la carte ».%s\n' "$YEL" "$WRN" "$CARTO_URL" "$R"
 fi
 if [ "${#WARNINGS[@]}" -gt 0 ]; then
   printf '\n  %sPoints d'"'"'attention%s\n' "$B$YEL" "$R"
