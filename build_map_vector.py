@@ -1,4 +1,4 @@
-﻿import configparser, gzip, json, math, struct, sys
+import configparser, gzip, json, math, struct, sys
 from collections import Counter
 import requests
 from PIL import Image, ImageDraw, ImageFont

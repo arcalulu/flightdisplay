@@ -229,7 +229,7 @@ La ligne `System clock synchronized: yes` doit apparaître.
 ### 3.5 Paquets nécessaires
 
 ```
-sudo apt install -y git curl python3-venv python3-pygame python3-requests fonts-dejavu-core alsa-utils kbd python3-paho-mqtt
+sudo apt install -y git curl python3-venv python3-pygame python3-pil python3-requests fonts-dejavu-core alsa-utils kbd python3-paho-mqtt libegl1 libegl-mesa0 libgles2
 ```
 
 | Paquet | Pourquoi |
@@ -237,11 +237,13 @@ sudo apt install -y git curl python3-venv python3-pygame python3-requests fonts-
 | `git`, `curl` | Récupération du projet et de l'installeur. |
 | `python3-venv` | Création de l'environnement Python. |
 | `python3-pygame` | Affichage et son. L'installer par apt apporte aussi les bibliothèques SDL nécessaires. |
+| `python3-pil` | Pillow, bibliothèque d'images utilisée par `build_map_vector.py` pour construire la carte. |
 | `python3-requests` | Téléchargement des photos et du fond de carte. |
 | `fonts-dejavu-core` | Police utilisée par le programme (`DejaVuSans`). Sans elle, il se rabat sur une police par défaut. |
 | `alsa-utils` | Outils audio (`aplay`, `alsamixer`, `speaker-test`). |
 | `kbd` | Commande `chvt`, utilisée par la veille d'écran. |
 | `python3-paho-mqtt` | MQTT / Home Assistant (même si vous ne l'utilisez pas encore : il s'active ensuite depuis webadmin). |
+| `libegl1`, `libegl-mesa0`, `libgles2` | EGL et OpenGL ES, indispensables pour afficher sans bureau (pilote KMS/DRM). Sur Raspberry Pi OS Lite ils ne sont pas installés par défaut : sans eux le programme s'arrête avec `pygame.error: EGL not initialized`. |
 
 ### 3.6 Correctif du signal HDMI (hotplug)
 
@@ -295,7 +297,7 @@ cd ~/flightdisplay
 grep -E '^(import|from) ' build_map_vector.py
 ```
 
-Installer ce qui manque : paquets `python3-...` par apt s'ils existent, sinon `./venv/bin/pip install <nom>`.
+Installer ce qui manque : paquets `python3-...` par apt s'ils existent, sinon `./venv/bin/pip install <nom>`. Pillow (`python3-pil`) est indispensable : l'installeur le vérifie et l'ajoute si besoin. Si l'étape affiche « Analyse de build_map_vector.py impossible », le script contient une erreur de syntaxe : corrigez-la (l'erreur est dans `~/flightdisplay-install.log`).
 
 ### 4.4 Créer config.ini
 
@@ -1163,6 +1165,7 @@ sudo reboot
 | « Ne lancez pas ce script avec sudo » | Relancer avec votre utilisateur normal, sans `sudo` : l'installeur demande sudo lui-même. |
 | L'installeur ne propose pas de saisie | Il lit le clavier du terminal : lancez-le dans une session SSH interactive (pas depuis un script non interactif). |
 | Écran noir au démarrage du service | Vérifier `fd logs`. S'assurer que l'utilisateur est dans les groupes `video` et `render` (service : `SupplementaryGroups`), et que `background.png` existe. |
+| `pygame.error: EGL not initialized` (le service redémarre en boucle) | Bibliothèques EGL absentes : `sudo apt install -y libegl1 libegl-mesa0 libgles2`, puis `sudo systemctl restart flightdisplay`. Si l'erreur persiste, ajouter `libegl-dev`. Vérifier aussi que `/dev/dri/card0` existe. |
 | « premiere image apres » jamais affiché | Le programme n'a pas pu ouvrir l'écran : relancer à la main (`./venv/bin/python main.py`) et lire l'erreur. |
 | La carte ne se construit pas : erreur `NoOptionError` | La clé `carto_key` manque dans `config.ini`, section `[map]` : la renseigner (Réglages, Carte et position). |
 | La carte ne se construit pas : erreur HTTP 401 ou 403 | Clé CARTO probablement invalide, expirée ou mal copiée : la ressaisir dans Réglages, Carte et position, puis reconstruire. |

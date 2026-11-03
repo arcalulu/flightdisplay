@@ -198,7 +198,7 @@ ini_set() {  # fichier section cle valeur
 import os, re, sys
 path, sec, key = sys.argv[1:4]
 val = os.environ["FD_V"]
-lines = open(path, encoding="utf-8").read().splitlines() if os.path.exists(path) else []
+lines = open(path, encoding="utf-8-sig").read().splitlines() if os.path.exists(path) else []
 cur, last, found = None, {}, None
 for i, l in enumerate(lines):
     s = l.strip()
@@ -386,7 +386,7 @@ map_deps() {
   list=$("$py" - "$APP_DIR" <<'PY'
 import ast, importlib.util, os, sys
 root = sys.argv[1]
-tree = ast.parse(open(os.path.join(root, "build_map_vector.py"), encoding="utf-8").read())
+tree = ast.parse(open(os.path.join(root, "build_map_vector.py"), encoding="utf-8-sig").read())
 names = set()
 for n in ast.walk(tree):
     if isinstance(n, ast.Import):
@@ -403,8 +403,12 @@ for name in sorted(names):
     if importlib.util.find_spec(name) is None:
         print(name, alias.get(name, name))
 PY
-  )
-  if [ -z "$list" ]; then echo "Aucune dépendance supplémentaire"; return 0; fi
+  ) || { echo "Analyse de build_map_vector.py impossible (voir les lignes ci-dessus)" >&2; return 1; }
+  # Filet de sécurité : Pillow est indispensable à la carte
+  if ! "$py" -c "import PIL" 2>/dev/null && ! printf '%s\n' "$list" | grep -q '^PIL '; then
+    list="$list"$'\n'"PIL pillow"
+  fi
+  if [ -z "$(printf '%s' "$list" | tr -d '[:space:]')" ]; then echo "Aucune dépendance supplémentaire"; return 0; fi
   if [ -n "$DRY" ]; then echo "[simulation] pip install : $list"; return 0; fi
   while read -r name pipn; do
     [ -z "$name" ] && continue
@@ -548,7 +552,7 @@ step "Mise à jour de la liste des paquets"
 run_step "Téléchargement de la liste des paquets" apt_update
 
 step "Installation des paquets système"
-run_step "Installation de Python, pygame, git, audio, MQTT" apt_install git curl python3-venv python3-pygame python3-requests python3-paho-mqtt fonts-dejavu-core alsa-utils kbd
+run_step "Installation de Python, pygame, Pillow, EGL, git, audio, MQTT" apt_install git curl python3-venv python3-pygame python3-requests python3-paho-mqtt fonts-dejavu-core alsa-utils kbd python3-pil libegl1 libegl-mesa0 libgles2
 
 step "Téléchargement de Flight display"
 if [ "$APP_DIR" = "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/main.py" ]; then ok "Projet déjà présent dans $APP_DIR"; else run_step "Récupération du projet depuis GitHub" fetch_project; fi
