@@ -13,16 +13,16 @@ radius_km = 20
 carto_key =
 
 [api]
-poll_seconds = 30
+poll_seconds = 10
 details_pause_seconds = 4
 stale_seconds = 30
 
 [display]
 fullscreen = true
-fps = 10
+fps = 3
 altitude_unit = ft
 speed_unit = kmh
-max_altitude_ft = 15000
+max_altitude_ft = 0
 icon_scale = 1.25
 ; Taille de la carte en pixels, utilisée par build_map_vector.py pour construire l'image de fond
 ; (main.py lit la taille réelle dans map_meta.json). Modifier ces valeurs demande de reconstruire la carte.
