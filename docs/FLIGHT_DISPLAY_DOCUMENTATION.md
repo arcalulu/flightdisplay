@@ -31,7 +31,7 @@ L'installeur `install.sh` fait tout le travail des sections 3 à 7 : il pose que
 ### 0.1 Avant de commencer
 
 1. Avec Raspberry Pi Imager, installez Raspberry Pi OS Lite (32-bit) sur la carte SD (voir 3.1). Dans la personnalisation, renseignez le nom d'hôte, un utilisateur, le Wi-Fi et activez SSH.
-2. Tenez prêts : votre adresse (ou vos coordonnées), votre clé API CARTO (créée sur votre compte CARTO), et si vous le souhaitez les identifiants de votre serveur MQTT.
+2. Tenez prêts : votre adresse (ou vos coordonnées), votre clé API CARTO (gratuite, voir 2 et le README), et si vous le souhaitez les identifiants de votre serveur MQTT.
 3. Connectez-vous au Pi en SSH : `ssh <utilisateur>@<nom-du-pi>.local`.
 
 ### 0.2 La commande
@@ -78,7 +78,7 @@ Un récapitulatif est affiché avant le lancement.
 | 7 | Écriture de `config.ini` et `webadmin.ini` (droits 600). |
 | 8 | Construction de la carte (plusieurs minutes sur un Pi Zero). |
 | 9 | Service `flightdisplay`, commande `fd`, groupes `video render input audio`. |
-| 10 | webadmin : `install_webadmin.sh` (service, droits sudo limités, script de veille). |
+| 10 | webadmin : `install_webadmin.sh` (service, droits sudo limités, script de veille `flight-screen` et sa garde `flight-screen-guard`). |
 | 11 | Correctif de veille d'écran (si accepté). |
 | 12 | Démarrage des services et test de webadmin. |
 
@@ -92,7 +92,7 @@ L'écran montre pour chaque étape un indicateur animé, le temps écoulé, la d
 
 ### 0.6 Relancer l'installeur
 
-Si `config.ini` existe déjà, l'installeur propose de le conserver : il met alors à jour le logiciel et les services sans reposer les questions ni reconstruire la carte. En répondant non, il repose toutes les questions et réécrit les fichiers.
+Si `config.ini` existe déjà, l'installeur propose de le conserver : il met alors à jour le logiciel et les services sans reposer les questions ni reconstruire la carte. En répondant non, il repose toutes les questions et réécrit les fichiers. Dans les deux cas, l'étape 10 réécrit `/usr/local/bin/flight-screen` et `/usr/local/bin/flight-screen-guard` avec les versions du dépôt : toute modification manuelle de ces deux scripts est écrasée.
 
 ### 0.7 Options et variables
 
@@ -127,8 +127,9 @@ Le mot de passe de webadmin, la clé CARTO et les identifiants MQTT sont stocké
 | `webadmin_mqtt.py` | Pont MQTT / Home Assistant, chargé par webadmin. |
 | `webadmin.ini` | Réglages de webadmin (port, mot de passe, chemins, MQTT). Modèle : `webadmin.ini.example`. |
 | `install.sh` | Installeur automatique en une commande. |
-| `install_webadmin.sh` | Installe webadmin, le script de veille et les droits sudo (appelé par `install.sh`). |
-| `/usr/local/bin/flight-screen` | Script root de veille et réveil de l'écran (créé par l'installeur de webadmin). |
+| `install_webadmin.sh` | Installe webadmin, le script de veille, sa garde et les droits sudo (appelé par `install.sh`). |
+| `/usr/local/bin/flight-screen` | Script root de veille et réveil de l'écran (créé par `install_webadmin.sh`). |
+| `/usr/local/bin/flight-screen-guard` | Garde qui remet l'écran en veille s'il se rallume tout seul pendant une veille (créée par `install_webadmin.sh`). |
 | `/usr/local/bin/fd` | Raccourci : `fd logs`, `fd restart`... |
 | `cache/` | Détails d'avions, photos, état du son (`runtime.json`). |
 
@@ -138,6 +139,7 @@ Le mot de passe de webadmin, la clé CARTO et les identifiants MQTT sont stocké
 |---|---|---|
 | `flightdisplay` | `main.py` | votre utilisateur |
 | `flightadmin` | `webadmin.py` | votre utilisateur |
+| `flight-screen-guard` | `flight-screen-guard` | root |
 
 ### Chemins utilisés dans ce document
 
@@ -158,7 +160,7 @@ Adaptez ces valeurs si vous en choisissez d'autres.
 | Types d'avion inconnus | webadmin, Réglages, Types d'avion |
 | Son (coupure, volume), veille de l'écran, relance, alimentation | webadmin, onglet Pilotage |
 | Reconstruction de la carte | webadmin, onglet Carte |
-| Éléments d'installation du système (services, sudoers, script de veille, `cmdline.txt`) | Installeur automatique, ou ligne de commande (sections 3 à 7) |
+| Éléments d'installation du système (services, sudoers, scripts de veille, `cmdline.txt`) | Installeur automatique, ou ligne de commande (sections 3 à 7) |
 
 ---
 
@@ -171,7 +173,7 @@ Adaptez ces valeurs si vous en choisissez d'autres.
 - Pour le son : un écran avec haut-parleurs ou sortie casque (le son sort par le HDMI), ou une carte son USB avec adaptateur OTG. Le Pi Zero n'a pas de prise jack.
 - Un réseau Wi-Fi 2,4 GHz avec accès Internet. Le Pi Zero W ne gère pas le 5 GHz.
 - Un ordinateur avec Raspberry Pi Imager et un client SSH.
-- Une clé API CARTO, nécessaire pour construire la carte (le script télécharge le fond de carte vectoriel CARTO avec cette clé).
+- Une clé API CARTO, nécessaire pour construire la carte (le script télécharge le fond de carte vectoriel CARTO avec cette clé). Elle est gratuite pour un usage personnel et se demande sur `https://carto.com/basemaps/apikey/` : voir le README pour le pas à pas.
 - Si vous utilisez Home Assistant : un serveur MQTT (par exemple Mosquitto) et ses identifiants.
 - Pour l'installation manuelle : les fichiers du projet (`main.py`, `build_map_vector.py`, `config.ini.example`, `webadmin.py`, `webadmin_mqtt.py`, `webadmin.ini.example`, `install_webadmin.sh`, `requirements.txt`), soit par `git clone https://github.com/arcalulu/flightdisplay.git`, soit copiés depuis un ordinateur.
 
@@ -252,7 +254,7 @@ cat /boot/firmware/cmdline.txt
 sudo reboot
 ```
 
-Le fichier doit rester sur une seule ligne. Sur certaines versions plus anciennes, il se trouve dans `/boot/cmdline.txt`. Conséquence : le Pi ne détecte plus un moniteur débranché ou changé à chaud, il faut alors le redémarrer.
+Le fichier doit rester sur une seule ligne. Sur certaines versions plus anciennes, il se trouve dans `/boot/cmdline.txt`. Conséquence : le Pi ne détecte plus un moniteur débranché ou changé à chaud, il faut alors le redémarrer. Vérification après le redémarrage : `grep -o 'vc4.force_hotplug=1' /proc/cmdline`.
 
 ---
 
@@ -439,9 +441,15 @@ Si le son est indisponible, `fd logs` affiche `son indisponible : ...` et l'affi
 
 ### 6.2 Veille d'écran
 
-La veille est gérée par `/usr/local/bin/flight-screen`, créé par l'installeur de webadmin. Elle arrête le service `flightdisplay` (pour libérer l'écran), bascule sur un terminal virtuel inutilisé (`tty7`, où aucun programme n'écrit : rien ne peut rallumer l'écran) et met cette console en veille avec `setterm`. Le réveil fait l'inverse : retour sur `tty1`, puis démarrage du service.
+La veille est assurée par deux scripts créés par `install_webadmin.sh` : `/usr/local/bin/flight-screen` (veille et réveil) et `/usr/local/bin/flight-screen-guard` (garde).
 
-Contenu du script (pour référence ou pour une installation manuelle) :
+**Pourquoi le programme est arrêté pendant la veille.** Tant que le programme d'affichage tourne, il garde la main sur la sortie vidéo : écrire dans le framebuffer ne coupe pas le signal (`dpms` reste à `On`). La veille arrête donc d'abord le service.
+
+**Comment le signal est coupé.** La commande `setterm --blank force` n'éteint pas réellement la sortie HDMI de ce Pi (`dpms` reste `On`). Le script utilise à la place le framebuffer du noyau : écrire `4` dans `/sys/class/graphics/fb0/blank` coupe la sortie (`dpms` passe à `Off`, le moniteur s'endort), et écrire `0` la rallume. Si ce fichier n'est pas accessible, le script retombe sur `setterm`.
+
+**Terminal de veille.** La veille bascule d'abord sur un terminal virtuel inutilisé (`tty7`), où aucun programme n'écrit : ni invite de connexion ni message ne peut ranimer la console. Le réveil revient sur `tty1`.
+
+Contenu de `/usr/local/bin/flight-screen` (pour référence ou une installation manuelle) :
 
 ```sh
 #!/bin/sh
@@ -449,17 +457,35 @@ SVC=flightdisplay
 MAIN_VT=1
 IDLE_VT=7
 FLAG=/run/flight-screen-off
+FB=/sys/class/graphics/fb0/blank
+
+blank() {
+  if [ -w "$FB" ]; then
+    echo 4 > "$FB"
+  else
+    setterm --term linux --powersave powerdown --blank force < /dev/tty$IDLE_VT > /dev/tty$IDLE_VT 2>/dev/null || true
+  fi
+}
+unblank() {
+  if [ -w "$FB" ]; then
+    echo 0 > "$FB"
+  else
+    setterm --term linux --powersave off --blank poke < /dev/tty$IDLE_VT > /dev/tty$IDLE_VT 2>/dev/null || true
+  fi
+}
+
 case "$1" in
   off)
     systemctl stop "$SVC"
     sleep 1
     touch "$FLAG"
     chvt "$IDLE_VT"
-    setterm --term linux --powersave powerdown --blank force < /dev/tty$IDLE_VT > /dev/tty$IDLE_VT 2>/dev/null || true
+    sleep 1
+    blank
     ;;
   on)
     rm -f "$FLAG"
-    setterm --term linux --powersave off --blank poke < /dev/tty$IDLE_VT > /dev/tty$IDLE_VT 2>/dev/null || true
+    unblank
     chvt "$MAIN_VT"
     systemctl start "$SVC"
     ;;
@@ -470,20 +496,68 @@ case "$1" in
 esac
 ```
 
-Test en SSH :
+Le fichier témoin `/run/flight-screen-off` indique que la veille est demandée ; il disparaît au redémarrage du Pi.
+
+**La garde.** `/usr/local/bin/flight-screen-guard`, lancée par le service `flight-screen-guard`, vérifie toutes les 20 secondes que la sortie vidéo est bien éteinte pendant une veille. Si l'écran s'est rallumé tout seul (fichier témoin présent, programme arrêté, `dpms` à `On`), elle le coupe de nouveau et note l'événement. Elle ne fait rien en dehors d'une veille, ni quand le programme tourne.
+
+```sh
+#!/bin/sh
+SVC=flightdisplay
+FLAG=/run/flight-screen-off
+FB=/sys/class/graphics/fb0/blank
+IDLE_VT=7
+while true; do
+  if [ -f "$FLAG" ] && ! systemctl is-active --quiet "$SVC"; then
+    if grep -q On /sys/class/drm/card*-HDMI-A-*/dpms 2>/dev/null; then
+      if [ -w "$FB" ]; then
+        echo 4 > "$FB"
+      else
+        setterm --term linux --powersave powerdown --blank force < /dev/tty$IDLE_VT > /dev/tty$IDLE_VT 2>/dev/null
+      fi
+      logger -t flight-screen-guard "écran rallumé pendant la veille : remis en veille"
+    fi
+  fi
+  sleep 20
+done
+```
+
+Pour savoir si l'écran s'est rallumé et à quelle heure : `journalctl -t flight-screen-guard --no-pager`. Un journal vide signifie qu'aucun réveil spontané n'a eu lieu. Le journal est en mémoire : il est vidé à chaque redémarrage du Pi.
+
+**Tests en SSH.**
 
 ```
 sudo /usr/local/bin/flight-screen off
+sleep 4
+cat /sys/class/drm/card*-HDMI-A-*/dpms
+systemctl is-active flightdisplay
+sudo fgconsole
+```
+
+Résultats attendus : `Off`, `inactive`, `7`, et le moniteur éteint. Puis :
+
+```
 sudo /usr/local/bin/flight-screen on
+sleep 10
+cat /sys/class/drm/card*-HDMI-A-*/dpms
+systemctl is-active flightdisplay
 ```
 
-Suivi de l'état de la sortie vidéo :
+Résultats attendus : `On`, `active`, et la carte à l'écran.
+
+**Si le moniteur se rallume malgré tout.** Dans l'ordre :
+
+1. Vérifier que le correctif de l'étape 3.6 est actif (`grep -o 'vc4.force_hotplug=1' /proc/cmdline`).
+2. Lire `journalctl -t flight-screen-guard` : les lignes donnent l'heure de chaque réveil. Des réveils à intervalles réguliers orientent vers le moniteur (détection automatique d'entrée ou « veille profonde » : désactiver cette option dans son menu).
+3. Chercher une commande de réveil : `journalctl -t sudo --since today | grep flight-screen` (une automatisation Home Assistant ou un onglet webadmin peut avoir rallumé l'écran).
+4. Vérifier que le Pi n'a pas redémarré (`uptime -s`) ni souffert d'une sous-tension (`vcgencmd get_throttled` doit renvoyer `0x0`).
+5. Écarter le HDMI-CEC : `cec-ctl -d /dev/cec0` (paquet `v4l-utils`). Avec `Logical Addresses : 0`, le Pi ne participe pas au bus CEC et ne peut pas recevoir de touche de télécommande.
+6. En dernier recours, essayer une mise en veille par DDC/CI (`ddcutil setvcp d6 5` pour éteindre, `ddcutil setvcp d6 1` pour allumer) en modifiant le script.
+
+**Suivi de l'état de la sortie vidéo.**
 
 ```
-cat /sys/class/drm/card*-HDMI-A-*/{status,dpms}
+cat /sys/class/drm/card*-HDMI-A-*/{enabled,status,dpms}
 ```
-
-Si le moniteur se rallume seul : appliquer le correctif de l'étape 3.6, désactiver la détection automatique d'entrée dans le menu du moniteur, ou essayer une mise en veille par DDC/CI (`ddcutil setvcp d6 5` pour éteindre, `ddcutil setvcp d6 1` pour allumer) en modifiant le script.
 
 ### 6.3 Ménager la carte SD
 
@@ -526,10 +600,13 @@ sudo bash install_webadmin.sh
 L'installeur détecte l'utilisateur qui l'a lancé avec sudo. Il demande un mot de passe pour l'interface (sauf si `webadmin.ini` en contient déjà un), puis :
 
 1. installe `kbd` et `python3-paho-mqtt` s'ils manquent ;
-2. crée `/usr/local/bin/flight-screen` (veille et réveil de l'écran) ;
-3. ajoute `/etc/sudoers.d/flightadmin`, qui autorise uniquement, sans mot de passe : démarrer, arrêter, relancer le service `flightdisplay`, redémarrer, éteindre, et `flight-screen on|off` ;
-4. renseigne dans `webadmin.ini` l'interpréteur Python du venv (utilisé pour construire la carte) et protège le fichier (droits 600) ;
-5. crée et démarre le service `flightadmin` (groupe `systemd-journal` pour lire les logs).
+2. crée `/usr/local/bin/flight-screen` (veille et réveil de l'écran, section 6.2) ;
+3. crée `/usr/local/bin/flight-screen-guard` et son service `flight-screen-guard`, qu'il active et redémarre ;
+4. ajoute `/etc/sudoers.d/flightadmin`, qui autorise uniquement, sans mot de passe : démarrer, arrêter, relancer le service `flightdisplay`, redémarrer, éteindre, et `flight-screen on|off` ;
+5. renseigne dans `webadmin.ini` l'interpréteur Python du venv (utilisé pour construire la carte) et protège le fichier (droits 600) ;
+6. crée, active et redémarre le service `flightadmin` (groupe `systemd-journal` pour lire les logs).
+
+Le script est relançable à volonté : il réécrit les deux scripts de veille (toute modification manuelle est perdue) et redémarre les services webadmin et garde.
 
 Variables d'environnement acceptées par `install_webadmin.sh` :
 
@@ -724,7 +801,7 @@ simulate_seconds = 3
 - Les positions sont extrapolées entre deux mises à jour (vitesse et cap) puis lissées, pour un mouvement fluide. Une traînée des dernières positions est tracée derrière chaque avion.
 - Chaque avion a une étiquette : modèle, compagnie, trajet (origine → destination) et altitude · vitesse. Tant que les détails ne sont pas arrivés, elle affiche l'indicatif et le code du type. Le trajet est omis si l'origine et la destination sont inconnues (pas de plan de vol déclaré). Si une seule est connue, l'autre apparaît sous la forme `?`.
 - Les étiquettes sont placées pour éviter de se recouvrir et de sortir de l'écran.
-- La ligne d'état en bas à gauche indique le nombre d'avions en vol, au-dessus de la limite d'altitude, au sol, les erreurs réseau et la mention « données anciennes » si les mises à jour tardent. Elle contient aussi les crédits (OpenStreetMap, CARTO, Flightradar24).
+- La ligne d'état en bas à gauche indique le nombre d'avions en vol, au-dessus de la limite d'altitude, au sol, les erreurs réseau et la mention « données anciennes » si les mises à jour tardent. Elle contient aussi les crédits (OpenStreetMap, CARTO, Flightradar24) : l'attribution doit rester visible.
 
 ### 9.2 Panneau photo
 
@@ -819,7 +896,7 @@ Catégories valides : `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `b
   Rafraîchies toutes les 4 secondes. L'en-tête de la page n'affiche plus que les pastilles « son coupé » et « carte en construction ».
 - Commandes à bascule, comme dans Réglages d'iOS ou Home Assistant :
   - Programme d'affichage : démarre ou arrête le service (si l'écran est en veille, l'interrupteur rallume l'écran).
-  - Écran : veille et réveil (la veille arrête aussi le programme).
+  - Écran : veille et réveil (la veille arrête aussi le programme, voir 6.2).
   - Son des alertes : coupe ou réactive le son (désactivé et grisé si `sound = false` dans `config.ini`).
 - Curseur de volume (0 à 100 %), appliqué en direct à la prochaine alerte.
 - Boutons « Tester le son » (désactivé tant que le son est coupé) et « Relancer le programme ».
@@ -936,7 +1013,7 @@ interval = 30
 | `[build]` | `stop_display` | true | Valeur par défaut de l'interrupteur de l'onglet Carte. |
 | `[mqtt]` | | | Voir la section 11. |
 
-Ne sont modifiables que par la ligne de commande : les services systemd, le fichier sudoers, le contenu du script de veille (numéros de terminaux virtuels) et les variables d'environnement.
+Ne sont modifiables que par la ligne de commande : les services systemd, le fichier sudoers, le contenu des scripts de veille et de garde (numéros de terminaux virtuels) et les variables d'environnement.
 
 ### 10.3 API HTTP
 
@@ -1043,7 +1120,7 @@ fd restart
 sudo systemctl restart flightadmin
 ```
 
-Vos réglages (`config.ini`, `webadmin.ini`) ne sont pas versionnés et restent intacts. Relancer l'installeur (section 0.6) met aussi à jour les paquets et les services en conservant la configuration.
+Vos réglages (`config.ini`, `webadmin.ini`) ne sont pas versionnés et restent intacts. Si la mise à jour modifie les scripts de veille, relancez `sudo bash install_webadmin.sh` pour les réinstaller. Relancer l'installeur (section 0.6) met aussi à jour les paquets et les services en conservant la configuration.
 
 Avec une installation par copie de fichiers : recopier `main.py` (et `webadmin.py`, `webadmin_mqtt.py`) depuis l'ordinateur, puis `fd restart` et `sudo systemctl restart flightadmin`.
 
@@ -1072,6 +1149,7 @@ sudo reboot
 | Programme d'affichage en direct | `fd logs` (ou onglet Logs de webadmin) |
 | Programme d'affichage, dernières lignes | `journalctl -u flightdisplay -n 100 --no-pager` |
 | webadmin | `journalctl -u flightadmin -n 100 --no-pager` |
+| Garde de veille d'écran | `journalctl -t flight-screen-guard --no-pager` |
 | Installeur automatique | `less ~/flightdisplay-install.log` |
 | Noyau | `journalctl -k -n 100 --no-pager` |
 
@@ -1104,9 +1182,12 @@ sudo reboot
 | Mot de passe webadmin perdu | Éditer `webadmin.ini` en SSH (ligne `password =`), puis `sudo systemctl restart flightadmin`. |
 | « sudo: a password is required » | `/etc/sudoers.d/flightadmin` manque ou le chemin de `systemctl` diffère : relancer `install_webadmin.sh` (ou l'installeur). |
 | Logs vides dans webadmin | L'utilisateur doit pouvoir lire le journal (groupe `systemd-journal`, ajouté par le service). Le journal est en mémoire par défaut : il est vidé à chaque redémarrage du Pi. |
-| L'écran se rallume après la veille | Vérifier que `flight-screen` est la version à terminal virtuel (6.2), appliquer `vc4.force_hotplug=1` (3.6), désactiver la détection automatique d'entrée du moniteur. Pour enquêter : relever l'état avec `cat /sys/class/drm/card*-HDMI-A-*/{status,dpms}` et `journalctl -t sudo --since "-8h" \| grep COMMAND`. |
+| La veille ne coupe pas le signal (`dpms` reste `On`) | Le script de veille n'est pas la version à framebuffer (6.2) : `grep -c "fb0/blank" /usr/local/bin/flight-screen` doit renvoyer au moins `1`. Relancer `sudo bash install_webadmin.sh` pour le réinstaller. |
+| L'écran se rallume seul pendant la veille | La garde le remet en veille en moins de 20 secondes. Lire `journalctl -t flight-screen-guard` pour les heures, puis suivre la démarche de 6.2 (correctif HDMI, détection d'entrée du moniteur, commande de réveil, redémarrage, CEC). |
+| La garde recoupe l'écran en boucle toutes les 20 secondes | Ancienne version de la garde (basée sur `setterm`) : relancer `sudo bash install_webadmin.sh`. |
+| Après la mise à jour, ma veille personnalisée a disparu | `install_webadmin.sh` réécrit `flight-screen` et `flight-screen-guard`. Conserver une copie de vos modifications. |
 | L'écran se rallume seulement quand je l'éteins depuis Home Assistant | Vérifier que la commande de l'entité n'est pas publiée avec « retain » sur le serveur MQTT (11.3), et lire `journalctl -t sudo \| grep flight-screen` pour voir qui a lancé le réveil. |
-| Le moniteur ne s'éteint pas en veille | Essayer le DDC/CI (6.2). |
+| Le moniteur ne s'éteint pas en veille | Vérifier `cat /sys/class/drm/card*-HDMI-A-*/dpms` : `Off` après la veille. Sinon essayer le DDC/CI (6.2). |
 | Les tuiles de Pilotage ne tiennent pas sur une ligne | Sur ordinateur, la ligne unique s'applique à partir de 860 px de large ; en dessous, les tuiles passent sur deux colonnes. |
 | MQTT : « paho manquant » | `sudo apt install python3-paho-mqtt` puis `sudo systemctl restart flightadmin`. |
 | MQTT : « refuse » | Identifiants ou droits (ACL) du serveur MQTT. |
@@ -1118,9 +1199,9 @@ sudo reboot
 ## 14. Désinstallation
 
 ```
-sudo systemctl disable --now flightadmin flightdisplay
-sudo rm /etc/systemd/system/flightadmin.service /etc/systemd/system/flightdisplay.service
-sudo rm /etc/sudoers.d/flightadmin /usr/local/bin/flight-screen /usr/local/bin/fd
+sudo systemctl disable --now flightadmin flightdisplay flight-screen-guard
+sudo rm /etc/systemd/system/flightadmin.service /etc/systemd/system/flightdisplay.service /etc/systemd/system/flight-screen-guard.service
+sudo rm /etc/sudoers.d/flightadmin /usr/local/bin/flight-screen /usr/local/bin/flight-screen-guard /usr/local/bin/fd
 sudo systemctl daemon-reload
 rm -rf ~/flightdisplay ~/flightdisplay-install.log
 ```
