@@ -1,5 +1,5 @@
 #!/bin/bash
-# Installe l'administration web : script de veille, droits sudo limites, service systemd.
+# Installe l'administration web : script de veille, garde de veille, droits sudo limites, service systemd.
 set -euo pipefail
 
 [ "$(id -u)" -eq 0 ] || { echo "Lancez : sudo bash install_webadmin.sh"; exit 1; }
@@ -12,6 +12,7 @@ IDLE_VT="${IDLE_VT:-7}"
 SYSTEMCTL=/usr/bin/systemctl
 [ -x "$SYSTEMCTL" ] || SYSTEMCTL="$(command -v systemctl)"
 HELPER=/usr/local/bin/flight-screen
+GUARD=/usr/local/bin/flight-screen-guard
 
 PY_APP="$APP_DIR/venv/bin/python"
 [ -x "$PY_APP" ] || PY_APP="$APP_DIR/.venv/bin/python"
@@ -27,26 +28,45 @@ if ! command -v chvt >/dev/null 2>&1 || ! python3 -c "import paho.mqtt.client" >
 fi
 
 echo "== Script de mise en veille de l'ecran"
-cat > "$HELPER" <<'EOF'
+cat > "$HELPER" <<'HELPER_EOF'
 #!/bin/sh
 # flight-screen on|off : veille / reveil de l'ecran.
-# La veille arrete l'affichage, bascule sur un terminal virtuel inutilise (aucun texte n'y est ecrit)
-# et met cette console en veille ; le reveil fait l'inverse.
+# La veille arrete l'affichage, bascule sur un terminal virtuel inutilise (aucun texte n'y est ecrit),
+# puis coupe la sortie video par le framebuffer (methode fiable : le signal HDMI est reellement coupe).
+# Le reveil fait l'inverse. Repli sur setterm si le framebuffer n'est pas disponible.
 SVC=__SERVICE__
 MAIN_VT=__MAIN_VT__
 IDLE_VT=__IDLE_VT__
 FLAG=/run/flight-screen-off
+FB=/sys/class/graphics/fb0/blank
+
+blank() {
+  if [ -w "$FB" ]; then
+    echo 4 > "$FB"
+  else
+    setterm --term linux --powersave powerdown --blank force < /dev/tty$IDLE_VT > /dev/tty$IDLE_VT 2>/dev/null || true
+  fi
+}
+unblank() {
+  if [ -w "$FB" ]; then
+    echo 0 > "$FB"
+  else
+    setterm --term linux --powersave off --blank poke < /dev/tty$IDLE_VT > /dev/tty$IDLE_VT 2>/dev/null || true
+  fi
+}
+
 case "$1" in
   off)
     systemctl stop "$SVC"
     sleep 1
     touch "$FLAG"
     chvt "$IDLE_VT"
-    setterm --term linux --powersave powerdown --blank force < /dev/tty$IDLE_VT > /dev/tty$IDLE_VT 2>/dev/null || true
+    sleep 1
+    blank
     ;;
   on)
     rm -f "$FLAG"
-    setterm --term linux --powersave off --blank poke < /dev/tty$IDLE_VT > /dev/tty$IDLE_VT 2>/dev/null || true
+    unblank
     chvt "$MAIN_VT"
     systemctl start "$SVC"
     ;;
@@ -55,9 +75,46 @@ case "$1" in
     exit 2
     ;;
 esac
-EOF
+HELPER_EOF
 sed -i "s|__SERVICE__|$SERVICE|; s|__MAIN_VT__|$MAIN_VT|; s|__IDLE_VT__|$IDLE_VT|" "$HELPER"
 chown root:root "$HELPER"; chmod 755 "$HELPER"
+
+echo "== Garde de veille (remet l'ecran en veille s'il se rallume tout seul)"
+cat > "$GUARD" <<'GUARD_EOF'
+#!/bin/sh
+# Pendant une veille demandee, verifie toutes les 20 s que la sortie video est bien eteinte.
+# Sinon, la coupe a nouveau et note l'evenement : journalctl -t flight-screen-guard
+SVC=__SERVICE__
+FLAG=/run/flight-screen-off
+FB=/sys/class/graphics/fb0/blank
+IDLE_VT=__IDLE_VT__
+while true; do
+  if [ -f "$FLAG" ] && ! systemctl is-active --quiet "$SVC"; then
+    if grep -q On /sys/class/drm/card*-HDMI-A-*/dpms 2>/dev/null; then
+      if [ -w "$FB" ]; then
+        echo 4 > "$FB"
+      else
+        setterm --term linux --powersave powerdown --blank force < /dev/tty$IDLE_VT > /dev/tty$IDLE_VT 2>/dev/null
+      fi
+      logger -t flight-screen-guard "écran rallumé pendant la veille : remis en veille"
+    fi
+  fi
+  sleep 20
+done
+GUARD_EOF
+sed -i "s|__SERVICE__|$SERVICE|; s|__IDLE_VT__|$IDLE_VT|" "$GUARD"
+chown root:root "$GUARD"; chmod 755 "$GUARD"
+cat > /etc/systemd/system/flight-screen-guard.service <<'SVC_EOF'
+[Unit]
+Description=Garde de la veille d'ecran Flight display
+
+[Service]
+ExecStart=/usr/local/bin/flight-screen-guard
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+SVC_EOF
 
 echo "== Droits sudo limites pour $RUN_USER"
 TMP="$(mktemp)"
@@ -70,7 +127,7 @@ rm -f "$TMP"
 
 echo "== Configuration webadmin.ini"
 INI="$APP_DIR/webadmin.ini"
-[ -f "$INI" ] || { echo "webadmin.ini introuvable (copiez le modele fourni)"; exit 1; }
+[ -f "$INI" ] || { echo "webadmin.ini introuvable (copiez le modele fourni : webadmin.ini.example)"; exit 1; }
 WA_PY="$PY_APP" python3 - "$INI" <<'EOF'
 import os, re, sys
 p = sys.argv[1]
@@ -120,7 +177,10 @@ RestartSec=3
 WantedBy=multi-user.target
 EOF
 systemctl daemon-reload
-systemctl enable --now flightadmin.service
+systemctl enable flightadmin.service
+systemctl restart flightadmin.service
+systemctl enable flight-screen-guard.service
+systemctl restart flight-screen-guard.service
 sleep 1
 systemctl --no-pager --lines=3 status flightadmin.service || true
 PORT="$(sed -n 's/^port[[:space:]]*=[[:space:]]*//p' "$INI" | head -n1)"
