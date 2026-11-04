@@ -290,10 +290,10 @@ collect_answers() {
   printf '  %sPour l'"'"'obtenir en une minute, depuis votre ordinateur ou votre téléphone :%s\n' "$B" "$R"
   printf '    1) ouvrez %s%s%s\n' "$CYN" "$CARTO_URL" "$R"
   printf '    2) saisissez votre adresse e-mail et acceptez les conditions (usage personnel, non commercial)\n'
-  printf '    3) copiez la clé reçue par e-mail, puis collez-la ci-dessous (la saisie est masquée)\n'
+  printf '    3) copiez la clé reçue par e-mail, puis collez-la ci-dessous (elle reste visible pour vérifier le collage)\n'
   printf '  %sGardez cette clé pour vous : elle est personnelle, ne la partagez pas.%s\n' "$DIM" "$R"
   printf '  %sL'"'"'installation attend : prenez le temps de la récupérer, puis revenez ici.%s\n' "$DIM" "$R"
-  ask CARTO_KEY "Clé API CARTO (Entrée pour passer)" "" secret
+  ask CARTO_KEY "Clé API CARTO (Entrée pour passer)" ""
   if [ -z "$CARTO_KEY" ]; then
     warn "Pas de clé : la carte ne sera pas construite maintenant (possible plus tard depuis webadmin, Réglages, Carte et position)."
   fi
