@@ -110,14 +110,20 @@ progress_pct() {
   echo "${p:--1}"
 }
 
-last_line() {
-  tail -c +$((LOGPOS + 1)) "$LOG" 2>/dev/null | tail -c 400 | tr '\r' '\n' \
-    | grep -vE '^\s*$|^(dlstatus|pmstatus):' | tail -n1 | tr -d '\033' | cut -c1-"$1"
+last_line() {  # largeur maximale
+  local l
+  l=$(tail -c +$((LOGPOS + 1)) "$LOG" 2>/dev/null | tail -c 6000 | tr '\r\t' '\n ' | tr -d '\033' \
+    | grep -vE '^\s*$|^(dlstatus|pmstatus):' | awk '
+        { last = $0 }
+        /^(»|Collecting|Downloading|Using cached|Building wheel|Preparing metadata|Installing collected|Successfully|Get:|Hit:|Unpacking|Setting up|Preparing to unpack|Selecting)/ { stage = $0 }
+        END { if (stage != "") print stage; else print last }')
+  l="${l#"${l%%[![:space:]]*}"}"
+  printf '%s' "${l:0:$1}"
 }
 
 run_step() {  # libelle commande...
   local label="$1"; shift
-  local start=$SECONDS pid rc i=0 pct line room c
+  local start=$SECONDS pid rc i=0 pct line room c plain
   printf '\n### %s\n' "$label" >>"$LOG"
   LOGPOS=$(stat -c %s "$LOG" 2>/dev/null || echo 0)
   ( "$@" ) </dev/null >>"$LOG" 2>&1 &
@@ -127,9 +133,10 @@ run_step() {  # libelle commande...
     while kill -0 "$pid" 2>/dev/null; do
       c=$(cols)
       pct=$(progress_pct)
+      plain="  x $label ($((SECONDS - start))s)"
       printf '\r\033[K  %s%s%s %s %s(%ds)%s' "$CYN" "${SP[i % ${#SP[@]}]}" "$R" "$label" "$DIM" "$((SECONDS - start))" "$R"
-      if [ "$pct" -ge 0 ] 2>/dev/null; then printf '  '; bar "$pct" 18; fi
-      room=$((c - ${#label} - 36))
+      if [ "$pct" -ge 0 ] 2>/dev/null; then printf '  '; bar "$pct" 18; plain="$plain                         "; fi
+      room=$((c - ${#plain} - 5))
       if [ "$room" -gt 12 ]; then
         line=$(last_line "$room")
         if [ -n "$line" ]; then printf '  %s%s%s' "$DIM" "$line" "$R"; fi
@@ -375,8 +382,12 @@ fetch_project() {
 make_venv() {
   [ -x "$APP_DIR/venv/bin/python" ] || python3 -m venv --system-site-packages "$APP_DIR/venv"
   if [ -n "$DRY" ]; then echo "[simulation] pip install -r requirements.txt"; return 0; fi
-  "$APP_DIR/venv/bin/python" -m pip install --upgrade pip --quiet
-  "$APP_DIR/venv/bin/python" -m pip install --prefer-binary -r "$APP_DIR/requirements.txt"
+  local pip=("$APP_DIR/venv/bin/python" -m pip --disable-pip-version-check)
+  echo "» 1/3 Mise à jour de pip"
+  "${pip[@]}" install --upgrade pip --progress-bar off || return 1
+  echo "» 2/3 Installation des bibliothèques (peut être long sur un Pi Zero)"
+  "${pip[@]}" install --prefer-binary --progress-bar off -r "$APP_DIR/requirements.txt" || return 1
+  echo "» 3/3 Vérification des modules"
   "$APP_DIR/venv/bin/python" -c "import pygame, requests, FlightRadarAPI; print('modules ok')"
 }
 
@@ -412,8 +423,8 @@ PY
   if [ -n "$DRY" ]; then echo "[simulation] pip install : $list"; return 0; fi
   while read -r name pipn; do
     [ -z "$name" ] && continue
-    echo "Installation de $pipn"
-    "$py" -m pip install --prefer-binary "$pipn" || return 1
+    echo "» Installation de $pipn"
+    "$py" -m pip install --prefer-binary --progress-bar off "$pipn" || return 1
   done <<<"$list"
 }
 
