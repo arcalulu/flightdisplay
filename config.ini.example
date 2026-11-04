@@ -46,7 +46,7 @@ landed_keep_minutes = 10
 [alert]
 radius_km = 5
 sound = true
-volume = 0.6
+volume = 0.4
 pulse_seconds = 3
 alpha_min = 10
 alpha_max = 60
