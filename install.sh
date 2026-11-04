@@ -230,6 +230,21 @@ open(path, "w", encoding="utf-8").write("\n".join(lines) + "\n")
 PY
 }
 
+ask_webpw() {
+  printf '  %sProtège l'"'"'accès à webadmin depuis votre réseau. Entrée = en générer un automatiquement.%s\n' "$DIM" "$R"
+  WEBPW=""
+  while [ -z "$WEBPW" ]; do
+    local p1 p2
+    ask p1 "Mot de passe (6 caractères minimum, Entrée = automatique)" "" secret
+    if [ -z "$p1" ]; then WEBPW=$(gen_password); GENPW=1; ok "Mot de passe généré (affiché à la fin)."
+    elif [ "${#p1}" -lt 6 ]; then warn "Trop court."
+    else
+      ask p2 "Confirmez le mot de passe" "" secret
+      if [ "$p1" = "$p2" ]; then WEBPW="$p1"; else warn "Les deux saisies diffèrent."; fi
+    fi
+  done
+}
+
 collect_answers() {
   title "Vos informations"
   printf '  %sQuelques questions, puis l'"'"'installation se déroule seule (plusieurs minutes, selon votre Pi et votre connexion).%s\n' "$DIM" "$R"
@@ -290,27 +305,16 @@ collect_answers() {
   printf '  %sPour l'"'"'obtenir en une minute, depuis votre ordinateur ou votre téléphone :%s\n' "$B" "$R"
   printf '    1) ouvrez %s%s%s\n' "$CYN" "$CARTO_URL" "$R"
   printf '    2) saisissez votre adresse e-mail et acceptez les conditions (usage personnel, non commercial)\n'
-  printf '    3) copiez la clé reçue par e-mail, puis collez-la ci-dessous (elle reste visible pour vérifier le collage)\n'
+  printf '    3) copiez la clé reçue par e-mail, puis collez-la ci-dessous (la saisie est masquée)\n'
   printf '  %sGardez cette clé pour vous : elle est personnelle, ne la partagez pas.%s\n' "$DIM" "$R"
   printf '  %sL'"'"'installation attend : prenez le temps de la récupérer, puis revenez ici.%s\n' "$DIM" "$R"
-  ask CARTO_KEY "Clé API CARTO (Entrée pour passer)" ""
+  ask CARTO_KEY "Clé API CARTO (Entrée pour passer)" "" secret
   if [ -z "$CARTO_KEY" ]; then
     warn "Pas de clé : la carte ne sera pas construite maintenant (possible plus tard depuis webadmin, Réglages, Carte et position)."
   fi
 
   printf '\n  %s5. Mot de passe de l'"'"'interface web%s\n' "$B$BLU" "$R"
-  printf '  %sProtège l'"'"'accès à webadmin depuis votre réseau. Entrée = en générer un automatiquement.%s\n' "$DIM" "$R"
-  WEBPW=""
-  while [ -z "$WEBPW" ]; do
-    local p1 p2
-    ask p1 "Mot de passe (6 caractères minimum, Entrée = automatique)" "" secret
-    if [ -z "$p1" ]; then WEBPW=$(gen_password); GENPW=1; ok "Mot de passe généré (affiché à la fin)."
-    elif [ "${#p1}" -lt 6 ]; then warn "Trop court."
-    else
-      ask p2 "Confirmez le mot de passe" "" secret
-      if [ "$p1" = "$p2" ]; then WEBPW="$p1"; else warn "Les deux saisies diffèrent."; fi
-    fi
-  done
+  ask_webpw
 
   printf '\n  %s6. Home Assistant / MQTT (facultatif)%s\n' "$B$BLU" "$R"
   MQTT_ON=""
@@ -452,6 +456,13 @@ write_configs() {
   chmod 600 webadmin.ini
 }
 
+set_webpw() {
+  cd "$APP_DIR" || return 1
+  [ -f webadmin.ini ] || cp webadmin.ini.example webadmin.ini
+  ini_set webadmin.ini server password "$WEBPW"
+  chmod 600 webadmin.ini
+}
+
 build_map() {
   cd "$APP_DIR" || return 1
   if [ -n "$DRY" ]; then echo "[simulation] construction de la carte"; sleep 2; touch background.png map_meta.json; return 0; fi
@@ -553,7 +564,15 @@ if [ -f "$APP_DIR/config.ini" ]; then
 fi
 GENPW=""; LAT=""; LON=""; RADIUS=""; MAPW=""; MAPH=""; AIRPORT=""; CARTO_KEY=""; WEBPW=""; MQTT_ON=""; HDMI_FIX=""; NAME=""
 MQTT_HOST=""; MQTT_PORT=""; MQTT_USER=""; MQTT_PASS=""
-if [ -z "$KEEP" ]; then collect_answers; fi
+NEED_WEBPW=""
+if [ -z "$KEEP" ]; then
+  collect_answers
+elif ! grep -Eq '^password[[:space:]]*=[[:space:]]*[^[:space:]]' "$APP_DIR/webadmin.ini" 2>/dev/null; then
+  title "Interface web"
+  printf '  %sAucun mot de passe n'"'"'est enregistré pour l'"'"'interface web.%s\n' "$DIM" "$R"
+  ask_webpw
+  NEED_WEBPW=1
+fi
 CUR=1
 
 title "Installation"
@@ -599,6 +618,7 @@ step "Service d'affichage"
 run_step "Création du service $SERVICE et de la commande fd" install_services
 
 step "Interface web d'administration"
+if [ -n "$NEED_WEBPW" ]; then run_step "Enregistrement du mot de passe de l'interface web" set_webpw; fi
 run_step "Installation de webadmin, des droits et du script de veille" install_webadmin
 
 step "Correctif de veille d'écran"
