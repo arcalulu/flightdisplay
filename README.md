@@ -20,7 +20,7 @@ Ce projet n'est affilié ni à Flightradar24 ni à aucune compagnie. Les donnée
 ## Ce qu'il vous faut
 
 - **N'importe quel Raspberry Pi** : Zero, Zero 2 W, 3, 4, 5 ou Compute Module. Le Zero reste le plus économique ; à partir du Pi 3, l'affichage est plus fluide et la carte se construit beaucoup plus vite, mais les réglages ne changent pas.
-- Une carte microSD de 16 Go ou plus (8 Go suffisent au strict minimum), un écran HDMI. Pour le son : haut-parleurs de l'écran, sortie casque si le modèle en a une, ou carte son USB (le Pi Zero n'a pas de prise jack).
+- Une carte microSD de 16 Go ou plus, un écran HDMI. Pour le son : haut-parleurs de l'écran, sortie casque si le modèle en a une, ou carte son USB (le Pi Zero n'a pas de prise jack).
 - Un accès Internet : Wi-Fi 2,4 GHz sur les Zero et Zero 2 W (pas de 5 GHz), Wi-Fi ou Ethernet sur les autres modèles.
 - **Une clé API CARTO, à obtenir avant de lancer l'installation** (gratuite, voir ci-dessous).
 
@@ -41,7 +41,7 @@ Ce projet n'est affilié ni à Flightradar24 ni à aucune compagnie. Les donnée
 - L'attribution « © OpenStreetMap contributors, © CARTO » doit rester visible : Flight display l'affiche dans la ligne d'état en bas de l'écran, ne la retirez pas.
 - Vous pouvez installer sans clé : tout est installé sauf la carte, que vous construirez plus tard.
 
-**Où elle est enregistrée.** L'installeur l'écrit dans `config.ini`, section `[map]`, clé `carto_key` (fichier en droits 600). Pour la changer plus tard : webadmin, Réglages, Carte et position, champ « Clé API CARTO » (masqué dans l'interface), puis onglet Carte, « Reconstruire la carte ».
+**Où elle est enregistrée.** L'installeur l'écrit dans `config.ini`, section `[map]`, clé `carto_key` (fichier en droits 600). Pour la changer plus tard : webadmin, Réglages, Carte et position, champ « Clé API CARTO » (masqué), puis onglet Carte, « Reconstruire la carte ».
 
 **Clé perdue ou refusée.** Si la construction de la carte échoue avec une erreur HTTP 401 ou 403, la clé est probablement incorrecte ou invalide : demandez-en une nouvelle sur la même page, remplacez-la dans webadmin, puis reconstruisez la carte.
 
@@ -55,7 +55,7 @@ Ce projet n'est affilié ni à Flightradar24 ni à aucune compagnie. Les donnée
 bash <(curl -fsSL https://raw.githubusercontent.com/arcalulu/flightdisplay/main/install.sh)
 ```
 
-L'installeur pose toutes ses questions au début, mot de passe `sudo` compris (adresse ou coordonnées, clé API CARTO, mot de passe de l'interface web, MQTT facultatif, correctif d'écran, redémarrage final), puis installe tout le nécessaire en affichant sa progression sur une seule ligne, construit la carte et démarre l'affichage et l'interface web. À la fin, un résumé donne l'adresse de l'interface (`http://<nom-du-pi>.local:8080`), l'identifiant et le mot de passe.
+L'installeur pose toutes ses questions au début, mot de passe `sudo` compris (adresse ou coordonnées, clé API CARTO, mot de passe de l'interface web, MQTT facultatif, correctif d'écran, redémarrage final). Les saisies restent visibles, mots de passe compris. Il installe ensuite tout le nécessaire en affichant sa progression sur une seule ligne, construit la carte et démarre l'affichage et l'interface web. À la fin, un résumé donne l'adresse de l'interface (`http://<nom-du-pi>.local:8080`), l'identifiant et le mot de passe.
 
 Sans `curl` : `sudo apt update && sudo apt install -y git && git clone https://github.com/arcalulu/flightdisplay.git ~/flightdisplay && bash ~/flightdisplay/install.sh`.
 

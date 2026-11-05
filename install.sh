@@ -253,21 +253,6 @@ ini_default() {  # fichier section cle valeur : n'écrit que si la clé est abse
   [ -n "$cur" ] || ini_set "$1" "$2" "$3" "$4"
 }
 
-ini_migrate() {  # source destination : copie les clés absentes de destination (fusion de webadmin.ini)
-  local src="$1" dst="$2" sec key val
-  python3 - "$src" <<'PY' | while IFS=$'\x1f' read -r sec key val; do
-import configparser, sys
-c = configparser.ConfigParser(interpolation=None, strict=False)
-c.read(sys.argv[1], encoding="utf-8-sig")
-for s in c.sections():
-    for k, v in c.items(s):
-        if v.strip():
-            print("%s\x1f%s\x1f%s" % (s, k, v.strip()))
-PY
-    ini_default "$dst" "$sec" "$key" "$val"
-  done
-}
-
 ask_webpw() {
   printf '  %sProtège l'"'"'accès à webadmin depuis votre réseau. Entrée = en générer un automatiquement.\n  La saisie reste visible : vous voyez ce que vous tapez.%s\n' "$DIM" "$R"
   WEBPW=""
@@ -286,7 +271,6 @@ ask_webpw() {
 collect_keep() {  # configuration conservée : on ne demande que ce qui manque
   local cur
   cur=$(ini_get "$APP_DIR/config.ini" server password)
-  [ -n "$cur" ] || cur=$(ini_get "$APP_DIR/webadmin.ini" server password)
   [ -n "$cur" ] && return 0
   title "Mot de passe de l'interface web"
   printf '  %sAucun mot de passe n'"'"'est enregistré pour l'"'"'interface web.%s\n' "$DIM" "$R"
@@ -500,12 +484,6 @@ write_configs() {
     ini_set config.ini display height "$MAPH"
     ini_set config.ini ground airport_iata "$AIRPORT"
     ini_set config.ini map carto_key "$CARTO_KEY"
-  fi
-  # Ancien webadmin.ini : ses réglages sont fusionnés dans config.ini (sans écraser l'existant)
-  if [ -f webadmin.ini ]; then
-    ini_migrate webadmin.ini config.ini
-    mv webadmin.ini webadmin.ini.migre
-    echo "webadmin.ini fusionné dans config.ini (ancien fichier conservé : webadmin.ini.migre)"
   fi
   # Réglages de l'interface web (valeurs par défaut, sans écraser vos modifications)
   ini_default config.ini server host 0.0.0.0

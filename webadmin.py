@@ -13,67 +13,6 @@ INI_PATH = os.environ.get("WEBADMIN_INI") or os.path.join(HERE, "config.ini")
 WEB_SECS = ("server", "app", "screen", "build", "mqtt")
 
 
-def _ini_put(lines, sec, key, val):
-    last, found, cur = None, None, None
-    for i, line in enumerate(lines):
-        s = line.strip()
-        m = re.match(r"^\[([^\]]+)\]$", s)
-        if m:
-            cur = m.group(1)
-            if cur == sec:
-                last = i
-            continue
-        if cur == sec and s and s[0] not in "#;":
-            m = re.match(r"^\s*([^\s#;=:][^=:]*?)\s*[=:]", line)
-            if m:
-                last = i
-                if m.group(1).lower() == key.lower() and found is None:
-                    found = i
-    new = f"{key} = {val}"
-    if found is not None:
-        lines[found] = new
-    elif last is not None:
-        lines.insert(last + 1, new)
-    else:
-        if lines and lines[-1].strip():
-            lines.append("")
-        lines += [f"[{sec}]", new]
-    return lines
-
-
-def migrate_legacy():
-    """Fusionne un ancien webadmin.ini dans config.ini (sans écraser l'existant), une seule fois."""
-    legacy = os.path.join(HERE, "webadmin.ini")
-    if not os.path.exists(legacy) or INI_PATH != os.path.join(HERE, "config.ini"):
-        return
-    try:
-        old = configparser.ConfigParser(interpolation=None, strict=False)
-        old.read(legacy, encoding="utf-8-sig")
-        cur = configparser.ConfigParser(interpolation=None, strict=False)
-        lines = []
-        if os.path.exists(INI_PATH):
-            with open(INI_PATH, encoding="utf-8-sig") as fh:
-                lines = fh.read().splitlines()
-            cur.read_string("\n".join(lines))
-        for sec in old.sections():
-            for key, val in old.items(sec):
-                val = val.strip()
-                if val and not cur.get(sec, key, fallback="").strip():
-                    lines = _ini_put(lines, sec, key, val)
-        tmp = INI_PATH + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as fh:
-            fh.write("\n".join(lines) + "\n")
-        os.chmod(tmp, 0o600)
-        os.replace(tmp, INI_PATH)
-        os.replace(legacy, legacy + ".migre")
-        print("webadmin.ini fusionné dans config.ini (ancien fichier : webadmin.ini.migre)", flush=True)
-    except Exception as e:
-        print("Fusion de webadmin.ini impossible :", e, flush=True)
-
-
-migrate_legacy()
-
-
 class Settings:
     """Reglages de webadmin (sections server, app, screen, build, mqtt de config.ini), relus apres chaque modification."""
 
@@ -122,7 +61,7 @@ rt_lock = threading.Lock()
 
 
 def path_of(f):
-    # Les deux fichiers logiques ("config" et "web") sont désormais le même config.ini.
+    # Les deux fichiers logiques ("config" et "web") sont le même config.ini.
     return INI_PATH
 
 
