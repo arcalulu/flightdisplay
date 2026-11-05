@@ -8,15 +8,78 @@ from urllib.parse import parse_qs, urlparse
 import webadmin_mqtt
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-INI_PATH = os.environ.get("WEBADMIN_INI", os.path.join(HERE, "webadmin.ini"))
+INI_PATH = os.environ.get("WEBADMIN_INI") or os.path.join(HERE, "config.ini")
+# Sections de config.ini gérées par webadmin ; toutes les autres appartiennent au programme d'affichage.
+WEB_SECS = ("server", "app", "screen", "build", "mqtt")
+
+
+def _ini_put(lines, sec, key, val):
+    last, found, cur = None, None, None
+    for i, line in enumerate(lines):
+        s = line.strip()
+        m = re.match(r"^\[([^\]]+)\]$", s)
+        if m:
+            cur = m.group(1)
+            if cur == sec:
+                last = i
+            continue
+        if cur == sec and s and s[0] not in "#;":
+            m = re.match(r"^\s*([^\s#;=:][^=:]*?)\s*[=:]", line)
+            if m:
+                last = i
+                if m.group(1).lower() == key.lower() and found is None:
+                    found = i
+    new = f"{key} = {val}"
+    if found is not None:
+        lines[found] = new
+    elif last is not None:
+        lines.insert(last + 1, new)
+    else:
+        if lines and lines[-1].strip():
+            lines.append("")
+        lines += [f"[{sec}]", new]
+    return lines
+
+
+def migrate_legacy():
+    """Fusionne un ancien webadmin.ini dans config.ini (sans écraser l'existant), une seule fois."""
+    legacy = os.path.join(HERE, "webadmin.ini")
+    if not os.path.exists(legacy) or INI_PATH != os.path.join(HERE, "config.ini"):
+        return
+    try:
+        old = configparser.ConfigParser(interpolation=None, strict=False)
+        old.read(legacy, encoding="utf-8-sig")
+        cur = configparser.ConfigParser(interpolation=None, strict=False)
+        lines = []
+        if os.path.exists(INI_PATH):
+            with open(INI_PATH, encoding="utf-8-sig") as fh:
+                lines = fh.read().splitlines()
+            cur.read_string("\n".join(lines))
+        for sec in old.sections():
+            for key, val in old.items(sec):
+                val = val.strip()
+                if val and not cur.get(sec, key, fallback="").strip():
+                    lines = _ini_put(lines, sec, key, val)
+        tmp = INI_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(lines) + "\n")
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, INI_PATH)
+        os.replace(legacy, legacy + ".migre")
+        print("webadmin.ini fusionné dans config.ini (ancien fichier : webadmin.ini.migre)", flush=True)
+    except Exception as e:
+        print("Fusion de webadmin.ini impossible :", e, flush=True)
+
+
+migrate_legacy()
 
 
 class Settings:
-    """Reglages de webadmin.ini, relus apres chaque modification."""
+    """Reglages de webadmin (sections server, app, screen, build, mqtt de config.ini), relus apres chaque modification."""
 
     def reload(self):
-        ini = configparser.ConfigParser(interpolation=None)
-        ini.read(INI_PATH, encoding="utf-8")
+        ini = configparser.ConfigParser(interpolation=None, strict=False)
+        ini.read(INI_PATH, encoding="utf-8-sig")
         self.ini = ini
 
         def gs(sec, key, d=""):
@@ -36,7 +99,7 @@ class Settings:
         self.USER = gs("server", "user", "admin")
         self.PASSWORD = ini.get("server", "password", fallback="")
         self.APP_DIR = os.path.abspath(os.path.expanduser(gs("app", "dir") or HERE))
-        self.CONFIG = os.path.join(self.APP_DIR, gs("app", "config", "config.ini"))
+        self.CONFIG = INI_PATH
         self.RUNTIME = os.path.join(self.APP_DIR, gs("app", "runtime", "cache/runtime.json"))
         self.TYPES_FILE = os.path.join(self.APP_DIR, "types_extra.txt")
         self.SERVICE = gs("app", "service", "flightdisplay")
@@ -59,7 +122,8 @@ rt_lock = threading.Lock()
 
 
 def path_of(f):
-    return S.CONFIG if f == "config" else INI_PATH
+    # Les deux fichiers logiques ("config" et "web") sont désormais le même config.ini.
+    return INI_PATH
 
 
 # ---------------------------------------------------------------- schema
@@ -175,7 +239,7 @@ TYPE_CATS = ["narrow", "wide", "quad", "regional", "turbo", "light", "bizjet", "
 
 def read_lines(path):
     try:
-        with open(path, encoding="utf-8") as fh:
+        with open(path, encoding="utf-8-sig") as fh:
             return fh.read().splitlines()
     except FileNotFoundError:
         return []
@@ -220,9 +284,11 @@ def get_settings():
         cats[p["cat"]]["file"] = p["file"]
     for f, vals in state.items():
         for (sec, key), cur in vals.items():
+            if (sec in WEB_SECS) != (f == "web"):
+                continue
             if (f, sec, key) not in SPEC:
                 label = f'[{sec}] {cur["orig"]}'
-                cats["other"]["groups"].setdefault("Hors schéma (" + ("config.ini" if f == "config" else "webadmin.ini") + ")", []).append(
+                cats["other"]["groups"].setdefault("Hors schéma (config.ini)", []).append(
                     dict(id=f"{f}:{sec}.{key}", cat="other", key=key, type="text", label=label, help="", options=None,
                          needs_map=False, apply="app" if f == "config" else "live", present=True, min=None, max=None,
                          step=None, ui=None, secret=False, set=True, value=cur["value"]))
@@ -284,6 +350,8 @@ def plan(f, changes):
         if not NAME_RE.match(sec) or not key or not NAME_RE.match(key):
             errors.append(ident + " : nom invalide"); continue
         spec = SPEC.get((f, sec, key.lower()))
+        if (sec in WEB_SECS) != (f == "web"):
+            errors.append(ident + " : réglage inconnu"); continue
         if spec is None and (sec, key.lower()) not in vals:
             errors.append(ident + " : réglage inconnu"); continue
         p = spec or dict(type="text", label=key, file=f)
@@ -302,11 +370,12 @@ def plan(f, changes):
     return todo, errors
 
 
-def write_changes(f, todo):
-    path = path_of(f)
+def write_changes(items):
+    """items : liste de (fichier logique, section, clé, valeur). Une seule écriture et une seule sauvegarde."""
+    path = INI_PATH
     lines = read_lines(path)
     changed = []
-    for sec, key, v in todo:
+    for f, sec, key, v in items:
         vals, secs = parse(lines)
         cur = vals.get((sec, key.lower()))
         if cur:
@@ -324,11 +393,10 @@ def write_changes(f, todo):
         tmp = path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as fh:
             fh.write("\n".join(lines) + "\n")
-        if f == "web":
-            try:
-                os.chmod(tmp, 0o600)
-            except OSError:
-                pass
+        try:
+            os.chmod(tmp, 0o600)
+        except OSError:
+            pass
         os.replace(tmp, path)
     return changed
 
@@ -348,9 +416,7 @@ def apply_settings(changes):
             errors += errs
         if errors:
             raise ValueError(" ; ".join(errors))
-        changed = []
-        for f, todo in plans.items():
-            changed += write_changes(f, todo)
+        changed = write_changes([(f, sec, key, v) for f, todo in plans.items() for (sec, key, v) in todo])
     res = dict(changed=changed, restart_app=any(c.startswith("config:") for c in changed), restart_web=False,
                needs_map=any(SPEC.get((c.split(":")[0], c.split(":")[1].split(".")[0], c.split(".", 1)[1].lower()), {}).get("needs_map")
                              for c in changed))
@@ -377,9 +443,8 @@ def restore_backup(f):
         shutil.copy2(bak, path)
         if os.path.exists(tmp):
             os.replace(tmp, bak)
-    if f == "web":
-        S.reload()
-        MQTT.restart(S.ini)
+    S.reload()
+    MQTT.restart(S.ini)
 
 
 # ---------------------------------------------------------------- types d'avion
@@ -1129,7 +1194,7 @@ function renderCat() {
     box.append(list);
   }
   if (cat.file) {
-    const r = el('button', 'b s', 'Revenir à la version précédente de ' + (cat.file === 'config' ? 'config.ini' : 'webadmin.ini'));
+    const r = el('button', 'b s', 'Revenir à la version précédente de ' + 'config.ini');
     r.onclick = async () => { if (!confirm('Remplacer le fichier par sa version précédente ?')) return; try { await api('/api/settings/restore', {file: cat.file}); toast('Version précédente restaurée'); await loadSettings(); } catch (e) { toast(e.message, true); } };
     if (cat.file === 'web' && SET.has_backup[cat.file]) box.append(r);
   }
@@ -1251,7 +1316,7 @@ class Server(ThreadingHTTPServer):
 
 if __name__ == "__main__":
     if not S.PASSWORD:
-        print("ATTENTION : aucun mot de passe défini dans webadmin.ini", flush=True)
+        print("ATTENTION : aucun mot de passe défini dans config.ini (section [server])", flush=True)
     threading.Thread(target=cpu_sampler, daemon=True).start()
     MQTT.configure(S.ini)
     MQTT.start()

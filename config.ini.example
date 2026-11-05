@@ -55,3 +55,44 @@ max_altitude_ft = 10000
 sound_on_start = false
 simulate_on_start = false
 simulate_seconds = 3
+
+[server]
+; Adresse d'écoute : 0.0.0.0 = tout le réseau, 127.0.0.1 = le Pi seul
+host = 0.0.0.0
+port = 8080
+user = admin
+; Mot de passe de l'interface (vide = pas de protection, à éviter)
+password =
+
+[app]
+; Dossier de l'application (vide = dossier de webadmin.py)
+dir =
+config = config.ini
+runtime = cache/runtime.json
+service = flightdisplay
+; Interpréteur utilisé pour build_map_vector.py (rempli par l'installeur)
+python =
+build_script = build_map_vector.py
+sudo = sudo -n
+systemctl =
+journalctl =
+
+[screen]
+helper = /usr/local/bin/flight-screen
+flag = /run/flight-screen-off
+
+[build]
+; Arrêter l'affichage pendant la reconstruction de la carte
+stop_display = true
+
+[mqtt]
+enabled = false
+host =
+port = 1883
+user =
+password =
+tls = false
+base_topic = flightdisplay
+discovery_prefix = homeassistant
+device_name = Flight display
+interval = 30

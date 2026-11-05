@@ -1,6 +1,6 @@
 # Flight display
 
-Affichage temps réel des avions autour de chez vous sur un Raspberry Pi Zero : carte vectorielle, fiches photo, alerte de proximité (son et teinte rouge), liste des avions au sol, et une interface web d'administration pour tout régler depuis un téléphone ou un ordinateur (réglages, carte, logs, son, veille d'écran, MQTT / Home Assistant).
+Affichage temps réel des avions autour de chez vous sur un Raspberry Pi : carte vectorielle, fiches photo, alerte de proximité (son et teinte rouge), liste des avions au sol, et une interface web d'administration pour tout régler depuis un téléphone ou un ordinateur (réglages, carte, logs, son, veille d'écran, MQTT / Home Assistant).
 
 <!-- Ajoutez ici une capture d'écran : ![Flight display](docs/capture.png) -->
 
@@ -19,8 +19,9 @@ Ce projet n'est affilié ni à Flightradar24 ni à aucune compagnie. Les donnée
 
 ## Ce qu'il vous faut
 
-- Un Raspberry Pi Zero W (ou Zero 2 W), une carte microSD de 16 Go ou plus, un écran HDMI. Pour le son : un écran avec haut-parleurs ou une carte son USB.
-- Un réseau Wi-Fi 2,4 GHz avec accès à Internet.
+- **N'importe quel Raspberry Pi** : Zero, Zero 2 W, 3, 4, 5 ou Compute Module. Le Zero reste le plus économique ; à partir du Pi 3, l'affichage est plus fluide et la carte se construit beaucoup plus vite, mais les réglages ne changent pas.
+- Une carte microSD de 16 Go ou plus (8 Go suffisent au strict minimum), un écran HDMI. Pour le son : haut-parleurs de l'écran, sortie casque si le modèle en a une, ou carte son USB (le Pi Zero n'a pas de prise jack).
+- Un accès Internet : Wi-Fi 2,4 GHz sur les Zero et Zero 2 W (pas de 5 GHz), Wi-Fi ou Ethernet sur les autres modèles.
 - **Une clé API CARTO, à obtenir avant de lancer l'installation** (gratuite, voir ci-dessous).
 
 ## Avant de commencer : obtenir une clé API CARTO
@@ -40,13 +41,13 @@ Ce projet n'est affilié ni à Flightradar24 ni à aucune compagnie. Les donnée
 - L'attribution « © OpenStreetMap contributors, © CARTO » doit rester visible : Flight display l'affiche dans la ligne d'état en bas de l'écran, ne la retirez pas.
 - Vous pouvez installer sans clé : tout est installé sauf la carte, que vous construirez plus tard.
 
-**Où elle est enregistrée.** L'installeur l'écrit dans `config.ini`, section `[map]`, clé `carto_key` (fichier en droits 600). Pour la changer plus tard : webadmin, Réglages, Carte et position, champ « Clé API CARTO » (masqué), puis onglet Carte, « Reconstruire la carte ».
+**Où elle est enregistrée.** L'installeur l'écrit dans `config.ini`, section `[map]`, clé `carto_key` (fichier en droits 600). Pour la changer plus tard : webadmin, Réglages, Carte et position, champ « Clé API CARTO » (masqué dans l'interface), puis onglet Carte, « Reconstruire la carte ».
 
 **Clé perdue ou refusée.** Si la construction de la carte échoue avec une erreur HTTP 401 ou 403, la clé est probablement incorrecte ou invalide : demandez-en une nouvelle sur la même page, remplacez-la dans webadmin, puis reconstruisez la carte.
 
 ## Installation en une commande
 
-1. Avec Raspberry Pi Imager, installez **Raspberry Pi OS Lite (32-bit)** sur la carte SD. Dans la personnalisation, renseignez le nom d'hôte, un utilisateur, le Wi-Fi et activez SSH.
+1. Avec Raspberry Pi Imager, installez **Raspberry Pi OS Lite** sur la carte SD : 32-bit sur Zero et Zero 2 W, 64-bit possible sur les modèles plus récents. Dans la personnalisation, renseignez le nom d'hôte, un utilisateur, le Wi-Fi et activez SSH.
 2. Munissez-vous de votre **clé API CARTO** (section précédente).
 3. Connectez-vous au Pi en SSH, puis tapez :
 
@@ -54,7 +55,7 @@ Ce projet n'est affilié ni à Flightradar24 ni à aucune compagnie. Les donnée
 bash <(curl -fsSL https://raw.githubusercontent.com/arcalulu/flightdisplay/main/install.sh)
 ```
 
-L'installeur pose quelques questions (adresse ou coordonnées, clé API CARTO, mot de passe de l'interface web, MQTT facultatif), installe tout le nécessaire en affichant sa progression, construit la carte, puis démarre l'affichage et l'interface web. À la fin, un résumé donne l'adresse de l'interface (`http://<nom-du-pi>.local:8080`) et le mot de passe.
+L'installeur pose toutes ses questions au début, mot de passe `sudo` compris (adresse ou coordonnées, clé API CARTO, mot de passe de l'interface web, MQTT facultatif, correctif d'écran, redémarrage final), puis installe tout le nécessaire en affichant sa progression sur une seule ligne, construit la carte et démarre l'affichage et l'interface web. À la fin, un résumé donne l'adresse de l'interface (`http://<nom-du-pi>.local:8080`), l'identifiant et le mot de passe.
 
 Sans `curl` : `sudo apt update && sudo apt install -y git && git clone https://github.com/arcalulu/flightdisplay.git ~/flightdisplay && bash ~/flightdisplay/install.sh`.
 
@@ -73,7 +74,7 @@ fd restart
 sudo systemctl restart flightadmin
 ```
 
-ou relancer l'installeur. Vos réglages (`config.ini`, `webadmin.ini`) ne sont pas touchés : ils ne sont pas versionnés.
+ou relancer l'installeur. Vos réglages (`config.ini`, qui contient aussi ceux de l'interface web) ne sont pas touchés : ils ne sont pas versionnés.
 
 ## Licence
 
