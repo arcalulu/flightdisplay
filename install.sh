@@ -18,12 +18,7 @@ INPUT="${FD_INPUT:-/dev/tty}"
 LOG="${FD_LOG:-$HOME/flightdisplay-install.log}"
 CARTO_URL="https://carto.com/basemaps/apikey/"
 SERVICE="flightdisplay"
-TOTAL=11
-MAIN_VT="${FD_MAIN_VT:-1}"
-IDLE_VT="${FD_IDLE_VT:-7}"
-HELPER=/usr/local/bin/flight-screen
-GUARD=/usr/local/bin/flight-screen-guard
-AUTO_REBOOT=""
+TOTAL=12
 CUR=0
 SOFT=""
 KEEPALIVE=""
@@ -236,66 +231,24 @@ PY
 }
 
 ask_webpw() {
-  printf '  %sProtège l'"'"'accès à webadmin depuis votre réseau. Entrée = en générer un automatiquement.%s\n' "$DIM" "$R"
+  printf '  %sProtège l'"'"'accès à webadmin depuis votre réseau. Entrée = en générer un automatiquement.\n  La saisie reste visible : vous voyez ce que vous tapez.%s\n' "$DIM" "$R"
   WEBPW=""
   while [ -z "$WEBPW" ]; do
     local p1 p2
-    ask p1 "Mot de passe (6 caractères minimum, Entrée = automatique)" "" secret
+    ask p1 "Mot de passe (6 caractères minimum, Entrée = automatique)" ""
     if [ -z "$p1" ]; then WEBPW=$(gen_password); GENPW=1; ok "Mot de passe généré (affiché à la fin)."
     elif [ "${#p1}" -lt 6 ]; then warn "Trop court."
     else
-      ask p2 "Confirmez le mot de passe" "" secret
-      if [ "$p1" = "$p2" ]; then WEBPW="$p1"; else warn "Les deux saisies diffèrent."; fi
+      ask p2 "Confirmez le mot de passe" ""
+      if [ "$p1" = "$p2" ]; then WEBPW="$p1"; ok "Mot de passe retenu (${#WEBPW} caractères)."; else warn "Les deux saisies diffèrent."; fi
     fi
   done
 }
 
-ini_get() {  # fichier section cle -> valeur (vide si absente)
-  python3 - "$1" "$2" "$3" 2>/dev/null <<'PY'
-import configparser, sys
-p, sec, key = sys.argv[1:4]
-c = configparser.ConfigParser(interpolation=None, strict=False)
-try:
-    c.read(p, encoding="utf-8-sig")
-    print(c.get(sec, key, fallback="").strip())
-except Exception:
-    pass
-PY
-}
-
-ini_default() {  # fichier section cle valeur : n'écrit que si la clé est absente ou vide
-  local cur; cur=$(ini_get "$1" "$2" "$3")
-  [ -n "$cur" ] || ini_set "$1" "$2" "$3" "$4"
-}
-
-ini_migrate() {  # source destination : copie les clés absentes de destination (fusion de webadmin.ini)
-  local src="$1" dst="$2" sec key val
-  python3 - "$src" <<'PY' | while IFS=$'\x1f' read -r sec key val; do
-import configparser, sys
-c = configparser.ConfigParser(interpolation=None, strict=False)
-c.read(sys.argv[1], encoding="utf-8-sig")
-for s in c.sections():
-    for k, v in c.items(s):
-        if v.strip():
-            print("%s\x1f%s\x1f%s" % (s, k, v.strip()))
-PY
-    ini_default "$dst" "$sec" "$key" "$val"
-  done
-}
-
-collect_keep() {  # configuration conservée : on ne demande que ce qui manque
-  local cur
-  cur=$(ini_get "$APP_DIR/config.ini" server password)
-  [ -n "$cur" ] || cur=$(ini_get "$APP_DIR/webadmin.ini" server password)
-  [ -n "$cur" ] && return 0
-  title "Vos informations"
-  printf '  %sAucun mot de passe n'"'"'est enregistré pour l'"'"'interface web.%s\n' "$DIM" "$R"
-  ask_webpw
-}
-
 collect_answers() {
   title "Vos informations"
-  printf '  %sQuelques questions, puis l'"'"'installation se déroule seule, sans autre question (plusieurs minutes, selon votre Pi et votre connexion).%s\n' "$DIM" "$R"
+  printf '  %sToutes les saisies restent visibles, mots de passe compris : vérifiez-les avant de valider.%s\n' "$DIM" "$R"
+  printf '  %sQuelques questions, puis l'"'"'installation se déroule seule (plusieurs minutes, selon votre Pi et votre connexion).%s\n' "$DIM" "$R"
   printf '  %sIl vous faut une clé API CARTO (gratuite, voir la question 4) : %s%s\n\n' "$DIM" "$CARTO_URL" "$R"
 
   printf '  %s1. Votre position%s\n' "$B$BLU" "$R"
@@ -353,10 +306,10 @@ collect_answers() {
   printf '  %sPour l'"'"'obtenir en une minute, depuis votre ordinateur ou votre téléphone :%s\n' "$B" "$R"
   printf '    1) ouvrez %s%s%s\n' "$CYN" "$CARTO_URL" "$R"
   printf '    2) saisissez votre adresse e-mail et acceptez les conditions (usage personnel, non commercial)\n'
-  printf '    3) copiez la clé reçue par e-mail, puis collez-la ci-dessous (la saisie est masquée)\n'
+  printf '    3) copiez la clé reçue par e-mail, puis collez-la ci-dessous (elle reste visible : vérifiez le collage)\n'
   printf '  %sGardez cette clé pour vous : elle est personnelle, ne la partagez pas.%s\n' "$DIM" "$R"
   printf '  %sL'"'"'installation attend : prenez le temps de la récupérer, puis revenez ici.%s\n' "$DIM" "$R"
-  ask CARTO_KEY "Clé API CARTO (Entrée pour passer)" "" secret
+  ask CARTO_KEY "Clé API CARTO (Entrée pour passer)" ""
   if [ -z "$CARTO_KEY" ]; then
     warn "Pas de clé : la carte ne sera pas construite maintenant (possible plus tard depuis webadmin, Réglages, Carte et position)."
   fi
@@ -371,21 +324,18 @@ collect_answers() {
     ask MQTT_HOST "Adresse du serveur MQTT" ""
     ask MQTT_PORT "Port" "1883"
     ask MQTT_USER "Identifiant (Entrée si aucun)" ""
-    ask MQTT_PASS "Mot de passe MQTT (Entrée si aucun)" "" secret
+    ask MQTT_PASS "Mot de passe MQTT (Entrée si aucun)" ""
+    if [ -n "$MQTT_PASS" ]; then ok "Mot de passe MQTT retenu (${#MQTT_PASS} caractères)."; fi
   fi
 
   printf '\n  %s7. Veille d'"'"'écran fiable%s\n' "$B$BLU" "$R"
   printf '  %sCorrectif qui empêche certains moniteurs de se rallumer seuls en veille (redémarrage conseillé).%s\n' "$DIM" "$R"
   HDMI_FIX=""; if yesno "Appliquer le correctif ?" o; then HDMI_FIX=1; fi
-  AUTO_REBOOT=""
-  if [ -n "$HDMI_FIX" ]; then
-    if yesno "Redémarrer automatiquement à la fin de l'installation ?" o; then AUTO_REBOOT=1; fi
-  fi
 
   printf '\n  %sRécapitulatif%s\n' "$B$BLU" "$R"
   printf '    Position : %s, %s   Rayon : %s km   Carte : %sx%s\n' "$LAT" "$LON" "$RADIUS" "$MAPW" "$MAPH"
   printf '    Aéroport : %s   Clé CARTO : %s\n' "${AIRPORT:-aucun}" "$([ -n "$CARTO_KEY" ] && echo fournie || echo non fournie)"
-  printf '    MQTT : %s   Correctif écran : %s   Redémarrage auto : %s\n\n' "$([ -n "$MQTT_ON" ] && echo "$MQTT_HOST" || echo non)" "$([ -n "$HDMI_FIX" ] && echo oui || echo non)" "$([ -n "$AUTO_REBOOT" ] && echo oui || echo non)"
+  printf '    MQTT : %s   Correctif écran : %s\n\n' "$([ -n "$MQTT_ON" ] && echo "$MQTT_HOST" || echo non)" "$([ -n "$HDMI_FIX" ] && echo oui || echo non)"
   yesno "Lancer l'installation ?" o || { printf '\n  Installation annulée.\n\n'; exit 0; }
 }
 
@@ -487,57 +437,32 @@ PY
 write_configs() {
   cd "$APP_DIR" || return 1
   [ -f config.ini ] || cp config.ini.example config.ini
-  if [ -z "$KEEP" ]; then
-    ini_set config.ini position latitude "$LAT"
-    ini_set config.ini position longitude "$LON"
-    ini_set config.ini position radius_km "$RADIUS"
-    ini_set config.ini display fullscreen true
-    ini_set config.ini display width "$MAPW"
-    ini_set config.ini display height "$MAPH"
-    ini_set config.ini ground airport_iata "$AIRPORT"
-    ini_set config.ini map carto_key "$CARTO_KEY"
-  fi
-  # Ancien webadmin.ini : ses réglages sont fusionnés dans config.ini (sans écraser l'existant)
-  if [ -f webadmin.ini ]; then
-    ini_migrate webadmin.ini config.ini
-    mv webadmin.ini webadmin.ini.migre
-    echo "webadmin.ini fusionné dans config.ini (ancien fichier conservé : webadmin.ini.migre)"
-  fi
-  # Réglages de l'interface web (valeurs par défaut, sans écraser vos modifications)
-  ini_default config.ini server host 0.0.0.0
-  ini_default config.ini server port 8080
-  ini_default config.ini server user admin
-  ini_default config.ini app config config.ini
-  ini_default config.ini app runtime cache/runtime.json
-  ini_default config.ini app service "$SERVICE"
-  ini_default config.ini app python "$(venv_python)"
-  ini_default config.ini app build_script build_map_vector.py
-  ini_default config.ini app sudo "sudo -n"
-  ini_default config.ini screen helper "$HELPER"
-  ini_default config.ini screen flag /run/flight-screen-off
-  ini_default config.ini build stop_display true
-  ini_default config.ini mqtt enabled false
-  ini_default config.ini mqtt port 1883
-  ini_default config.ini mqtt tls false
-  ini_default config.ini mqtt base_topic flightdisplay
-  ini_default config.ini mqtt discovery_prefix homeassistant
-  ini_default config.ini mqtt device_name "Flight display"
-  ini_default config.ini mqtt interval 30
-  if [ -n "$WEBPW" ]; then ini_set config.ini server password "$WEBPW"; fi
-  if [ -n "$MQTT_ON" ]; then
-    ini_set config.ini mqtt enabled true
-    ini_set config.ini mqtt host "$MQTT_HOST"
-    ini_set config.ini mqtt port "$MQTT_PORT"
-    ini_set config.ini mqtt user "$MQTT_USER"
-    ini_set config.ini mqtt password "$MQTT_PASS"
-  fi
+  ini_set config.ini position latitude "$LAT"
+  ini_set config.ini position longitude "$LON"
+  ini_set config.ini position radius_km "$RADIUS"
+  ini_set config.ini display fullscreen true
+  ini_set config.ini display width "$MAPW"
+  ini_set config.ini display height "$MAPH"
+  ini_set config.ini ground airport_iata "$AIRPORT"
+  ini_set config.ini map carto_key "$CARTO_KEY"
   chmod 600 config.ini
+  [ -f webadmin.ini ] || cp webadmin.ini.example webadmin.ini
+  ini_set webadmin.ini server password "$WEBPW"
+  if [ -n "$MQTT_ON" ]; then
+    ini_set webadmin.ini mqtt enabled true
+    ini_set webadmin.ini mqtt host "$MQTT_HOST"
+    ini_set webadmin.ini mqtt port "$MQTT_PORT"
+    ini_set webadmin.ini mqtt user "$MQTT_USER"
+    ini_set webadmin.ini mqtt password "$MQTT_PASS"
+  fi
+  chmod 600 webadmin.ini
 }
 
-venv_python() {
-  if [ -x "$APP_DIR/venv/bin/python" ]; then echo "$APP_DIR/venv/bin/python"
-  elif [ -x "$APP_DIR/.venv/bin/python" ]; then echo "$APP_DIR/.venv/bin/python"
-  else command -v python3; fi
+set_webpw() {
+  cd "$APP_DIR" || return 1
+  [ -f webadmin.ini ] || cp webadmin.ini.example webadmin.ini
+  ini_set webadmin.ini server password "$WEBPW"
+  chmod 600 webadmin.ini
 }
 
 build_map() {
@@ -582,139 +507,8 @@ EOF
 }
 
 install_webadmin() {
-  local user tmp systemctl_bin port
-  user=$(id -un)
   cd "$APP_DIR" || return 1
-  [ -f webadmin.py ] || { echo "webadmin.py introuvable dans $APP_DIR"; return 1; }
-  [ -f webadmin_mqtt.py ] || { echo "webadmin_mqtt.py introuvable dans $APP_DIR"; return 1; }
-  systemctl_bin=/usr/bin/systemctl
-  [ -x "$systemctl_bin" ] || systemctl_bin=$(command -v systemctl)
-  tmp=$(mktemp)
-
-  echo "== Script de mise en veille de l'écran"
-  cat >"$tmp" <<'HELPER_EOF'
-#!/bin/sh
-# flight-screen on|off : veille / reveil de l'ecran.
-# La veille arrete l'affichage, bascule sur un terminal virtuel inutilise (aucun texte n'y est ecrit),
-# puis coupe la sortie video par le framebuffer (methode fiable : le signal HDMI est reellement coupe).
-# Le reveil fait l'inverse. Repli sur setterm si le framebuffer n'est pas disponible.
-SVC=__SERVICE__
-MAIN_VT=__MAIN_VT__
-IDLE_VT=__IDLE_VT__
-FLAG=/run/flight-screen-off
-FB=/sys/class/graphics/fb0/blank
-
-blank() {
-  if [ -w "$FB" ]; then
-    echo 4 > "$FB"
-  else
-    setterm --term linux --powersave powerdown --blank force < /dev/tty$IDLE_VT > /dev/tty$IDLE_VT 2>/dev/null || true
-  fi
-}
-unblank() {
-  if [ -w "$FB" ]; then
-    echo 0 > "$FB"
-  else
-    setterm --term linux --powersave off --blank poke < /dev/tty$IDLE_VT > /dev/tty$IDLE_VT 2>/dev/null || true
-  fi
-}
-
-case "$1" in
-  off)
-    systemctl stop "$SVC"
-    sleep 1
-    touch "$FLAG"
-    chvt "$IDLE_VT"
-    sleep 1
-    blank
-    ;;
-  on)
-    rm -f "$FLAG"
-    unblank
-    chvt "$MAIN_VT"
-    systemctl start "$SVC"
-    ;;
-  *)
-    echo "usage : flight-screen on|off" >&2
-    exit 2
-    ;;
-esac
-HELPER_EOF
-  sed -i "s|__SERVICE__|$SERVICE|; s|__MAIN_VT__|$MAIN_VT|; s|__IDLE_VT__|$IDLE_VT|" "$tmp"
-  sudo install -m 755 -o root -g root "$tmp" "$HELPER"
-
-  echo "== Garde de veille (remet l'écran en veille s'il se rallume tout seul)"
-  cat >"$tmp" <<'GUARD_EOF'
-#!/bin/sh
-# Pendant une veille demandee, verifie toutes les 20 s que la sortie video est bien eteinte.
-# Sinon, la coupe a nouveau et note l'evenement : journalctl -t flight-screen-guard
-SVC=__SERVICE__
-FLAG=/run/flight-screen-off
-FB=/sys/class/graphics/fb0/blank
-IDLE_VT=__IDLE_VT__
-while true; do
-  if [ -f "$FLAG" ] && ! systemctl is-active --quiet "$SVC"; then
-    if grep -q On /sys/class/drm/card*-HDMI-A-*/dpms 2>/dev/null; then
-      if [ -w "$FB" ]; then
-        echo 4 > "$FB"
-      else
-        setterm --term linux --powersave powerdown --blank force < /dev/tty$IDLE_VT > /dev/tty$IDLE_VT 2>/dev/null
-      fi
-      logger -t flight-screen-guard "écran rallumé pendant la veille : remis en veille"
-    fi
-  fi
-  sleep 20
-done
-GUARD_EOF
-  sed -i "s|__SERVICE__|$SERVICE|; s|__IDLE_VT__|$IDLE_VT|" "$tmp"
-  sudo install -m 755 -o root -g root "$tmp" "$GUARD"
-  cat >"$tmp" <<'SVC_EOF'
-[Unit]
-Description=Garde de la veille d'ecran Flight display
-
-[Service]
-ExecStart=/usr/local/bin/flight-screen-guard
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-SVC_EOF
-  sudo install -m 644 -o root -g root "$tmp" /etc/systemd/system/flight-screen-guard.service
-
-  echo "== Droits sudo limités pour $user"
-  printf '%s ALL=(root) NOPASSWD: %s start %s, %s stop %s, %s restart %s, %s reboot, %s poweroff, %s on, %s off\n' \
-    "$user" "$systemctl_bin" "$SERVICE" "$systemctl_bin" "$SERVICE" "$systemctl_bin" "$SERVICE" \
-    "$systemctl_bin" "$systemctl_bin" "$HELPER" "$HELPER" >"$tmp"
-  sudo visudo -cf "$tmp" >/dev/null || { echo "Fichier sudoers invalide, abandon"; rm -f "$tmp"; return 1; }
-  sudo install -m 440 -o root -g root "$tmp" /etc/sudoers.d/flightadmin
-
-  echo "== Service systemd flightadmin"
-  cat >"$tmp" <<EOF
-[Unit]
-Description=Flight display - administration web
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-User=$user
-SupplementaryGroups=systemd-journal
-WorkingDirectory=$APP_DIR
-ExecStart=/usr/bin/python3 $APP_DIR/webadmin.py
-Restart=always
-RestartSec=3
-
-[Install]
-WantedBy=multi-user.target
-EOF
-  sudo install -m 644 -o root -g root "$tmp" /etc/systemd/system/flightadmin.service
-  rm -f "$tmp"
-  sudo systemctl daemon-reload
-  sudo systemctl enable flightadmin.service flight-screen-guard.service
-  sudo systemctl restart flightadmin.service
-  sudo systemctl restart flight-screen-guard.service
-  sleep 1
-  port=$(ini_get "$APP_DIR/config.ini" server port)
-  echo "Interface web installée (port ${port:-8080})"
+  sudo bash "$APP_DIR/install_webadmin.sh"
 }
 
 hdmi_fix() {
@@ -739,12 +533,10 @@ start_all() {
 
 check_web() {
   if [ -n "$DRY" ]; then echo "[simulation] test de webadmin"; return 0; fi
-  local port user pw i
-  port=$(ini_get "$APP_DIR/config.ini" server port); port="${port:-8080}"
-  user=$(ini_get "$APP_DIR/config.ini" server user); user="${user:-admin}"
-  pw="${WEBPW:-$(ini_get "$APP_DIR/config.ini" server password)}"
+  local port i
+  port=$(sed -n 's/^port[[:space:]]*=[[:space:]]*//p' "$APP_DIR/webadmin.ini" | head -n1); port="${port:-8080}"
   for i in 1 2 3 4 5 6 7 8 9 10; do
-    curl -fs --max-time 5 -u "$user:$pw" "http://127.0.0.1:$port/api/status" >/dev/null && return 0
+    curl -fs --max-time 5 -u "admin:$WEBPW" "http://127.0.0.1:$port/api/status" >/dev/null && return 0
     sleep 2
   done
   return 1
@@ -766,7 +558,6 @@ title "Vérification de votre Raspberry Pi"
 preflight
 info "Dossier d'installation : $APP_DIR"
 info "Journal détaillé : $LOG"
-need_sudo
 
 KEEP=""
 if [ -f "$APP_DIR/config.ini" ]; then
@@ -775,10 +566,19 @@ if [ -f "$APP_DIR/config.ini" ]; then
 fi
 GENPW=""; LAT=""; LON=""; RADIUS=""; MAPW=""; MAPH=""; AIRPORT=""; CARTO_KEY=""; WEBPW=""; MQTT_ON=""; HDMI_FIX=""; NAME=""
 MQTT_HOST=""; MQTT_PORT=""; MQTT_USER=""; MQTT_PASS=""
-if [ -z "$KEEP" ]; then collect_answers; else collect_keep; fi
+NEED_WEBPW=""
+if [ -z "$KEEP" ]; then
+  collect_answers
+elif ! grep -Eq '^password[[:space:]]*=[[:space:]]*[^[:space:]]' "$APP_DIR/webadmin.ini" 2>/dev/null; then
+  title "Interface web"
+  printf '  %sAucun mot de passe n'"'"'est enregistré pour l'"'"'interface web.%s\n' "$DIM" "$R"
+  ask_webpw
+  NEED_WEBPW=1
+fi
+CUR=1
 
 title "Installation"
-printf '  %sToutes les questions sont posées : l'"'"'installation se déroule maintenant sans intervention.%s\n' "$DIM" "$R"
+need_sudo
 
 step "Mise à jour de la liste des paquets"
 run_step "Téléchargement de la liste des paquets" apt_update
@@ -797,9 +597,9 @@ if soft "Analyse et installation des dépendances de build_map_vector.py" map_de
 
 step "Configuration"
 if [ -n "$KEEP" ]; then
-  run_step "Mise à jour de config.ini (vos réglages sont conservés)" write_configs
+  ok "Configuration existante conservée"
 else
-  run_step "Écriture de config.ini" write_configs
+  run_step "Écriture de config.ini et webadmin.ini" write_configs
   if [ -n "$CARTO_KEY" ]; then info "Clé CARTO enregistrée dans config.ini (section [map], clé carto_key)"; fi
 fi
 
@@ -820,7 +620,8 @@ step "Service d'affichage"
 run_step "Création du service $SERVICE et de la commande fd" install_services
 
 step "Interface web d'administration"
-run_step "Installation de webadmin (service, droits sudo, script de veille)" install_webadmin
+if [ -n "$NEED_WEBPW" ]; then run_step "Enregistrement du mot de passe de l'interface web" set_webpw; fi
+run_step "Installation de webadmin, des droits et du script de veille" install_webadmin
 
 step "Correctif de veille d'écran"
 if [ -n "$HDMI_FIX" ]; then
@@ -837,14 +638,13 @@ if soft "Test de l'interface web" check_web; then :; else warn "webadmin ne rép
 printf '\n  '; bar 100 40; printf '\n'
 HOST=$(hostname)
 IP=$(hostname -I 2>/dev/null | awk '{print $1}')
-PORT=$(ini_get "$APP_DIR/config.ini" server port); PORT="${PORT:-8080}"
-WEBUSER=$(ini_get "$APP_DIR/config.ini" server user); WEBUSER="${WEBUSER:-admin}"
+PORT=$(sed -n 's/^port[[:space:]]*=[[:space:]]*//p' "$APP_DIR/webadmin.ini" 2>/dev/null | head -n1); PORT="${PORT:-8080}"
 printf '\n%s%s' "$B" "$GRN"
 printf '  ╔══════════════════════════════════════════════════════════╗\n'
 printf '  ║            Installation terminée                         ║\n'
 printf '  ╚══════════════════════════════════════════════════════════╝%s\n\n' "$R"
 printf '  %sInterface web%s  http://%s.local:%s   ou   http://%s:%s\n' "$B" "$R" "$HOST" "$PORT" "${IP:-adresse-ip}" "$PORT"
-printf '  %sIdentifiant%s    %s\n' "$B" "$R" "$WEBUSER"
+printf '  %sIdentifiant%s    admin\n' "$B" "$R"
 if [ -n "$WEBPW" ]; then
   if [ -n "$GENPW" ]; then printf '  %sMot de passe%s   %s%s%s   (notez-le, il ne sera plus affiché)\n' "$B" "$R" "$YEL" "$WEBPW" "$R"
   else printf '  %sMot de passe%s   celui que vous avez saisi\n' "$B" "$R"; fi
@@ -861,11 +661,8 @@ if [ "${#WARNINGS[@]}" -gt 0 ]; then
 fi
 printf '\n'
 if [ -n "$NEED_REBOOT" ]; then
-  if [ -n "$AUTO_REBOOT" ]; then
-    printf '  %sRedémarrage dans 10 secondes pour finaliser (Ctrl+C pour annuler)...%s\n' "$YEL" "$R"
-    if [ -n "$DRY" ]; then echo "[simulation] sudo reboot"; else sleep 10; sudo reboot; fi
-  else
-    printf '  %sUn redémarrage est nécessaire pour finaliser : sudo reboot%s\n' "$YEL" "$R"
+  if yesno "Un redémarrage est nécessaire pour finaliser. Redémarrer maintenant ?" o; then
+    if [ -n "$DRY" ]; then echo "[simulation] sudo reboot"; else sudo reboot; fi
   fi
 fi
 printf '\n'

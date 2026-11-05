@@ -13,10 +13,10 @@ Cette documentation couvre l'installation automatique en une commande, l'install
 4. Installer Flight display
 5. Services systemd et commande `fd`
 6. Réglages système (audio, écran, carte SD, Wi-Fi)
-7. Installer webadmin (manuel)
+7. Installer webadmin
 8. Référence de `config.ini`
 9. Fonctionnement de l'affichage
-10. Référence de webadmin (réglages de l'interface web en 10.2)
+10. Référence de webadmin
 11. MQTT et Home Assistant
 12. Maintenance
 13. Dépannage
@@ -48,44 +48,41 @@ git clone https://github.com/arcalulu/flightdisplay.git ~/flightdisplay
 bash ~/flightdisplay/install.sh
 ```
 
-Ne lancez pas le script avec `sudo` : il utilise votre utilisateur normal et demande le mot de passe sudo au début, avant la première étape. Il fonctionne avec n'importe quel nom d'utilisateur.
+Ne lancez pas le script avec `sudo` : il utilise votre utilisateur normal et demande le mot de passe sudo une fois si nécessaire. Il fonctionne avec n'importe quel nom d'utilisateur.
 
 ### 0.3 Les questions
 
 | Question | Détail |
 |---|---|
-| Mot de passe `sudo` | Demandé une fois, avant la première étape, pour que l'installation se déroule ensuite sans intervention. |
 | Position | Votre adresse, convertie en coordonnées par le service OpenStreetMap Nominatim (l'adresse lui est envoyée une seule fois, les coordonnées sont arrondies à environ 11 m), ou une saisie manuelle de la latitude et de la longitude. |
 | Rayon de la carte | De 1 à 200 km, 20 par défaut. |
 | Résolution de la carte | 1920×1080, 1280×720 (conseillé sur Pi Zero : moins de charge) ou une taille personnalisée. Écrite dans `[display] width` et `height` de `config.ini`. |
 | Aéroport proche | Code IATA à 3 lettres, facultatif. |
-| Clé API CARTO | Saisie visible, pour vérifier le collage. Écrite dans `config.ini`, section `[map]`, clé `carto_key`. Sans clé, la carte n'est pas construite (possible plus tard depuis webadmin). |
-| Mot de passe de webadmin | Au moins 6 caractères, ou Entrée pour en générer un aléatoire (affiché une seule fois à la fin). |
-| MQTT | Facultatif : serveur, port, identifiant, mot de passe. |
+| Clé API CARTO | Saisie visible, pour vérifier le collage (le champ reste masqué dans webadmin). Écrite dans `config.ini`, section `[map]`, clé `carto_key`. Sans clé, la carte n'est pas construite (possible plus tard depuis webadmin). |
+| Mot de passe de webadmin | Au moins 6 caractères, avec confirmation, ou Entrée pour en générer un aléatoire (affiché une seule fois à la fin). Saisie visible. |
+| MQTT | Facultatif : serveur, port, identifiant, mot de passe (saisie visible). |
 | Correctif de veille d'écran | Ajoute `vc4.force_hotplug=1` au démarrage (voir 3.6) ; redémarrage conseillé. |
-| Redémarrage automatique | Si le correctif d'écran est accepté : redémarrer le Pi tout seul à la fin (10 secondes, Ctrl+C pour annuler), ou le proposer en commande. |
 
-Un récapitulatif est affiché avant le lancement. Toutes ces questions, plus le mot de passe `sudo`, sont posées **avant** la première étape : l'installation se déroule ensuite sans intervention.
+Toutes les saisies restent visibles, mots de passe compris, pour que vous puissiez vérifier ce que vous tapez. Un récapitulatif est affiché avant le lancement.
 
 ### 0.4 Les étapes
 
 | Étape | Action |
 |---|---|
-| 1 | Mise à jour de la liste des paquets (`apt update`), avec barre de progression. |
-| 2 | Installation des paquets : git, curl, Python, pygame, Pillow, requests, paho-mqtt, polices, outils audio, kbd, bibliothèques EGL (`libegl1`, `libegl-mesa0`, `libgles2`). |
-| 3 | Récupération du projet depuis GitHub (ou mise à jour s'il est déjà cloné). |
-| 4 | Environnement Python (venv) et bibliothèques (`requirements.txt`). |
-| 5 | Dépendances de `build_map_vector.py` : le script est analysé et les modules manquants sont installés. |
-| 6 | Écriture de `config.ini` (droits 600), réglages de l'interface web compris. |
-| 7 | Construction de la carte (plusieurs minutes sur un Pi Zero). |
-| 8 | Service `flightdisplay`, commande `fd`, groupes `video render input audio`. |
-| 9 | webadmin : service `flightadmin`, droits sudo limités, script de veille `flight-screen` et sa garde `flight-screen-guard`. |
-| 10 | Correctif de veille d'écran (si accepté). |
-| 11 | Démarrage des services et test de webadmin. |
+| 1 | Vérifications : système, matériel, mémoire, espace disque, Internet, horloge. |
+| 2 | Mise à jour de la liste des paquets (`apt update`), avec barre de progression. |
+| 3 | Installation des paquets : git, curl, Python, pygame, requests, paho-mqtt, polices, outils audio, kbd. |
+| 4 | Récupération du projet depuis GitHub (ou mise à jour s'il est déjà cloné). |
+| 5 | Environnement Python (venv) et bibliothèques (`requirements.txt`). |
+| 6 | Dépendances de `build_map_vector.py` : le script est analysé et les modules manquants sont installés. |
+| 7 | Écriture de `config.ini` et `webadmin.ini` (droits 600). |
+| 8 | Construction de la carte (plusieurs minutes sur un Pi Zero). |
+| 9 | Service `flightdisplay`, commande `fd`, groupes `video render input audio`. |
+| 10 | webadmin : `install_webadmin.sh` (service, droits sudo limités, script de veille `flight-screen` et sa garde `flight-screen-guard`). |
+| 11 | Correctif de veille d'écran (si accepté). |
+| 12 | Démarrage des services et test de webadmin. |
 
-Les vérifications du Pi (système, matériel, mémoire, espace disque, Internet, horloge) viennent avant l'étape 1 et ne sont pas numérotées.
-
-L'écran montre pour chaque étape un indicateur animé, le temps écoulé, la dernière ligne de sortie et, pour les téléchargements, un pourcentage. Chaque étape tient sur une seule ligne qui se met à jour : rien ne défile. Une barre globale indique l'avancement. Le détail complet est écrit dans le journal `~/flightdisplay-install.log`.
+L'écran montre pour chaque étape un indicateur animé, le temps écoulé, la dernière ligne de sortie et, pour les téléchargements, un pourcentage. Une barre globale indique l'avancement. Le détail complet est écrit dans le journal `~/flightdisplay-install.log`.
 
 ### 0.5 Si quelque chose échoue
 
@@ -95,7 +92,7 @@ L'écran montre pour chaque étape un indicateur animé, le temps écoulé, la d
 
 ### 0.6 Relancer l'installeur
 
-Si `config.ini` existe déjà, l'installeur propose de le conserver : il met alors à jour le logiciel et les services sans reposer les questions ni reconstruire la carte. En répondant non, il repose toutes les questions et réécrit les fichiers. Dans les deux cas, l'étape 9 réécrit `/usr/local/bin/flight-screen` et `/usr/local/bin/flight-screen-guard` avec les versions du dépôt : toute modification manuelle de ces deux scripts est écrasée.
+Si `config.ini` existe déjà, l'installeur propose de le conserver : il met alors à jour le logiciel et les services sans reposer les questions ni reconstruire la carte. En répondant non, il repose toutes les questions et réécrit les fichiers. Dans les deux cas, l'étape 10 réécrit `/usr/local/bin/flight-screen` et `/usr/local/bin/flight-screen-guard` avec les versions du dépôt : toute modification manuelle de ces deux scripts est écrasée.
 
 ### 0.7 Options et variables
 
@@ -110,9 +107,9 @@ Si `config.ini` existe déjà, l'installeur propose de le conserver : il met alo
 
 ### 0.8 À la fin
 
-Le résumé donne l'adresse de webadmin (`http://<nom-du-pi>.local:8080` et par adresse IP), l'identifiant et le port lus dans `config.ini`, le mot de passe (s'il a été généré, il n'est plus affiché ensuite) et les commandes utiles. Si le correctif de veille a été appliqué, l'installeur redémarre le Pi (ou vous indique `sudo reboot`) selon votre réponse à la question sur le redémarrage automatique.
+Le résumé donne l'adresse de webadmin (`http://<nom-du-pi>.local:8080` et par adresse IP), l'identifiant `admin`, le mot de passe (s'il a été généré, il n'est plus affiché ensuite) et les commandes utiles. Si le correctif de veille a été appliqué, l'installeur propose de redémarrer le Pi.
 
-Le mot de passe de webadmin, la clé CARTO et les identifiants MQTT sont stockés dans `config.ini`, avec des droits 600. Tous les réglages se modifient ensuite depuis webadmin.
+Le mot de passe de webadmin, la clé CARTO et les identifiants MQTT sont stockés dans `config.ini` et `webadmin.ini`, avec des droits 600. Tous les réglages se modifient ensuite depuis webadmin.
 
 ---
 
@@ -124,13 +121,15 @@ Le mot de passe de webadmin, la clé CARTO et les identifiants MQTT sont stocké
 |---|---|
 | `main.py` | Programme d'affichage (pygame, sortie directe KMS/DRM, sans bureau graphique). |
 | `build_map_vector.py` | Génère la carte `background.png` et `map_meta.json` à partir de `config.ini` (position, rayon, taille, clé CARTO). |
-| `config.ini` | Tous les réglages : programme, plus les sections `[server]`, `[app]`, `[screen]`, `[build]` et `[mqtt]` de l'interface web. Modèle : `config.ini.example`. |
+| `config.ini` | Réglages du programme. Modèle : `config.ini.example`. |
 | `types_extra.txt` | Optionnel : associe des types d'avion inconnus à une forme d'icône. |
 | `webadmin.py` | Serveur web d'administration (bibliothèque standard Python). |
 | `webadmin_mqtt.py` | Pont MQTT / Home Assistant, chargé par webadmin. |
+| `webadmin.ini` | Réglages de webadmin (port, mot de passe, chemins, MQTT). Modèle : `webadmin.ini.example`. |
 | `install.sh` | Installeur automatique en une commande. |
-| `/usr/local/bin/flight-screen` | Script root de veille et réveil de l'écran (créé par l'étape 9 de `install.sh`). |
-| `/usr/local/bin/flight-screen-guard` | Garde qui remet l'écran en veille s'il se rallume tout seul pendant une veille (créée par l'étape 9 de `install.sh`). |
+| `install_webadmin.sh` | Installe webadmin, le script de veille, sa garde et les droits sudo (appelé par `install.sh`). |
+| `/usr/local/bin/flight-screen` | Script root de veille et réveil de l'écran (créé par `install_webadmin.sh`). |
+| `/usr/local/bin/flight-screen-guard` | Garde qui remet l'écran en veille s'il se rallume tout seul pendant une veille (créée par `install_webadmin.sh`). |
 | `/usr/local/bin/fd` | Raccourci : `fd logs`, `fd restart`... |
 | `cache/` | Détails d'avions, photos, état du son (`runtime.json`). |
 
@@ -176,7 +175,7 @@ Adaptez ces valeurs si vous en choisissez d'autres.
 - Un ordinateur avec Raspberry Pi Imager et un client SSH.
 - Une clé API CARTO, nécessaire pour construire la carte (le script télécharge le fond de carte vectoriel CARTO avec cette clé). Elle est gratuite pour un usage personnel et se demande sur `https://carto.com/basemaps/apikey/` : voir le README pour le pas à pas.
 - Si vous utilisez Home Assistant : un serveur MQTT (par exemple Mosquitto) et ses identifiants.
-- Pour l'installation manuelle : les fichiers du projet (`main.py`, `build_map_vector.py`, `config.ini.example`, `webadmin.py`, `webadmin_mqtt.py`, `requirements.txt`), soit par `git clone https://github.com/arcalulu/flightdisplay.git`, soit copiés depuis un ordinateur.
+- Pour l'installation manuelle : les fichiers du projet (`main.py`, `build_map_vector.py`, `config.ini.example`, `webadmin.py`, `webadmin_mqtt.py`, `webadmin.ini.example`, `install_webadmin.sh`, `requirements.txt`), soit par `git clone https://github.com/arcalulu/flightdisplay.git`, soit copiés depuis un ordinateur.
 
 ---
 
@@ -230,7 +229,7 @@ La ligne `System clock synchronized: yes` doit apparaître.
 ### 3.5 Paquets nécessaires
 
 ```
-sudo apt install -y git curl python3-venv python3-pygame python3-pil python3-requests fonts-dejavu-core alsa-utils kbd python3-paho-mqtt libegl1 libegl-mesa0 libgles2
+sudo apt install -y git curl python3-venv python3-pygame python3-requests fonts-dejavu-core alsa-utils kbd python3-paho-mqtt
 ```
 
 | Paquet | Pourquoi |
@@ -238,13 +237,11 @@ sudo apt install -y git curl python3-venv python3-pygame python3-pil python3-req
 | `git`, `curl` | Récupération du projet et de l'installeur. |
 | `python3-venv` | Création de l'environnement Python. |
 | `python3-pygame` | Affichage et son. L'installer par apt apporte aussi les bibliothèques SDL nécessaires. |
-| `python3-pil` | Pillow, bibliothèque d'images utilisée par `build_map_vector.py` pour construire la carte. |
 | `python3-requests` | Téléchargement des photos et du fond de carte. |
 | `fonts-dejavu-core` | Police utilisée par le programme (`DejaVuSans`). Sans elle, il se rabat sur une police par défaut. |
 | `alsa-utils` | Outils audio (`aplay`, `alsamixer`, `speaker-test`). |
 | `kbd` | Commande `chvt`, utilisée par la veille d'écran. |
 | `python3-paho-mqtt` | MQTT / Home Assistant (même si vous ne l'utilisez pas encore : il s'active ensuite depuis webadmin). |
-| `libegl1`, `libegl-mesa0`, `libgles2` | EGL et OpenGL ES, indispensables pour afficher sans bureau (pilote KMS/DRM). Sur Raspberry Pi OS Lite ils ne sont pas installés par défaut : sans eux le programme s'arrête avec `pygame.error: EGL not initialized`. |
 
 ### 3.6 Correctif du signal HDMI (hotplug)
 
@@ -284,7 +281,7 @@ Au lieu du `git clone`, créez le dossier et copiez les fichiers depuis votre or
 
 ```
 mkdir -p ~/flightdisplay
-scp main.py build_map_vector.py config.ini.example webadmin.py webadmin_mqtt.py requirements.txt flightdisplay@flightradarpi.local:~/flightdisplay/
+scp main.py build_map_vector.py config.ini.example webadmin.py webadmin_mqtt.py webadmin.ini.example install_webadmin.sh requirements.txt flightdisplay@flightradarpi.local:~/flightdisplay/
 ```
 
 Puis créez l'environnement Python comme en 4.1. Le fichier `types_extra.txt` est optionnel : il se crée depuis webadmin (section 9.8).
@@ -298,18 +295,18 @@ cd ~/flightdisplay
 grep -E '^(import|from) ' build_map_vector.py
 ```
 
-Installer ce qui manque : paquets `python3-...` par apt s'ils existent, sinon `./venv/bin/pip install <nom>`. Pillow (`python3-pil`) est indispensable : l'installeur le vérifie et l'ajoute si besoin. Si l'étape affiche « Analyse de build_map_vector.py impossible », le script contient une erreur de syntaxe : l'erreur exacte est dans `~/flightdisplay-install.log`.
+Installer ce qui manque : paquets `python3-...` par apt s'ils existent, sinon `./venv/bin/pip install <nom>`.
 
 ### 4.4 Créer config.ini
 
 ```
 cd ~/flightdisplay
 cp config.ini.example config.ini
-chmod 600 config.ini
+cp webadmin.ini.example webadmin.ini
 nano config.ini
 ```
 
-Il faut renseigner au minimum la position, la clé CARTO et la taille de la carte. Toutes les options sont décrites en section 8 (programme) et 10.2 (interface web), et modifiables ensuite depuis webadmin. L'installeur automatique ajoute lui-même les sections de l'interface web avec leurs valeurs par défaut. Exemple minimal :
+Il faut renseigner au minimum la position, la clé CARTO et la taille de la carte. Toutes les options sont décrites en section 8 et modifiables ensuite depuis webadmin. Exemple minimal :
 
 ```ini
 [position]
@@ -326,7 +323,7 @@ width = 1280
 height = 720
 ```
 
-`config.ini` contient des secrets (clé CARTO, mot de passe webadmin, identifiants MQTT) : il n'est pas versionné par Git (il est dans `.gitignore`) et doit rester en droits restreints (`chmod 600`).
+`config.ini` et `webadmin.ini` contiennent des secrets : ils ne sont pas versionnés par Git (ils sont dans `.gitignore`) et doivent rester en droits restreints (`chmod 600`).
 
 ### 4.5 Construire la carte
 
@@ -444,7 +441,7 @@ Si le son est indisponible, `fd logs` affiche `son indisponible : ...` et l'affi
 
 ### 6.2 Veille d'écran
 
-La veille est assurée par deux scripts créés par l'étape 9 de `install.sh` : `/usr/local/bin/flight-screen` (veille et réveil) et `/usr/local/bin/flight-screen-guard` (garde).
+La veille est assurée par deux scripts créés par `install_webadmin.sh` : `/usr/local/bin/flight-screen` (veille et réveil) et `/usr/local/bin/flight-screen-guard` (garde).
 
 **Pourquoi le programme est arrêté pendant la veille.** Tant que le programme d'affichage tourne, il garde la main sur la sortie vidéo : écrire dans le framebuffer ne coupe pas le signal (`dpms` reste à `On`). La veille arrête donc d'abord le service.
 
@@ -589,32 +586,37 @@ sudo nmcli connection up "NOM_DE_LA_CONNEXION"
 
 ---
 
-## 7. Installer webadmin (manuel)
+## 7. Installer webadmin
 
-L'installeur automatique (section 0) exécute déjà cette étape, à son étape 9. Il n'y a plus de script séparé : `install_webadmin.sh` a été intégré à `install.sh`.
+L'installeur automatique (section 0) exécute déjà cette étape. Pour une installation manuelle :
 
 ### 7.1 Installation
 
-Le plus simple est de relancer l'installeur en conservant la configuration (section 0.6) : il réinstalle les services webadmin et veille sans reposer les questions. Pour une installation entièrement manuelle, les étapes sont :
+```
+cd ~/flightdisplay
+sudo bash install_webadmin.sh
+```
 
-1. installer `kbd` et `python3-paho-mqtt` s'ils manquent ;
-2. créer `/usr/local/bin/flight-screen` (veille et réveil de l'écran, section 6.2, droits 755, propriétaire root) ;
-3. créer `/usr/local/bin/flight-screen-guard` et l'unité `flight-screen-guard.service`, puis activer et démarrer le service ;
-4. créer `/etc/sudoers.d/flightadmin` (droits 440), validé au préalable par `visudo -cf` : il autorise uniquement, sans mot de passe, démarrer, arrêter et relancer le service `flightdisplay`, redémarrer, éteindre, et `flight-screen on|off` ;
-5. renseigner `python` dans `config.ini`, section `[app]`, avec l'interpréteur du venv (utilisé pour construire la carte) et laisser `config.ini` en droits 600 ;
-6. créer l'unité `flightadmin.service` (utilisateur normal, groupe `systemd-journal` pour lire les logs), puis `systemctl daemon-reload`, `enable` et `restart`.
+L'installeur détecte l'utilisateur qui l'a lancé avec sudo. Il demande un mot de passe pour l'interface (sauf si `webadmin.ini` en contient déjà un), puis :
 
-L'étape 9 est relançable à volonté : elle réécrit les deux scripts de veille (toute modification manuelle est perdue) et redémarre les services webadmin et garde.
+1. installe `kbd` et `python3-paho-mqtt` s'ils manquent ;
+2. crée `/usr/local/bin/flight-screen` (veille et réveil de l'écran, section 6.2) ;
+3. crée `/usr/local/bin/flight-screen-guard` et son service `flight-screen-guard`, qu'il active et redémarre ;
+4. ajoute `/etc/sudoers.d/flightadmin`, qui autorise uniquement, sans mot de passe : démarrer, arrêter, relancer le service `flightdisplay`, redémarrer, éteindre, et `flight-screen on|off` ;
+5. renseigne dans `webadmin.ini` l'interpréteur Python du venv (utilisé pour construire la carte) et protège le fichier (droits 600) ;
+6. crée, active et redémarre le service `flightadmin` (groupe `systemd-journal` pour lire les logs).
 
-Variables d'environnement acceptées par l'installeur pour cette étape :
+Le script est relançable à volonté : il réécrit les deux scripts de veille (toute modification manuelle est perdue) et redémarre les services webadmin et garde.
+
+Variables d'environnement acceptées par `install_webadmin.sh` :
 
 | Variable | Défaut | Rôle |
 |---|---|---|
 | `SERVICE` | `flightdisplay` | Nom du service d'affichage. |
-| `FD_MAIN_VT` | 1 | Terminal virtuel principal (retour au réveil). |
-| `FD_IDLE_VT` | 7 | Terminal virtuel inutilisé pour la veille. |
+| `MAIN_VT` | 1 | Terminal virtuel principal (retour au réveil). |
+| `IDLE_VT` | 7 | Terminal virtuel inutilisé pour la veille. |
 
-Exemple : `FD_IDLE_VT=8 bash install.sh`.
+Exemple : `sudo IDLE_VT=8 bash install_webadmin.sh`.
 
 ### 7.2 Premier accès
 
@@ -636,7 +638,7 @@ journalctl -u flightadmin -n 50 --no-pager
 
 Les options manquantes prennent la valeur par défaut indiquée. Chacune se règle dans webadmin, onglet Réglages, dans la catégorie indiquée par le titre de section. Les changements sont lus par le programme au démarrage : il faut le relancer (« Enregistrer et appliquer », ou `fd restart`). Les réglages marqués « carte » demandent en plus de reconstruire la carte. Les largeurs (panneau, liste) sont exprimées pour un écran de 1080 pixels de haut et s'adaptent à la hauteur réelle de la carte. Si vous modifiez le fichier à la main, mettez les commentaires sur leur propre ligne, jamais à la suite d'une valeur.
 
-Le modèle `config.ini.example` contient toutes les sections avec des valeurs d'exemple. Les sections de l'interface web (`[server]`, `[app]`, `[screen]`, `[build]`, `[mqtt]`) sont décrites en 10.2.
+Le modèle `config.ini.example` contient toutes les sections avec des valeurs d'exemple.
 
 ### 8.1 `[position]` — catégorie « Carte et position »
 
@@ -873,7 +875,7 @@ Catégories valides : `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `b
 | `PYGAME_HIDE_SUPPORT_PROMPT=1` | Masque le message d'accueil de pygame. |
 | `SDL_VIDEODRIVER`, `SDL_RENDER_DRIVER` | Définis automatiquement (`kmsdrm`, `opengles2`) sur Linux sans bureau, sauf si déjà présents. |
 | `SDL_AUDIODRIVER` | Défini à `dummy` seulement si `[alert] sound = false`. Ne pas le définir autrement. |
-| `WEBADMIN_INI` | Chemin alternatif du fichier de réglages lu par webadmin (par défaut `config.ini`). |
+| `WEBADMIN_INI` | Chemin alternatif pour `webadmin.ini`. |
 
 ---
 
@@ -913,10 +915,10 @@ Sur ordinateur, un menu à gauche liste les catégories ; sur téléphone, il de
 | | Avions au sol | config.ini | Liste, filtres, atterrissage. |
 | | Alerte de proximité | config.ini | Zone, son et volume, teinte rouge, plage d'altitude, démarrage (son au lancement, simulation). |
 | | Types d'avion | types_extra.txt | Éditeur des règles, types inconnus détectés. |
-| | Autres réglages | config.ini | Toute clé hors schéma (affichée seulement s'il y en a), sections du programme et sections de l'interface web séparées. |
-| Webadmin | Serveur web | config.ini | Adresse, port, identifiant, mot de passe. L'avertissement « aucun mot de passe » s'affiche ici (et seulement ici) tant qu'aucun mot de passe n'est défini. |
-| | Application et système | config.ini | Dossier, fichiers, service, Python de la carte, sudo, commandes, script et témoin de veille, arrêt de l'affichage pendant la carte. |
-| Intégrations | MQTT / Home Assistant | config.ini | Connexion, sujets et découverte, avec état et bouton « Reconnecter ». |
+| | Autres réglages | config.ini | Toute clé hors schéma (affichée seulement s'il y en a). |
+| Webadmin | Serveur web | webadmin.ini | Adresse, port, identifiant, mot de passe. L'avertissement « aucun mot de passe » s'affiche ici (et seulement ici) tant qu'aucun mot de passe n'est défini. |
+| | Application et système | webadmin.ini | Dossier, fichiers, service, Python de la carte, sudo, commandes, script et témoin de veille, arrêt de l'affichage pendant la carte. |
+| Intégrations | MQTT / Home Assistant | webadmin.ini | Connexion, sujets et découverte, avec état et bouton « Reconnecter ». |
 
 Commandes de saisie : interrupteurs à bascule pour les valeurs oui/non, boutons segmentés pour les choix à deux ou trois valeurs, curseurs pour le volume et l'intensité du rouge, champs texte avec limites pour le reste. Les mots de passe et la clé CARTO sont masqués : le champ reste vide pour conserver la valeur actuelle, saisir une valeur la remplace, le bouton « Effacer » la supprime.
 
@@ -926,7 +928,7 @@ Enregistrement :
 - « Enregistrer » écrit les fichiers et affiche ce qu'il reste à appliquer, avec des boutons pour le faire.
 - « Enregistrer et appliquer » fait aussi les relances nécessaires.
 - Les réglages de carte (position, rayon, taille, clé) déclenchent un bandeau qui propose de reconstruire la carte.
-- Seules les lignes modifiées sont réécrites : les commentaires des fichiers sont conservés. Une sauvegarde `config.ini.bak` est créée à chaque enregistrement, même quand la modification touche à la fois des réglages du programme et de l'interface web (une seule écriture, une seule sauvegarde). Le bouton « Revenir à la version précédente », en bas des catégories Webadmin et Intégrations, restaure tout `config.ini` (un second clic annule l'opération) : il remet donc aussi les réglages du programme dans l'état de la sauvegarde.
+- Seules les lignes modifiées sont réécrites : les commentaires des fichiers sont conservés. Une sauvegarde `.bak` est créée à chaque enregistrement. Pour `webadmin.ini`, un bouton « Revenir à la version précédente » en bas des catégories Webadmin et Intégrations échange le fichier avec elle (un second clic annule l'opération). Il n'y a pas de bouton équivalent pour `config.ini` dans l'interface : `config.ini.bak` reste disponible en ligne de commande.
 - Les valeurs hors limites ou mal formées sont refusées avec un message, sans rien écrire.
 
 Quand une modification est prise en compte :
@@ -950,9 +952,9 @@ Quand une modification est prise en compte :
 
 - Journal du service d'affichage : 100, 300 ou 1000 lignes, filtre texte, actualisation automatique (interrupteur) toutes les 3 secondes. Les erreurs sont en rouge, les avertissements en jaune.
 
-### 10.2 Réglages de l'interface web
+### 10.2 Réglages de webadmin.ini
 
-Ces options vivent dans `config.ini`, aux sections `[server]`, `[app]`, `[screen]`, `[build]` et `[mqtt]`, et se modifient dans Réglages, catégories « Serveur web », « Application et système » et « MQTT / Home Assistant ». Le fichier peut aussi s'éditer à la main (puis `sudo systemctl restart flightadmin`). L'installeur écrit ces sections avec les valeurs par défaut ci-dessous quand elles manquent.
+Toutes ces options se modifient dans Réglages, catégories « Serveur web », « Application et système » et « MQTT / Home Assistant ». Le fichier peut aussi s'éditer à la main (puis `sudo systemctl restart flightadmin`). Le modèle est `webadmin.ini.example`.
 
 ```ini
 [server]
@@ -1047,7 +1049,7 @@ curl -u admin:MOTDEPASSE -H "X-Admin: 1" -H "Content-Type: application/json" \
 - L'authentification HTTP Basic envoie le mot de passe en clair sur le réseau local. À réserver à un réseau domestique de confiance, jamais exposé sur Internet.
 - Sans mot de passe, tout appareil du réseau peut éteindre le Pi : l'avertissement s'affiche dans Réglages, Serveur web.
 - webadmin tourne avec votre utilisateur, pas en root. Seules les commandes listées dans `/etc/sudoers.d/flightadmin` passent par sudo.
-- `config.ini` (clé CARTO et mots de passe) reste en droits 600 (installeur et enregistrements depuis l'interface).
+- `config.ini` (clé CARTO) et `webadmin.ini` (mots de passe) restent en droits 600 (installeur et enregistrements depuis l'interface).
 - Il n'y a pas de blocage après des erreurs de mot de passe, mais chaque essai raté est ralenti d'une seconde.
 
 ---
@@ -1060,7 +1062,7 @@ curl -u admin:MOTDEPASSE -H "X-Admin: 1" -H "Content-Type: application/json" \
 2. Dans webadmin : Réglages, Intégrations, « MQTT / Home Assistant ». Activer MQTT, renseigner le serveur, le port, l'identifiant et le mot de passe, puis enregistrer. La connexion est immédiate. (L'installeur automatique peut aussi renseigner ces valeurs au moment de l'installation.)
 3. L'état de la connexion (connecté, déconnecté, refusé, paho manquant, serveur manquant) s'affiche dans une tuile de la page Pilotage et en haut de la catégorie MQTT. Le bouton « Reconnecter / republier » relance la connexion et la découverte.
 
-Les mêmes réglages existent dans `config.ini`, section `[mqtt]`.
+Les mêmes réglages existent dans `webadmin.ini`, section `[mqtt]`.
 
 ### 11.2 Options
 
@@ -1118,19 +1120,17 @@ fd restart
 sudo systemctl restart flightadmin
 ```
 
-Vos réglages (`config.ini`) ne sont pas versionnés et restent intacts. Si la mise à jour modifie les scripts de veille ou les services, relancez l'installeur en conservant la configuration (section 0.6) : l'étape 9 les réinstalle. Il met aussi à jour les paquets et les services.
-
-Depuis la version où l'interface web avait son propre fichier, la migration est automatique : `webadmin.py` et l'installeur fusionnent un `webadmin.ini` encore présent dans `config.ini` (sans écraser les valeurs existantes) puis le renomment `webadmin.ini.migre`. Vérifiez `config.ini`, sections `[server]` à `[mqtt]`, puis supprimez `webadmin.ini.migre` quand tout fonctionne.
+Vos réglages (`config.ini`, `webadmin.ini`) ne sont pas versionnés et restent intacts. Si la mise à jour modifie les scripts de veille, relancez `sudo bash install_webadmin.sh` pour les réinstaller. Relancer l'installeur (section 0.6) met aussi à jour les paquets et les services en conservant la configuration.
 
 Avec une installation par copie de fichiers : recopier `main.py` (et `webadmin.py`, `webadmin_mqtt.py`) depuis l'ordinateur, puis `fd restart` et `sudo systemctl restart flightadmin`.
 
 ### 12.2 Sauvegarde
 
-À conserver : `config.ini` (clé CARTO, mot de passe webadmin, MQTT), `types_extra.txt`, et `cache/runtime.json`. `background.png` et `map_meta.json` se régénèrent depuis `config.ini`.
+À conserver : `config.ini` (avec la clé CARTO), `webadmin.ini`, `types_extra.txt`, et `cache/runtime.json`. `background.png` et `map_meta.json` se régénèrent depuis `config.ini`.
 
 ```
 cd ~/flightdisplay
-tar czf ~/flightdisplay-backup.tgz config.ini types_extra.txt cache/runtime.json
+tar czf ~/flightdisplay-backup.tgz config.ini webadmin.ini types_extra.txt cache/runtime.json
 ```
 
 Cette sauvegarde contient des secrets : ne la partagez pas.
@@ -1163,7 +1163,6 @@ sudo reboot
 | « Ne lancez pas ce script avec sudo » | Relancer avec votre utilisateur normal, sans `sudo` : l'installeur demande sudo lui-même. |
 | L'installeur ne propose pas de saisie | Il lit le clavier du terminal : lancez-le dans une session SSH interactive (pas depuis un script non interactif). |
 | Écran noir au démarrage du service | Vérifier `fd logs`. S'assurer que l'utilisateur est dans les groupes `video` et `render` (service : `SupplementaryGroups`), et que `background.png` existe. |
-| `pygame.error: EGL not initialized`, le service redémarre en boucle | Bibliothèques EGL absentes (fréquent sur Raspberry Pi OS Lite) : `sudo apt install -y libegl1 libegl-mesa0 libgles2`, puis `sudo systemctl restart flightdisplay`. Si l'erreur persiste, ajouter `libegl-dev`. Vérifier aussi que `/dev/dri/card0` existe. |
 | « premiere image apres » jamais affiché | Le programme n'a pas pu ouvrir l'écran : relancer à la main (`./venv/bin/python main.py`) et lire l'erreur. |
 | La carte ne se construit pas : erreur `NoOptionError` | La clé `carto_key` manque dans `config.ini`, section `[map]` : la renseigner (Réglages, Carte et position). |
 | La carte ne se construit pas : erreur HTTP 401 ou 403 | Clé CARTO probablement invalide, expirée ou mal copiée : la ressaisir dans Réglages, Carte et position, puis reconstruire. |
@@ -1179,14 +1178,14 @@ sudo reboot
 | Un son retentit au lancement alors que « Son au lancement » et « Simuler une alerte » sont décochés | Le compteur de test de `cache/runtime.json` n'est pas mémorisé au chargement de `main.py` : il faut une ligne `rt_refresh(True)` au niveau du module (sans indentation, après la définition de `rt_refresh`). Sinon, un avion se trouvait déjà dans la zone d'alerte. |
 | Le son ne se coupe pas à distance | Le programme et webadmin doivent tourner avec le même utilisateur, et `cache/runtime.json` doit être modifiable par lui. |
 | La page webadmin ne s'ouvre pas | `sudo systemctl status flightadmin` et `journalctl -u flightadmin -n 50`. |
-| Après un changement de port, la page ne revient pas | Ouvrir `http://flightradarpi.local:<nouveau port>`. En cas d'erreur de réglage : éditer `config.ini` en SSH (section `[server]`) puis `sudo systemctl restart flightadmin`. |
-| Mot de passe webadmin perdu | Éditer `config.ini` en SSH (section `[server]`, ligne `password =`), puis `sudo systemctl restart flightadmin`. |
-| « sudo: a password is required » | `/etc/sudoers.d/flightadmin` manque ou le chemin de `systemctl` diffère : relancer l'installeur en conservant la configuration (étape 9). |
+| Après un changement de port, la page ne revient pas | Ouvrir `http://flightradarpi.local:<nouveau port>`. En cas d'erreur de réglage : éditer `webadmin.ini` en SSH puis `sudo systemctl restart flightadmin`. |
+| Mot de passe webadmin perdu | Éditer `webadmin.ini` en SSH (ligne `password =`), puis `sudo systemctl restart flightadmin`. |
+| « sudo: a password is required » | `/etc/sudoers.d/flightadmin` manque ou le chemin de `systemctl` diffère : relancer `install_webadmin.sh` (ou l'installeur). |
 | Logs vides dans webadmin | L'utilisateur doit pouvoir lire le journal (groupe `systemd-journal`, ajouté par le service). Le journal est en mémoire par défaut : il est vidé à chaque redémarrage du Pi. |
-| La veille ne coupe pas le signal (`dpms` reste `On`) | Le script de veille n'est pas la version à framebuffer (6.2) : `grep -c "fb0/blank" /usr/local/bin/flight-screen` doit renvoyer au moins `1`. Relancer l'installeur en conservant la configuration (étape 9) pour le réinstaller. |
+| La veille ne coupe pas le signal (`dpms` reste `On`) | Le script de veille n'est pas la version à framebuffer (6.2) : `grep -c "fb0/blank" /usr/local/bin/flight-screen` doit renvoyer au moins `1`. Relancer `sudo bash install_webadmin.sh` pour le réinstaller. |
 | L'écran se rallume seul pendant la veille | La garde le remet en veille en moins de 20 secondes. Lire `journalctl -t flight-screen-guard` pour les heures, puis suivre la démarche de 6.2 (correctif HDMI, détection d'entrée du moniteur, commande de réveil, redémarrage, CEC). |
-| La garde recoupe l'écran en boucle toutes les 20 secondes | Ancienne version de la garde (basée sur `setterm`) : relancer l'installeur (étape 9). |
-| Après la mise à jour, ma veille personnalisée a disparu | L'étape 9 de l'installeur réécrit `flight-screen` et `flight-screen-guard`. Conserver une copie de vos modifications. |
+| La garde recoupe l'écran en boucle toutes les 20 secondes | Ancienne version de la garde (basée sur `setterm`) : relancer `sudo bash install_webadmin.sh`. |
+| Après la mise à jour, ma veille personnalisée a disparu | `install_webadmin.sh` réécrit `flight-screen` et `flight-screen-guard`. Conserver une copie de vos modifications. |
 | L'écran se rallume seulement quand je l'éteins depuis Home Assistant | Vérifier que la commande de l'entité n'est pas publiée avec « retain » sur le serveur MQTT (11.3), et lire `journalctl -t sudo \| grep flight-screen` pour voir qui a lancé le réveil. |
 | Le moniteur ne s'éteint pas en veille | Vérifier `cat /sys/class/drm/card*-HDMI-A-*/dpms` : `Off` après la veille. Sinon essayer le DDC/CI (6.2). |
 | Les tuiles de Pilotage ne tiennent pas sur une ligne | Sur ordinateur, la ligne unique s'applique à partir de 860 px de large ; en dessous, les tuiles passent sur deux colonnes. |
