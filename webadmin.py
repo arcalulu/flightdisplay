@@ -80,7 +80,7 @@ CATS = [
     ("mqtt", "MQTT / Home Assistant", "Intégrations"),
 ]
 CAT_NOTES = {
-    "position": "Modifier ces valeurs oblige à reconstruire la carte (onglet Carte).",
+    "position": "Modifier ces valeurs oblige à reconstruire la carte (section Reconstruction de la carte, en bas de cette page).",
     "server": "Le port et l'adresse d'écoute demandent un redémarrage de webadmin. L'identifiant et le mot de passe s'appliquent immédiatement.",
     "paths": "Réglages avancés. Une valeur vide utilise le comportement par défaut.",
     "mqtt": "Les changements sont appliqués immédiatement : webadmin se reconnecte au serveur MQTT.",
@@ -117,8 +117,8 @@ PARAMS = [
     C("display", "display", "speed_unit", "choice", "kmh", "Unité de vitesse", "", "Unités", options=["kmh", "kt"]),
     C("display", "display", "max_altitude_ft", "int", 0, "Altitude maximale suivie (ft)", "0 = pas de limite. Les avions plus hauts sont ignorés.", "Filtre et icônes", min=0, max=100000),
     C("display", "display", "icon_scale", "float", 1.25, "Taille des icônes", "", "Filtre et icônes", min=0.3, max=5),
-    C("display", "display", "width", "int", 1920, "Largeur de la carte (px)", "Taille de l'image de fond. Demande de reconstruire la carte.", "Taille de la carte", min=320, max=7680, needs_map=True),
-    C("display", "display", "height", "int", 1080, "Hauteur de la carte (px)", "Taille de l'image de fond. Demande de reconstruire la carte.", "Taille de la carte", min=240, max=4320, needs_map=True),
+    C("position", "display", "width", "int", 1920, "Largeur de la carte (px)", "Taille de l'image de fond. Demande de reconstruire la carte.", "Taille de la carte", min=320, max=7680, needs_map=True),
+    C("position", "display", "height", "int", 1080, "Hauteur de la carte (px)", "Taille de l'image de fond. Demande de reconstruire la carte.", "Taille de la carte", min=240, max=4320, needs_map=True),
     C("panel", "panel", "width", "int", 480, "Largeur (px, base 1080p)", "", "Fiche photo", min=200, max=1200),
     C("panel", "panel", "rotate_seconds", "float", 12, "Rotation entre avions (s)", "", "Fiche photo", min=3, max=120),
     C("ground", "ground", "show_list", "bool", True, "Afficher la liste", "", "Liste"),
@@ -661,7 +661,6 @@ class Handler(BaseHTTPRequestHandler):
                 s.update(sound_state())
                 s["mqtt"] = MQTT.status
                 s["cpu"] = cpu["pct"]
-                s["mqtt_host"] = getattr(MQTT, "host", "") if MQTT.enabled else ""
                 self.send_json(s)
             elif u.path == "/api/settings":
                 self.send_json(get_settings())
@@ -856,7 +855,6 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 <nav id="nav">
   <button data-t="home" class="on" onclick="go('home')">Pilotage</button>
   <button data-t="cfg" onclick="go('cfg')">Réglages</button>
-  <button data-t="map" onclick="go('map')">Carte</button>
   <button data-t="log" onclick="go('log')">Logs</button>
 </nav>
 <main>
@@ -868,6 +866,8 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
       <div class="list" id="ctl"></div>
     </div>
     <div>
+      <h2 class="t">Écran</h2>
+      <div class="list" id="ctlScreen"></div>
       <h2 class="t">Raspberry Pi</h2>
       <div class="list">
         <div class="li stack"><div class="lt"><b>Alimentation</b><small>Après une extinction, il faut débrancher puis rebrancher l'alimentation.</small></div>
@@ -878,7 +878,7 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 </section>
 
 <section class="tab" id="t-cfg">
-  <div class="hint" id="mapHint">La position ou le rayon de la carte a changé : la carte doit être reconstruite.<div class="btns"><button class="b p s" onclick="go('map')">Aller à la reconstruction</button></div></div>
+  <div class="hint" id="mapHint">La position ou le rayon de la carte a changé : la carte doit être reconstruite.<div class="btns"><button class="b p s" onclick="gotoMap()">Aller à la reconstruction</button></div></div>
   <div class="hint" id="pending"><span id="pendTxt"></span><div class="btns" id="pendBtns"></div></div>
   <div class="set">
     <div class="menu" id="menu"></div>
@@ -886,7 +886,7 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
   </div>
 </section>
 
-<section class="tab" id="t-map">
+<div id="mapHolder" style="display:none"><div id="mapBuild">
   <div class="list">
     <div class="li stack"><div class="lt"><b>Reconstruire la carte</b><small>Lance build_map_vector.py avec la position et le rayon de config.ini. L'affichage est relancé à la fin pour charger la nouvelle carte.</small></div></div>
     <div class="li"><div class="lt"><b>Arrêter l'affichage pendant la construction</b><small>Libère la mémoire du Pi Zero.</small></div><label class="tg"><input type="checkbox" id="stopDisp"><span></span></label></div>
@@ -894,7 +894,7 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
   </div>
   <div class="chips" style="margin:0 0 8px;justify-content:flex-start"><span class="chip" id="buildState">inactif</span></div>
   <pre id="buildOut">Aucune construction lancée.</pre>
-</section>
+</div></div>
 
 <section class="tab" id="t-log">
   <div class="tools">
@@ -943,7 +943,7 @@ function go(tab) {
   document.querySelectorAll('nav button').forEach(e => e.classList.toggle('on', e.dataset.t === tab));
   updateBar();
   if (tab === 'log') loadLogs();
-  if (tab === 'map') pollBuild();
+  if (tab === 'cfg') pollBuild();
   if (tab === 'home') pollStatus();
   window.scrollTo(0, 0);
 }
@@ -955,27 +955,26 @@ function li(title, sub, cls) {
 }
 function buildHome() {
   const box = $('#ctl'); box.innerHTML = ''; rows = {};
-  const p = li('Programme d\'affichage', ''); const tp = toggle(false, onProg); p.r.append(tp.label); rows.prog = {...p, t: tp}; box.append(p.r);
-  const s = li('Écran', ''); const ts = toggle(true, onScreen); s.r.append(ts.label); rows.screen = {...s, t: ts}; box.append(s.r);
+  const p = li('Programme Flight Display', ''); const tp = toggle(false, onProg); p.r.append(tp.label); rows.prog = {...p, t: tp}; box.append(p.r);
+  const s = li('Écran', ''); const ts = toggle(true, onScreen); s.r.append(ts.label); rows.screen = {...s, t: ts}; const scr = $('#ctlScreen'); scr.innerHTML = ''; scr.append(s.r);
   const n = li('Son des alertes', ''); const tn = toggle(true, onSound); n.r.append(tn.label); rows.sound = {...n, t: tn}; box.append(n.r);
   const v = li('Volume', '', 'full'); const w = el('div', 'sl'); w.style.width = '100%';
   const vol = document.createElement('input'); vol.type = 'range'; vol.min = 0; vol.max = 100; vol.step = 5; vol.value = 60; const vl = el('span', null, '60 %');
-  w.append(vol, vl); v.r.append(w); rows.vol = {vol, vl}; box.append(v.r);
+  const tb = el('button', 'b s', 'Tester le son'); tb.style.flex = 'none';
+  w.append(vol, vl, tb); v.r.append(w); rows.vol = {vol, vl}; rows.test = tb; box.append(v.r);
   vol.addEventListener('input', () => {
     volDrag = true; vl.textContent = vol.value + ' %';
     if (!volTimer) volTimer = setTimeout(async () => { volTimer = null; try { await api('/api/sound', {volume: vol.value / 100}); } catch (e) { toast(e.message, true); } }, 200);
   });
   vol.addEventListener('change', async () => { try { await api('/api/sound', {volume: vol.value / 100}); } catch (e) { toast(e.message, true); } volDrag = false; pollStatus(); });
-  const a = el('div', 'li stack'), bt = el('div', 'btns'); const tb = el('button', 'b', 'Tester le son'), rb = el('button', 'b p', 'Relancer le programme');
   tb.onclick = async () => { try { await api('/api/sound', {test: true}); toast('Son de test envoyé'); } catch (e) { toast(e.message, true); } };
-  rb.onclick = () => svc('restart'); bt.append(tb, rb); a.append(bt); rows.test = tb; box.append(a);
 }
 async function busy(inp, fn) {
   inp.disabled = true;
   try { await fn(); } catch (e) { toast(e.message, true); } finally { inp.disabled = false; setTimeout(pollStatus, 1200); }
 }
 function onProg(on, inp) {
-  if (!on && !confirm("Arrêter le programme d'affichage ?")) { inp.checked = true; return; }
+  if (!on && !confirm("Arrêter le programme Flight Display ?")) { inp.checked = true; return; }
   busy(inp, async () => {
     const r = on ? (lastSt && lastSt.screen_off ? await api('/api/screen', {action: 'on'}) : await api('/api/service', {action: 'start'})) : await api('/api/service', {action: 'stop'});
     toast(r.message);
@@ -1023,7 +1022,7 @@ async function pollStatus() {
     t.append(tile('Allumé depuis', fmtUp(s.uptime), '', s.host));
     const ml = {connecte: ['connecté', 'ok'], deconnecte: ['déconnecté', 'bad'], off: ['désactivé', ''], 'paho manquant': ['paho manquant', 'bad'], 'host manquant': ['serveur manquant', 'warn']};
     const mq = ml[s.mqtt] || [String(s.mqtt).startsWith('refuse') ? 'refusé' : s.mqtt, 'bad'];
-    t.append(tile('MQTT', mq[0], mq[1], s.mqtt === 'off' ? '' : s.mqtt_host));
+    t.append(tile('MQTT', mq[0], mq[1]));
     if (rows.prog) {
       const run = s.service === 'active';
       if (!rows.prog.t.input.disabled) rows.prog.t.input.checked = run;
@@ -1108,7 +1107,14 @@ function control(p) {
   i.oninput = () => { setEdit(p, p.type === 'float' ? i.value.trim().replace(',', '.') : i.value.trim()); i.classList.toggle('chg', p.id in edits); };
   return {c: i, inline: false};
 }
+function gotoMap() { go('cfg'); curCat = 'position'; renderMenu(); renderCat(); }
 function renderCat() {
+  const mb = $('#mapBuild'), holder = $('#mapHolder');
+  if (mb && holder && mb.parentNode !== holder) holder.appendChild(mb);
+  renderCatBase();
+  if (curCat === 'position' && mb) { const box = $('#catbox'); box.appendChild(el('h2', 't', 'Reconstruction de la carte')); box.appendChild(mb); pollBuild(); }
+}
+function renderCatBase() {
   const box = $('#catbox'); box.innerHTML = '';
   const cat = SET.cats[curCat]; if (!cat) return;
   const head = el('div', 'catt'); head.append(el('h3', null, cat.title)); box.append(head);
@@ -1239,7 +1245,7 @@ async function pollBuild() {
 buildHome();
 setInterval(pollStatus, 4000);
 setInterval(() => { if (cur === 'log' && $('#logAuto').checked) loadLogs(); }, 3000);
-setInterval(() => { if (cur === 'map') pollBuild(); }, 2000);
+setInterval(() => { if (cur === 'cfg' && curCat === 'position') pollBuild(); }, 2000);
 pollStatus(); pollBuild();
 loadSettings().catch(e => toast(e.message, true));
 </script>
