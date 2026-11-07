@@ -216,11 +216,12 @@ class Updater:
     def _history(self, ref, new=0, n=30):
         """Derniers commits de ref ; les `new` premiers sont ceux qui ne sont pas encore installes."""
         out = self._git_ok("log", "-n", str(n), "--format=%h%x1f%cs%x1f%s%x1f%D", ref)
+        total = int(self._git_ok("rev-list", "--count", ref))  # numero de version = rang du commit dans l'historique
         res = []
         for i, l in enumerate(out.splitlines()):
             p = (l.split("\x1f") + ["", "", "", ""])[:4]
             tag = next((t[5:] for t in p[3].split(", ") if t.startswith("tag: ")), "")
-            res.append(dict(short=p[0], date=p[1], subject=p[2], tag=tag, new=i < new))
+            res.append(dict(short=p[0], date=p[1], subject=p[2], tag=tag, new=i < new, num=total - i))
         return res
 
     def _refresh_history(self):

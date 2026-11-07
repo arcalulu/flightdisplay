@@ -888,7 +888,7 @@ button.b:disabled{opacity:.45}
 @keyframes spin{to{transform:rotate(360deg)}}
 .stp.running .ic{display:inline-block;animation:spin 1s linear infinite}
 .cm{display:flex;gap:10px;padding:8px 14px;border-top:1px solid var(--line);font-size:14px}
-.cm:first-child{border-top:0}.cm code{color:var(--mut);font:12px ui-monospace,Menlo,Consolas,monospace;flex:none;padding-top:2px}.cm span:nth-child(2){flex:1;min-width:0}.cm .chip{flex:none;align-self:flex-start}
+.cm:first-child{border-top:0}.cm code{white-space:nowrap;color:var(--mut);font:12px ui-monospace,Menlo,Consolas,monospace;flex:none;padding-top:2px}.cm span:nth-child(2){flex:1;min-width:0}.cm .chip{flex:none;align-self:flex-start}
 .lprev{display:inline-block;background:#0a0e14;border:1px solid var(--line);border-radius:6px;padding:6px 10px;margin:4px 4px 10px;line-height:1.3}
 .lrow{padding:10px 14px;border-top:1px solid var(--line)}.lrow:first-child{border-top:0}
 .lrow .top{display:flex;align-items:center;gap:8px}.lrow .top b{flex:1;font-weight:500}
@@ -1461,7 +1461,7 @@ function renderUpd(lost) {
     nw.style.display = 'block';
     for (const m of u.history) {
       const d = el('div', 'cm'), t = el('span', null, m.subject);
-      d.append(el('code', null, m.date), t);
+      d.append(el('code', null, 'n°' + m.num + ' · ' + m.short + ' · ' + m.date), t);
       if (m.tag) d.append(el('span', 'chip', m.tag));
       if (m.new) d.append(el('span', 'chip ok', 'nouveau'));
       cl.append(d);

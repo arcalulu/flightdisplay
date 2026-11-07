@@ -966,7 +966,7 @@ Quand une modification est prise en compte :
 
 - Tuiles « Version installée », « Dernière version » et « État » (nombre de nouveautés, date de la dernière vérification).
 - « Vérifier les mises à jour » interroge GitHub ; « Mettre à jour » lance la mise à jour immédiatement, sans confirmation. Pendant l'opération : barre de progression globale, liste des sept étapes (vérifications, téléchargement, application, bibliothèques, contrôle du code, relance de l'affichage, redémarrage de webadmin) avec le temps écoulé, et journal détaillé en direct. La page se recharge seule à la fin.
-- « Historique des versions » : changelog des 30 derniers commits (date, description, étiquette de version éventuelle), les commits pas encore installés étant repérés par « nouveau ». Des avertissements signalent un fichier modifié localement, des commits locaux absents de GitHub ou un `install.sh` modifié. La procédure complète est décrite en 12.1.
+- « Historique des versions » : changelog des 30 derniers commits (numéro de version, commit, date, description, étiquette de version éventuelle), les commits pas encore installés étant repérés par « nouveau ». Des avertissements signalent un fichier modifié localement, des commits locaux absents de GitHub ou un `install.sh` modifié. La procédure complète est décrite en 12.1.
 - Une pastille sur l'onglet et une puce dans l'en-tête signalent une version disponible.
 
 **Logs**
