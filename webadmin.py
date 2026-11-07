@@ -1100,7 +1100,7 @@ async function pollStatus() {
 
     const aw = $('#authWarn'); if (aw) aw.style.display = s.auth ? 'none' : 'block';
     const t = $('#tiles'); t.innerHTML = '';
-    t.append(tile('Programme', s.service === 'active' ? 'actif' : s.service, s.service === 'active' ? 'ok' : 'bad', s.fps !== null && s.fps !== undefined ? s.fps.toFixed(1) + ' images/s (cible : ' + s.fps_target + ')' : ''));
+    t.append(tile('Programme', s.service === 'active' ? 'actif' : s.service, s.service === 'active' ? 'ok' : 'bad', s.fps !== null && s.fps !== undefined ? s.fps.toFixed(1) + ' / ' + s.fps_target + ' fps' : ''));
     t.append(tile('Écran', s.screen_off ? 'en veille' : 'allumé', s.screen_off ? 'warn' : ''));
     t.append(tile('Température', s.temp !== null ? s.temp.toFixed(0) + ' °C' : '-', s.temp > 75 ? 'bad' : (s.temp > 65 ? 'warn' : '')));
     t.append(tile('Utilisation CPU', s.cpu !== null ? Math.round(s.cpu) + ' %' : '-', s.cpu > 95 ? 'bad' : (s.cpu > 85 ? 'warn' : ''), 'charge moyenne : ' + s.load[0].toFixed(2) + ' / ' + s.load[1].toFixed(2)));
