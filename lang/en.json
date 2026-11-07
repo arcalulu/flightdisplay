@@ -444,6 +444,11 @@
   "Annulation demandée": "Cancellation requested",
   "en cours...": "in progress...",
   "terminé avec succès": "finished successfully",
-  "terminé avec erreur (code {0})": "finished with an error (code {0})"
+  "terminé avec erreur (code {0})": "finished with an error (code {0})",
+  "Cartes :": "Maps:",
+  "Données de vol :": "Flight data:",
+  "Photos :": "Photos:",
+  "© leurs auteurs": "© their authors",
+  "Crédits et licences": "Credits and licenses"
  }
 }

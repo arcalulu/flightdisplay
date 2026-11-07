@@ -41,7 +41,7 @@ Ce projet n'est affilié ni à Flightradar24 ni à aucune compagnie. Les donnée
 
 - Gratuit pour un usage personnel ou non commercial, jusqu'à 5 millions de tuiles par mois, toutes vos clés confondues. La construction d'une carte n'en consomme qu'une infime partie. L'usage commercial est gratuit jusqu'à 1 million de tuiles par mois, puis payant.
 - La clé est personnelle : ne la partagez pas et ne la réutilisez pas pour des projets sans rapport. Ne la publiez jamais (le fichier `config.ini`, qui la contient, n'est pas versionné par Git).
-- L'attribution « © OpenStreetMap contributors, © CARTO » doit rester visible : Flight display l'affiche dans la ligne d'état en bas de l'écran, ne la retirez pas.
+- L'attribution « © OpenStreetMap contributors, © CARTO » doit rester visible : Flight display l'affiche en permanence en bas à droite de l'écran (et dans le pied de page de webadmin), ne la retirez pas. Le crédit du photographe s'affiche aussi sous chaque photo.
 - Vous pouvez installer sans clé : tout est installé sauf la carte, que vous construirez plus tard.
 
 **Où elle est enregistrée.** L'installeur l'écrit dans `config.ini`, section `[map]`, clé `carto_key` (fichier en droits 600). Pour la changer plus tard : webadmin, Réglages, Carte et position, champ « Clé API CARTO » (masqué), puis, en bas de la même page, « Reconstruire la carte ».
@@ -83,6 +83,6 @@ sudo systemctl restart flightadmin
 
 ou relancer l'installeur. Vos réglages (`config.ini`, qui contient aussi ceux de l'interface web) ne sont pas touchés : ils ne sont pas versionnés.
 
-## Licence
+## Licence et crédits
 
-Code sous licence MIT (voir [LICENSE](LICENSE)). Les bibliothèques utilisées (pygame, requests, FlightRadarAPI, paho-mqtt) ont leurs propres licences.
+Code sous licence MIT (voir [LICENSE](LICENSE)). Les bibliothèques utilisées (pygame, requests, FlightRadarAPI, paho-mqtt) ont leurs propres licences. Les données, services et photos de tiers (OpenStreetMap, CARTO, Flightradar24, JetPhotos), leurs conditions et la façon dont le logiciel les respecte sont détaillés dans [CREDITS.md](CREDITS.md).

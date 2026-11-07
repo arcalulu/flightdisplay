@@ -915,6 +915,7 @@ button.b:disabled{opacity:.45}
 .vh.shut{border-radius:10px}.vh b{font-weight:600}.vh small{margin-left:auto;color:var(--mut);font-size:12px;text-align:right}
 .vh .chev{color:var(--mut);transition:transform .15s}.vh.shut .chev{transform:rotate(-90deg)}
 .vb{background:var(--card);border:1px solid var(--line);border-top:0;border-radius:0 0 10px 10px;overflow:hidden}
+.cr{margin:26px 4px 0;color:var(--mut);font-size:12px}.cr p{margin:3px 0}.cr a{color:var(--mut)}.cr span,.cr a{margin-right:8px}
 .dotn{position:relative}.dotn.dot::after{content:"";position:absolute;top:8px;right:calc(50% - 38px);width:8px;height:8px;border-radius:50%;background:var(--acc)}
 .set{display:block}
 .menu{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin:0 -4px 6px;scrollbar-width:none}
@@ -1032,6 +1033,11 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
   <div class="list"><div class="li"><div class="lt"><b>Actualisation automatique</b><small>Toutes les 3 secondes</small></div><label class="tg"><input type="checkbox" id="logAuto" checked><span></span></label></div></div>
   <pre id="logOut">Chargement...</pre>
 </section>
+<footer class="cr">
+  <p><span>Cartes :</span> <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a> <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">© CARTO</a></p>
+  <p><span>Données de vol :</span> <a href="https://www.flightradar24.com" target="_blank" rel="noopener noreferrer">Flightradar24</a> <a href="https://github.com/JeanExtreme002/FlightRadarAPI" target="_blank" rel="noopener noreferrer">FlightRadarAPI</a> <span>Photos :</span> <span>© leurs auteurs</span> <a href="https://www.jetphotos.com" target="_blank" rel="noopener noreferrer">JetPhotos</a></p>
+  <p><a href="https://github.com/arcalulu/flightdisplay/blob/main/CREDITS.md" target="_blank" rel="noopener noreferrer">Crédits et licences</a></p>
+</footer>
 </main>
 
 <div class="bar" id="saveBar"><div class="in"><span id="barTxt"></span>

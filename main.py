@@ -88,6 +88,8 @@ for _k, (_show, _size, _same) in _LBL_DEF.items():
 _ord = [x.strip() for x in cfg.get("label", "order", fallback="").split(",") if x.strip() in LABEL_FIELDS]
 LBL_ORDER = list(dict.fromkeys(_ord)) + [k for k in LABEL_FIELDS if k not in _ord]
 PANEL_W = S(cfg.getint("panel", "width", fallback=480))
+# Attributions exigees par les fournisseurs (OpenStreetMap : ODbL, CARTO : conditions du fond de carte) : ne pas retirer
+CREDITS = "\u00a9 OpenStreetMap contributors  \u00b7  \u00a9 CARTO  \u00b7  Flightradar24"
 ROTATE = cfg.getfloat("panel", "rotate_seconds", fallback=12)
 # Angles ou le panneau photo peut s'afficher, dans l'ordre : haut droite, haut gauche, bas droite, bas gauche
 PANEL_CORNERS = [cfg.getboolean("panel", k, fallback=True) for k in
@@ -767,8 +769,9 @@ def main():
                     (d["airline"], f_mid, (220, 225, 230)),
                     (route(d["origin"], d["dest"]), f_mid, (220, 225, 230)),
                     (av, f_mid, (255, 150, 150)),
-                    #(f'\u00a9 {d["credit"]} / JetPhotos', f_small, (140, 150, 160)),
                 ]
+                if d.get("credit"):  # credit du photographe : obligatoire a l'affichage de la photo
+                    lines.append((f'\u00a9 {str(d["credit"])[:44]} / JetPhotos', f_small, (140, 150, 160)))
             else:
                 lines = [
                     (s["callsign"] or "...", f_big, (255, 255, 255)),
@@ -844,7 +847,11 @@ def main():
         if rt["muted"]:
             screen.blit(mute_icon, (S(12), H - S(30)))
             tx += S(32)
-        screen.blit(f_small.render(f"{msg}", True, (110, 120, 130)), (tx, H - S(24)))
+        cr = f_small.render(CREDITS, True, (140, 150, 160))
+        cx = W - cr.get_width() - S(12)
+        st = f_small.render(f"{msg}", True, (110, 120, 130))
+        screen.blit(st, (tx, H - S(24)), area=pygame.Rect(0, 0, max(0, min(st.get_width(), cx - tx - S(16))), st.get_height()))
+        screen.blit(cr, (cx, H - S(24)))
         pygame.display.flip()
         fps_n += 1
         t_fps = time.time()

@@ -41,7 +41,7 @@ This project is not affiliated with Flightradar24 or with any airline. Flight da
 
 - Free for personal or non-commercial use, up to 5 million tiles per month, all your keys combined. Building a map uses only a tiny part of that. Commercial use is free up to 1 million tiles per month, then paid.
 - The key is personal: do not share it and do not reuse it for unrelated projects. Never publish it (the `config.ini` file, which contains it, is not versioned by Git).
-- The attribution "© OpenStreetMap contributors, © CARTO" must remain visible: Flight display shows it in the status line at the bottom of the screen, do not remove it.
+- The attribution "© OpenStreetMap contributors, © CARTO" must remain visible: Flight display always shows it at the bottom right of the screen (and in the webadmin footer), do not remove it. The photographer's credit is also shown under each photo.
 - You can install without a key: everything is installed except the map, which you will build later.
 
 **Where it is stored.** The installer writes it to `config.ini`, section `[map]`, key `carto_key` (file with 600 permissions). To change it later: webadmin, Settings, Map and position, "CARTO API key" field (hidden), then, at the bottom of the same page, "Rebuild the map".
@@ -83,6 +83,6 @@ sudo systemctl restart flightadmin
 
 or run the installer again. Your settings (`config.ini`, which also holds those of the web interface) are not touched: they are not versioned.
 
-## License
+## License and credits
 
-Code under the MIT license (see [LICENSE](LICENSE)). The libraries used (pygame, requests, FlightRadarAPI, paho-mqtt) have their own licenses.
+Code under the MIT license (see [LICENSE](LICENSE)). The libraries used (pygame, requests, FlightRadarAPI, paho-mqtt) have their own licenses. The third-party data, services and photos (OpenStreetMap, CARTO, Flightradar24, JetPhotos), their terms and how the software complies with them are detailed in [CREDITS.md](CREDITS.md).

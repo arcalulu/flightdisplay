@@ -843,14 +843,14 @@ simulate_seconds = 3
 - Positions are extrapolated between two updates (speed and heading) then smoothed, for a fluid movement. A trail of the last positions is drawn behind each aircraft.
 - Each aircraft has a label whose content, order and formatting (size, bold, italic) are set in Settings, Aircraft labels (8.7). By default: model, airline, route (origin → destination) and altitude · speed; the registration and the callsign are available as options. Until the details have arrived, it shows the type code (and the registration or callsign if they are enabled). The route is omitted if the origin and the destination are unknown (no declared flight plan). If only one is known, the other appears as `?`.
 - The labels are placed to avoid overlapping each other and leaving the screen.
-- The status line at the bottom left shows the number of aircraft in flight, above the altitude limit, on the ground, network errors and the "old data" mention if updates are late. It also contains the credits (OpenStreetMap, CARTO, Flightradar24): the attribution must remain visible.
+- The status line at the bottom left shows the number of aircraft in flight, above the altitude limit, on the ground, network errors and the "old data" mention if updates are late. On the right of the same line, the credits "© OpenStreetMap contributors · © CARTO · Flightradar24" are always shown (they are also in the webadmin footer): the attribution required by OpenStreetMap and CARTO must remain visible. See [CREDITS.md](../CREDITS.md).
 
 ### 9.2 Photo panel
 
 - A panel with the photo, the model, the registration, the airline, the route, the altitude and the speed is shown for one aircraft at a time, alternating every `rotate_seconds` among the aircraft that have a photo.
 - The presented aircraft is highlighted in red on the map.
 - The panel is placed in the corner of the screen that obstructs the displayed aircraft the least, among the corners allowed in Settings, Photo panel (8.6). An unticked corner is never used.
-- Photos and details come from Flightradar24 (JetPhotos credit). If a photo is missing or does not load, the aircraft is ignored in normal mode.
+- Photos and details come from Flightradar24; the photographer's credit ("© name / JetPhotos") is shown in small print below the panel information. If a photo is missing or does not load, the aircraft is ignored in normal mode.
 
 ### 9.3 Aircraft on the ground
 

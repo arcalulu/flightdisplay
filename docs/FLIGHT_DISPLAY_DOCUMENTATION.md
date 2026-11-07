@@ -843,14 +843,14 @@ simulate_seconds = 3
 - Les positions sont extrapolées entre deux mises à jour (vitesse et cap) puis lissées, pour un mouvement fluide. Une traînée des dernières positions est tracée derrière chaque avion.
 - Chaque avion a une étiquette dont le contenu, l'ordre et la mise en forme (taille, gras, italique) se règlent dans Réglages, Étiquettes des avions (8.7). Par défaut : modèle, compagnie, trajet (origine → destination) et altitude · vitesse ; l'immatriculation et l'indicatif de vol sont disponibles en option. Tant que les détails ne sont pas arrivés, elle affiche le code du type (et l'immatriculation ou l'indicatif s'ils sont activés). Le trajet est omis si l'origine et la destination sont inconnues (pas de plan de vol déclaré). Si une seule est connue, l'autre apparaît sous la forme `?`.
 - Les étiquettes sont placées pour éviter de se recouvrir et de sortir de l'écran.
-- La ligne d'état en bas à gauche indique le nombre d'avions en vol, au-dessus de la limite d'altitude, au sol, les erreurs réseau et la mention « données anciennes » si les mises à jour tardent. Elle contient aussi les crédits (OpenStreetMap, CARTO, Flightradar24) : l'attribution doit rester visible.
+- La ligne d'état en bas à gauche indique le nombre d'avions en vol, au-dessus de la limite d'altitude, au sol, les erreurs réseau et la mention « données anciennes » si les mises à jour tardent. À droite de la même ligne, les crédits « © OpenStreetMap contributors · © CARTO · Flightradar24 » sont toujours affichés (ils figurent aussi dans le pied de page de webadmin) : l'attribution exigée par OpenStreetMap et CARTO doit rester visible. Voir [CREDITS.md](../CREDITS.md).
 
 ### 9.2 Panneau photo
 
 - Un panneau avec la photo, le modèle, l'immatriculation, la compagnie, le trajet, l'altitude et la vitesse s'affiche pour un avion à la fois, en alternance toutes les `rotate_seconds` entre les avions qui ont une photo.
 - L'avion présenté est surligné en rouge sur la carte.
 - Le panneau se place dans le coin de l'écran qui gêne le moins les avions affichés, parmi les angles autorisés dans Réglages, Panneau photo (8.6). Un angle décoché n'est jamais utilisé.
-- Les photos et détails viennent de Flightradar24 (crédit JetPhotos). Si une photo manque ou ne se charge pas, l'avion est ignoré en mode normal.
+- Les photos et détails viennent de Flightradar24 ; le crédit du photographe (« © nom / JetPhotos ») s'affiche en petit sous les informations du panneau. Si une photo manque ou ne se charge pas, l'avion est ignoré en mode normal.
 
 ### 9.3 Avions au sol
 
