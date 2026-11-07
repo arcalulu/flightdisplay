@@ -705,8 +705,24 @@ Toute l'interface est dessinée à la résolution de la carte. Sous Windows et s
 |---|---|---|---|
 | `width` | 480 | 200 à 1200 | Largeur du panneau (px, base 1080p). |
 | `rotate_seconds` | 12 | 3 à 120 | Durée d'affichage de chaque avion quand plusieurs sont éligibles. |
-| `show_credit` | true | true / false | Ajoute sous la photo une ligne « © nom / JetPhotos ». Le crédit du photographe est déjà visible à l'intérieur de l'image : décochez l'option pour supprimer cette ligne supplémentaire. |
 | `corner_top_left`, `corner_top_right`, `corner_bottom_left`, `corner_bottom_right` | true | true / false | Angles où le panneau peut s'afficher. Un angle décoché n'est jamais utilisé, même si des avions passent derrière les autres angles (le panneau choisit alors le moins gênant parmi les angles autorisés). Si les quatre sont décochés, aucune restriction. |
+
+Le texte affiché sous la photo (modèle, compagnie, trajet, altitude, vitesse, crédit) se règle dans la catégorie « Contenu du panneau photo » (voir plus bas, `[panel_content]`). La ligne rouge d'alerte de proximité n'est pas modifiable.
+
+**`[panel_content]` — catégorie « Contenu du panneau photo »**
+
+Même système que les étiquettes d'avions (8.7) : un éditeur avec aperçu (la photo y est figurée par un cadre), et pour chaque élément les flèches ▲ ▼ (ordre), l'interrupteur (afficher ou non), la taille (Petit, Moyen, Grand), G (gras), I (italique) et « Même ligne ». Éléments : `model`, `registration`, `callsign`, `airline`, `route`, `altitude`, `speed`, et `credit` (le crédit du photographe).
+
+| Option | Défaut | Description |
+|---|---|---|
+| `order` | `model,registration,callsign,airline,route,altitude,speed,credit` | Ordre d'affichage, de haut en bas. Les éléments absents de la liste sont ajoutés à la fin. |
+| `show_<élément>` | tous : true, sauf callsign : false | Afficher l'élément. Pour le crédit, l'option est `[panel] show_credit` (clé historique conservée) : le crédit est déjà visible à l'intérieur de l'image, cette ligne le répète sous la photo. |
+| `<élément>_size` | model, registration, callsign : `large` ; airline, route, altitude, speed : `medium` ; credit : `small` | `small`, `medium` ou `large`. |
+| `<élément>_bold` | model, registration, callsign : true ; les autres : false | Gras. |
+| `<élément>_italic` | false | Italique (synthétique). |
+| `<élément>_same_line` | registration, speed : true ; callsign : true ; les autres : false | Sur la même ligne que l'élément visible précédent. |
+
+Les valeurs par défaut reproduisent l'ancien panneau : modèle et immatriculation en gras sur la première ligne, compagnie, trajet, « Altitude … · Vitesse … » et crédit.
 
 ### 8.7 `[label]` — catégorie « Étiquettes des avions »
 
@@ -849,10 +865,10 @@ simulate_seconds = 3
 
 ### 9.2 Panneau photo
 
-- Un panneau avec la photo, le modèle, l'immatriculation, la compagnie, le trajet, l'altitude et la vitesse s'affiche pour un avion à la fois, en alternance toutes les `rotate_seconds` entre les avions qui ont une photo.
+- Un panneau avec la photo, puis le texte (par défaut le modèle, l'immatriculation, la compagnie, le trajet, l'altitude, la vitesse et le crédit du photographe ; contenu, ordre et style réglables dans Réglages, Contenu du panneau photo, 8.6) s'affiche pour un avion à la fois, en alternance toutes les `rotate_seconds` entre les avions qui ont une photo.
 - L'avion présenté est surligné en rouge sur la carte.
 - Le panneau se place dans le coin de l'écran qui gêne le moins les avions affichés, parmi les angles autorisés dans Réglages, Panneau photo (8.6). Un angle décoché n'est jamais utilisé.
-- Les photos et détails viennent de Flightradar24 ; le crédit du photographe est visible dans l'image et répété (« © nom / JetPhotos ») en petit sous les informations du panneau, sauf si `show_credit` est décoché (8.6). Si une photo manque ou ne se charge pas, l'avion est ignoré en mode normal.
+- Les photos et détails viennent de Flightradar24 ; le crédit du photographe est visible dans l'image et répété (« © nom / JetPhotos ») en petit sous les informations du panneau, sauf si l'élément « Crédit du photographe » est masqué dans Réglages, Contenu du panneau photo (8.6). Si une photo manque ou ne se charge pas, l'avion est ignoré en mode normal.
 
 ### 9.3 Avions au sol
 
@@ -962,6 +978,7 @@ Sur ordinateur, un menu à gauche liste les catégories ; sur téléphone, il de
 | | Affichage | config.ini | Plein écran, images par seconde, unités, filtre d'altitude, taille des icônes. |
 | | Étiquettes des avions | config.ini | Éditeur : aperçu, ordre, affichage, taille, gras, italique, « même ligne » (8.7). |
 | | Panneau photo | config.ini | Largeur, rotation, angles autorisés. |
+| | Contenu du panneau photo | config.ini | Éditeur : aperçu, ordre, affichage, taille, gras, italique, « même ligne », crédit du photographe (8.6). |
 | | Avions au sol | config.ini | Liste, filtres, atterrissage. |
 | | Alerte de proximité | config.ini | Zone, son et volume, teinte rouge, plage d'altitude, démarrage (son au lancement, simulation). |
 | | Types d'avion | types_extra.txt | Éditeur des règles, types inconnus détectés. |

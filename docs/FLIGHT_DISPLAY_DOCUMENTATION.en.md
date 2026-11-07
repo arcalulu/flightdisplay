@@ -705,8 +705,24 @@ The whole interface is drawn at the resolution of the map. On Windows and on the
 |---|---|---|---|
 | `width` | 480 | 200 to 1200 | Panel width (px, 1080p basis). |
 | `rotate_seconds` | 12 | 3 to 120 | Display time of each aircraft when several are eligible. |
-| `show_credit` | true | true / false | Adds a "© name / JetPhotos" line below the photo. The photographer's credit is already visible inside the image: untick the option to remove this extra line. |
 | `corner_top_left`, `corner_top_right`, `corner_bottom_left`, `corner_bottom_right` | true | true / false | Corners where the panel may be shown. An unticked corner is never used, even if aircraft pass behind the other corners (the panel then picks the least obstructive among the allowed corners). If all four are unticked, there is no restriction. |
+
+The text shown below the photo (model, airline, route, altitude, speed, credit) is set in the "Photo panel content" category (see below, `[panel_content]`). The red proximity alert line cannot be changed.
+
+**`[panel_content]` — category "Photo panel content"**
+
+Same system as the aircraft labels (8.7): an editor with a preview (the photo is shown as a frame), and for each item the ▲ ▼ arrows (order), the switch (show or not), the size (Small, Medium, Large), B (bold), I (italic) and "Same line". Items: `model`, `registration`, `callsign`, `airline`, `route`, `altitude`, `speed`, and `credit` (the photographer's credit).
+
+| Option | Default | Description |
+|---|---|---|
+| `order` | `model,registration,callsign,airline,route,altitude,speed,credit` | Display order, from top to bottom. Items missing from the list are added at the end. |
+| `show_<item>` | all: true, except callsign: false | Show the item. For the credit, the option is `[panel] show_credit` (historical key kept): the credit is already visible inside the image, this line repeats it below the photo. |
+| `<item>_size` | model, registration, callsign: `large`; airline, route, altitude, speed: `medium`; credit: `small` | `small`, `medium` or `large`. |
+| `<item>_bold` | model, registration, callsign: true; the others: false | Bold. |
+| `<item>_italic` | false | Italic (synthetic). |
+| `<item>_same_line` | registration, speed, callsign: true; the others: false | On the same line as the previous visible item. |
+
+The default values reproduce the former panel: model and registration in bold on the first line, airline, route, "Altitude … · Speed …" and the credit.
 
 ### 8.7 `[label]` — category "Aircraft labels"
 
@@ -849,10 +865,10 @@ simulate_seconds = 3
 
 ### 9.2 Photo panel
 
-- A panel with the photo, the model, the registration, the airline, the route, the altitude and the speed is shown for one aircraft at a time, alternating every `rotate_seconds` among the aircraft that have a photo.
+- A panel with the photo, then the text (by default the model, the registration, the airline, the route, the altitude, the speed and the photographer's credit; content, order and style can be set in Settings, Photo panel content, 8.6) is shown for one aircraft at a time, alternating every `rotate_seconds` among the aircraft that have a photo.
 - The presented aircraft is highlighted in red on the map.
 - The panel is placed in the corner of the screen that obstructs the displayed aircraft the least, among the corners allowed in Settings, Photo panel (8.6). An unticked corner is never used.
-- Photos and details come from Flightradar24; the photographer's credit is visible in the image and repeated ("© name / JetPhotos") in small print below the panel information, unless `show_credit` is unticked (8.6). If a photo is missing or does not load, the aircraft is ignored in normal mode.
+- Photos and details come from Flightradar24; the photographer's credit is visible in the image and repeated ("© name / JetPhotos") in small print below the panel information, unless the "Photographer credit" item is hidden in Settings, Photo panel content (8.6). If a photo is missing or does not load, the aircraft is ignored in normal mode.
 
 ### 9.3 Aircraft on the ground
 
@@ -962,6 +978,7 @@ On a computer, a menu on the left lists the categories; on a phone, it becomes a
 | | Display | config.ini | Full screen, frames per second, units, altitude filter, icon size. |
 | | Aircraft labels | config.ini | Editor: preview, order, display, size, bold, italic, "same line" (8.7). |
 | | Photo panel | config.ini | Width, rotation, allowed corners. |
+| | Photo panel content | config.ini | Editor: preview, order, display, size, bold, italic, "same line", photographer credit (8.6). |
 | | Aircraft on the ground | config.ini | List, filters, landing. |
 | | Proximity alert | config.ini | Zone, sound and volume, red tint, altitude range, startup (sound at launch, simulation). |
 | | Aircraft types | types_extra.txt | Rules editor, detected unknown types. |

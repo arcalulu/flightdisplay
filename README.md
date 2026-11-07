@@ -9,7 +9,7 @@ Affichage temps réel des avions autour de chez vous sur un Raspberry Pi : carte
 ## Fonctionnalités
 
 - Carte vectorielle centrée sur votre domicile, avions orientés selon leur cap, étiquettes (modèle, compagnie, trajet, altitude, vitesse) que vous pouvez réordonner et mettre en forme.
-- Fiche photo de l'avion, liste des avions au sol.
+- Fiche photo de l'avion (texte personnalisable : ordre, taille, gras, italique), liste des avions au sol.
 - Alerte de proximité : carillon, teinte rouge clignotante, fiche prioritaire, avec plage d'altitude réglable.
 - Webadmin : tuiles de supervision (température, CPU, mémoire et disque en anneaux de progression, MQTT, images par seconde, heure du Pi), surveillance du disque et gestion du cache des photos, interrupteurs (programme, écran, son), volume en direct, réglages complets, reconstruction de la carte, logs, et mises à jour du logiciel directement depuis GitHub.
 - Veille et réveil de l'écran, redémarrage et extinction du Pi à distance, et planning hebdomadaire d'allumage de l'écran (calendrier glissable, prochaine action affichée dans Pilotage).

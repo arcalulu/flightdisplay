@@ -125,6 +125,7 @@ CATS = [
     ("display", "Affichage", "Programme"),
     ("label", "Étiquettes des avions", "Programme"),
     ("panel", "Panneau photo", "Programme"),
+    ("pcontent", "Contenu du panneau photo", "Programme"),
     ("ground", "Avions au sol", "Programme"),
     ("alert", "Alerte de proximité", "Programme"),
     ("types", "Types d'avion", "Programme"),
@@ -138,6 +139,7 @@ CATS = [
 ]
 CAT_NOTES = {
     "language": "Langue de webadmin (immédiat) et du texte affiché à l'écran par le programme (après sa relance : « Enregistrer et appliquer »). Pour ajouter une langue, déposez un fichier dans le dossier lang (voir la documentation).",
+    "pcontent": "Texte affiché sous la photo dans le panneau : réordonnez les éléments avec les flèches, choisissez ceux à afficher, leur taille, gras et italique, et s'ils partagent la ligne de l'élément précédent. La ligne d'alerte de proximité n'est pas modifiable. Pris en compte après relance du programme.",
     "label": "Petits panneaux affichés à côté de chaque avion sur la carte. Réordonnez les éléments avec les flèches, choisissez ceux à afficher, leur taille, gras et italique, et s'ils partagent la ligne de l'élément précédent. Si tout est masqué, aucun panneau n'est affiché. Pris en compte après relance du programme.",
     "position": "Modifier ces valeurs oblige à reconstruire la carte (section Reconstruction de la carte, en bas de cette page).",
     "server": "Le port et l'adresse d'écoute demandent un redémarrage de webadmin. L'identifiant et le mot de passe s'appliquent immédiatement.",
@@ -164,21 +166,49 @@ def W(*a, **k):
     return P(a[0], "web", *a[1:], **k)
 
 
-# Champs des etiquettes d'avion : (id, nom, visible, taille, meme ligne que le precedent). Memes defauts que main.py.
-LABEL_FIELDS = [("model", "Modèle de l'avion", True, "medium", False), ("registration", "Immatriculation", False, "medium", True),
-                ("callsign", "Indicatif de vol", False, "medium", True), ("airline", "Compagnie", True, "small", False),
-                ("route", "Trajet", True, "small", False), ("altitude", "Altitude", True, "small", False),
-                ("speed", "Vitesse", True, "small", True)]
-LABEL_PARAMS = [C("label", "label", "order", "text", ",".join(f[0] for f in LABEL_FIELDS), "Ordre des éléments",
-                  "Ordre d'affichage, de haut en bas.", "Disposition", fields=[f[0] for f in LABEL_FIELDS])]
-for _id, _name, _show, _size, _same in LABEL_FIELDS:
-    LABEL_PARAMS += [
-        C("label", "label", "show_" + _id, "bool", _show, _name, "", "Contenu"),
-        C("label", "label", _id + "_size", "choice", _size, _name + " : taille", "", "Style", options=["small", "medium", "large"]),
-        C("label", "label", _id + "_bold", "bool", False, _name + " : gras", "", "Style"),
-        C("label", "label", _id + "_italic", "bool", False, _name + " : italique", "", "Style"),
-        C("label", "label", _id + "_same_line", "bool", _same, _name + " : sur la ligne précédente", "", "Style"),
-    ]
+# Champs d'un bloc de texte personnalisable : (id, nom, visible, taille, meme ligne que le precedent, gras). Memes defauts que main.py.
+LABEL_FIELDS = [("model", "Modèle de l'avion", True, "medium", False, False), ("registration", "Immatriculation", False, "medium", True, False),
+                ("callsign", "Indicatif de vol", False, "medium", True, False), ("airline", "Compagnie", True, "small", False, False),
+                ("route", "Trajet", True, "small", False, False), ("altitude", "Altitude", True, "small", False, False),
+                ("speed", "Vitesse", True, "small", True, False)]
+PANEL_FIELDS = [("model", "Modèle de l'avion", True, "large", False, True), ("registration", "Immatriculation", True, "large", True, True),
+                ("callsign", "Indicatif de vol", False, "large", True, True), ("airline", "Compagnie", True, "medium", False, False),
+                ("route", "Trajet", True, "medium", False, False), ("altitude", "Altitude", True, "medium", False, False),
+                ("speed", "Vitesse", True, "medium", True, False), ("credit", "Crédit du photographe", True, "small", False, False)]
+FIELD_HINTS = {"credit": "Le crédit est déjà visible à l'intérieur de l'image : cette ligne le répète sous la photo."}
+# la visibilite du credit existait deja sous [panel] show_credit
+PANEL_SHOW_KEYS = {"credit": ("panel", "show_credit")}
+
+
+def field_params(cat, sec, fields, show_keys=None):
+    ids = [f[0] for f in fields]
+    out = [C(cat, sec, "order", "text", ",".join(ids), "Ordre des éléments", "Ordre d'affichage, de haut en bas.", "Disposition", fields=ids)]
+    for _id, _name, _show, _size, _same, _bold in fields:
+        ssec, skey = (show_keys or {}).get(_id, (sec, "show_" + _id))
+        out += [
+            C(cat, ssec, skey, "bool", _show, _name, "", "Contenu"),
+            C(cat, sec, _id + "_size", "choice", _size, _name + " : taille", "", "Style", options=["small", "medium", "large"]),
+            C(cat, sec, _id + "_bold", "bool", _bold, _name + " : gras", "", "Style"),
+            C(cat, sec, _id + "_italic", "bool", False, _name + " : italique", "", "Style"),
+            C(cat, sec, _id + "_same_line", "bool", _same, _name + " : sur la ligne précédente", "", "Style"),
+        ]
+    return out
+
+
+def field_editor(sec, fields, mode, show_keys=None):
+    """Description de l'editeur de contenu envoyee a l'interface (textes traduits)."""
+    pid = lambda s_, k: "config:%s.%s" % (s_, k)
+    out = []
+    for f in fields:
+        ssec, skey = (show_keys or {}).get(f[0], (sec, "show_" + f[0]))
+        out.append(dict(id=f[0], name=tr(f[1]), hint=tr(FIELD_HINTS.get(f[0], "")) if mode == "panel" else "",
+                        ids=dict(show=pid(ssec, skey), size=pid(sec, f[0] + "_size"), bold=pid(sec, f[0] + "_bold"),
+                                 italic=pid(sec, f[0] + "_italic"), same=pid(sec, f[0] + "_same_line"))))
+    return dict(mode=mode, order=pid(sec, "order"), fields=out)
+
+
+LABEL_PARAMS = field_params("label", "label", LABEL_FIELDS)
+PANEL_PARAMS = field_params("pcontent", "panel_content", PANEL_FIELDS, PANEL_SHOW_KEYS)
 
 LANGS = i18n.languages()
 
@@ -202,10 +232,9 @@ PARAMS = [
     C("position", "display", "width", "int", 1920, "Largeur de la carte (px)", "Taille de l'image de fond. Demande de reconstruire la carte.", "Taille de la carte", min=320, max=7680, needs_map=True),
     C("position", "display", "height", "int", 1080, "Hauteur de la carte (px)", "Taille de l'image de fond. Demande de reconstruire la carte.", "Taille de la carte", min=240, max=4320, needs_map=True),
     *LABEL_PARAMS,
+    *PANEL_PARAMS,
     C("panel", "panel", "width", "int", 480, "Largeur (px, base 1080p)", "", "Fiche photo", min=200, max=1200),
     C("panel", "panel", "rotate_seconds", "float", 12, "Rotation entre avions (s)", "", "Fiche photo", min=3, max=120),
-    C("panel", "panel", "show_credit", "bool", True, "Crédit du photographe sous la photo",
-      "Le crédit est déjà visible à l'intérieur de l'image : cette option ajoute en plus une ligne de texte sous la photo dans le panneau. Décochez-la pour la masquer.", "Fiche photo"),
     C("panel", "panel", "corner_top_left", "bool", True, "Haut gauche", "Décochez un angle pour que le panneau n'y soit jamais affiché, même si un avion passe derrière les autres angles. Si tout est décoché, aucune restriction.", "Angles autorisés"),
     C("panel", "panel", "corner_top_right", "bool", True, "Haut droite", "", "Angles autorisés"),
     C("panel", "panel", "corner_bottom_left", "bool", True, "Bas gauche", "", "Angles autorisés"),
@@ -325,7 +354,8 @@ def get_settings():
                          needs_map=False, apply="app" if f == "config" else "live", present=True, min=None, max=None,
                          step=None, ui=None, secret=False, set=True, value=cur["value"]))
     cats["types"].update(kind="types", groups=[], file=None)
-    cats["label"]["kind"] = "labels"
+    cats["label"].update(kind="fields", editor=field_editor("label", LABEL_FIELDS, "label"))
+    cats["pcontent"].update(kind="fields", editor=field_editor("panel_content", PANEL_FIELDS, "panel", PANEL_SHOW_KEYS))
     cats["schedule"]["kind"] = "schedule"
     cats["storage"]["kind"] = "storage"
     menu = []
@@ -340,7 +370,7 @@ def get_settings():
     for c in cats.values():
         if c.get("kind") != "types":
             c["groups"] = [dict(name=tr(n), params=ps) for n, ps in c["groups"].items()]
-    return dict(label_fields=[dict(id=f[0], name=f[1]) for f in LABEL_FIELDS], menu=menu, cats={k: v for k, v in cats.items() if v.get("kind") == "types" or v["groups"]},
+    return dict(menu=menu, cats={k: v for k, v in cats.items() if v.get("kind") == "types" or v["groups"]},
                 has_backup={f: os.path.exists(path_of(f) + ".bak") for f in ("config", "web")})
 
 
@@ -1607,7 +1637,7 @@ function renderCatBase() {
   if (cat.kind === 'types') return renderTypes(box);
   if (cat.kind === 'storage') renderStorage(box);
   if (cat.kind === 'schedule') { if (cat.note) box.append(el('p', 'note', cat.note)); return renderSchedule(box); }
-  if (cat.kind === 'labels') { if (cat.note) box.append(el('p', 'note', cat.note)); return renderLabels(box); }
+  if (cat.kind === 'fields') { if (cat.note) box.append(el('p', 'note', cat.note)); return renderFields(box, cat); }
   if (cat.id === 'mqtt') {
     const st = lastSt ? lastSt.mqtt : 'off', h = el('div', 'tools'); const c = chip('État : ' + (st === 'off' ? 'désactivé' : st), st === 'connecte' ? 'ok' : (st === 'off' ? '' : 'bad')); c.style.flex = 'none';
     const b = el('button', 'b s', 'Reconnecter / republier'); b.style.flex = 'none'; b.onclick = async () => { try { await api('/api/mqtt/reconnect', {}); toast('Reconnexion demandée'); setTimeout(pollStatus, 2000); } catch (e) { toast(e.message, true); } };
@@ -1890,39 +1920,44 @@ function renderSchedule(box) {
   draw();
 }
 
-/* ---------- Étiquettes des avions ---------- */
-const LBL_SAMPLE = {model: 'Airbus A320', registration: 'F-GKXA', callsign: 'AFR1234', airline: 'Air France', route: 'Paris  →  Nice', altitude: '3 000 ft', speed: '450 km/h'};
+/* ---------- Contenu des étiquettes et du panneau photo (éditeur de champs) ---------- */
 const LBL_PX = {small: 13, medium: 17, large: 21}, LBL_SIZES = [['small', 'Petit'], ['medium', 'Moyen'], ['large', 'Grand']];
-function lp(key) { return allParams().find(p => p.id === 'config:label.' + key); }
-function lval(key) { const p = lp(key); return p ? pval(p) : ''; }
-function lset(key, v) { const p = lp(key); if (p) setEdit(p, String(v)); }
-function labelOrder() {
-  const names = SET.label_fields.map(f => f.id);
-  let o = String(lval('order')).split(',').map(x => x.trim()).filter(x => names.includes(x));
+function pget(id) { return allParams().find(p => p.id === id); }
+function pvalue(id) { const p = pget(id); return p ? pval(p) : ''; }
+function pset(id, v) { const p = pget(id); if (p) setEdit(p, String(v)); }
+function fieldOrder(ed) {
+  const names = ed.fields.map(f => f.id);
+  let o = String(pvalue(ed.order)).split(',').map(x => x.trim()).filter(x => names.includes(x));
   o = o.filter((x, i) => o.indexOf(x) === i);
   for (const n of names) if (!o.includes(n)) o.push(n);
   return o;
 }
-function renderLabels(box) {
-  const names = Object.fromEntries(SET.label_fields.map(f => [f.id, f.name]));
+function renderFields(box, cat) {
+  const ed = cat.editor, panel = ed.mode === 'panel', F = Object.fromEntries(ed.fields.map(f => [f.id, f]));
+  const sample = {model: 'Airbus A320', registration: 'F-GKXA', callsign: 'AFR1234', airline: 'Air France', route: 'Paris  →  Nice',
+    altitude: panel ? _t('Altitude {0}', '3 000 ft') : '3 000 ft', speed: panel ? _t('Vitesse {0}', '450 km/h') : '450 km/h', credit: '© J. Dupont / JetPhotos'};
+  const colors = panel ? {model: '#fff', registration: '#fff', callsign: '#fff', airline: '#dce1e6', route: '#dce1e6', altitude: '#ff9696', speed: '#ff9696', credit: '#8c96a0'}
+    : {model: '#fff', registration: '#fff', callsign: '#fff', airline: '#bec8d2', route: '#bec8d2', altitude: '#bec8d2', speed: '#bec8d2'};
   const prev = el('div', 'lprev'), list = el('div', 'list');
+  if (panel) prev.style.cssText = 'display:block;max-width:380px;padding:10px';
   box.append(el('h2', 't', 'Aperçu'), prev, el('h2', 't', 'Contenu, ordre et style'), list);
-  const on = k => lval(k) === 'true';
+  const on = (k, w) => pvalue(F[k].ids[w]) === 'true', val = (k, w) => pvalue(F[k].ids[w]), set = (k, w, v) => pset(F[k].ids[w], v);
   function preview() {
     prev.innerHTML = '';
+    if (panel) { const ph = el('div', null, 'photo'); ph.style.cssText = 'height:110px;border-radius:6px;background:#1f2a38;color:#5b6b80;display:flex;align-items:center;justify-content:center;font-size:12px;margin-bottom:8px'; prev.append(ph); }
     const lines = [];
-    for (const k of labelOrder()) {
-      if (!on('show_' + k)) continue;
-      if (on(k + '_same_line') && lines.length) lines[lines.length - 1].push(k); else lines.push([k]);
+    for (const k of fieldOrder(ed)) {
+      if (!on(k, 'show')) continue;
+      if (on(k, 'same') && lines.length) lines[lines.length - 1].push(k); else lines.push([k]);
     }
-    if (!lines.length) { prev.append(el('span', 'chip', 'aucune étiquette')); return; }
+    if (!lines.length) { prev.append(el('span', 'chip', panel ? 'aucun texte' : 'aucune étiquette')); return; }
     for (const ln of lines) {
       const d = el('div'); d.style.whiteSpace = 'nowrap';
       ln.forEach((k, i) => {
-        if (i) { const s = el('span', null, '  ·  '); s.style.color = '#bec8d2'; s.style.fontSize = LBL_PX[lval(ln[i - 1] + '_size')] + 'px'; d.append(s); }
-        const s = el('span', null, LBL_SAMPLE[k]);
-        s.style.fontSize = LBL_PX[lval(k + '_size')] + 'px'; s.style.fontWeight = on(k + '_bold') ? '700' : '400';
-        s.style.fontStyle = on(k + '_italic') ? 'italic' : 'normal'; s.style.color = ['model', 'registration', 'callsign'].includes(k) ? '#fff' : '#bec8d2';
+        if (i) { const s = el('span', null, '  ·  '); s.style.color = panel ? '#dce1e6' : '#bec8d2'; s.style.fontSize = LBL_PX[val(ln[i - 1], 'size')] + 'px'; d.append(s); }
+        const s = el('span', null, sample[k]);
+        s.style.fontSize = LBL_PX[val(k, 'size')] + 'px'; s.style.fontWeight = on(k, 'bold') ? '700' : '400';
+        s.style.fontStyle = on(k, 'italic') ? 'italic' : 'normal'; s.style.color = colors[k];
         d.append(s);
       });
       prev.append(d);
@@ -1933,21 +1968,22 @@ function renderLabels(box) {
   }
   function draw() {
     list.innerHTML = '';
-    const order = labelOrder();
+    const order = fieldOrder(ed), save = () => pset(ed.order, order.join(','));
     order.forEach((k, i) => {
-      const row = el('div', 'lrow' + (on('show_' + k) ? '' : ' off')), top = el('div', 'top');
-      const up = tbtn('▲', false, () => { if (i > 0) { [order[i - 1], order[i]] = [order[i], order[i - 1]]; lset('order', order.join(',')); draw(); } });
-      const dn = tbtn('▼', false, () => { if (i < order.length - 1) { [order[i + 1], order[i]] = [order[i], order[i + 1]]; lset('order', order.join(',')); draw(); } });
+      const row = el('div', 'lrow' + (on(k, 'show') ? '' : ' off')), top = el('div', 'top');
+      const up = tbtn('▲', false, () => { if (i > 0) { [order[i - 1], order[i]] = [order[i], order[i - 1]]; save(); draw(); } });
+      const dn = tbtn('▼', false, () => { if (i < order.length - 1) { [order[i + 1], order[i]] = [order[i], order[i + 1]]; save(); draw(); } });
       up.disabled = i === 0; dn.disabled = i === order.length - 1;
-      const tg = toggle(on('show_' + k), v => { lset('show_' + k, v ? 'true' : 'false'); draw(); });
-      top.append(el('b', null, names[k]), up, dn, tg.label);
+      const tg = toggle(on(k, 'show'), v => { set(k, 'show', v ? 'true' : 'false'); draw(); });
+      const nm = el('div'); nm.style.flex = '1'; nm.append(el('b', null, F[k].name)); if (F[k].hint) { const h = el('small', null, F[k].hint); h.style.cssText = 'display:block;color:var(--mut);font-size:12px;font-weight:400'; nm.append(h); }
+      top.append(nm, up, dn, tg.label);
       const opt = el('div', 'opt');
       const sz = el('div', 'seg');
-      for (const [v, t] of LBL_SIZES) { const b = el('button', lval(k + '_size') === v ? 'on' : '', t); b.onclick = () => { lset(k + '_size', v); draw(); }; sz.append(b); }
+      for (const [v, t] of LBL_SIZES) { const b = el('button', val(k, 'size') === v ? 'on' : '', t); b.onclick = () => { set(k, 'size', v); draw(); }; sz.append(b); }
       opt.append(sz,
-        tbtn('G', on(k + '_bold'), () => { lset(k + '_bold', on(k + '_bold') ? 'false' : 'true'); draw(); }, 'Gras'),
-        tbtn('I', on(k + '_italic'), () => { lset(k + '_italic', on(k + '_italic') ? 'false' : 'true'); draw(); }, 'Italique'),
-        tbtn('Même ligne', on(k + '_same_line'), () => { lset(k + '_same_line', on(k + '_same_line') ? 'false' : 'true'); draw(); }, "Afficher sur la même ligne que l'élément précédent"));
+        tbtn('G', on(k, 'bold'), () => { set(k, 'bold', on(k, 'bold') ? 'false' : 'true'); draw(); }, 'Gras'),
+        tbtn('I', on(k, 'italic'), () => { set(k, 'italic', on(k, 'italic') ? 'false' : 'true'); draw(); }, 'Italique'),
+        tbtn('Même ligne', on(k, 'same'), () => { set(k, 'same', on(k, 'same') ? 'false' : 'true'); draw(); }, "Afficher sur la même ligne que l'élément précédent"));
       row.append(top, opt); list.append(row);
     });
     preview();

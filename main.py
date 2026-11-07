@@ -91,7 +91,22 @@ PANEL_W = S(cfg.getint("panel", "width", fallback=480))
 # Attributions exigees par les fournisseurs (OpenStreetMap : ODbL, CARTO : conditions du fond de carte) : ne pas retirer
 CREDITS = "\u00a9 OpenStreetMap contributors  \u00b7  \u00a9 CARTO  \u00b7  Flightradar24"
 ROTATE = cfg.getfloat("panel", "rotate_seconds", fallback=12)
-PANEL_CREDIT = cfg.getboolean("panel", "show_credit", fallback=True)  # ligne de credit du photographe sous le panneau
+# Contenu du panneau photo (section [panel_content]) : ordre, visibilite, taille, gras, italique, meme ligne
+PANEL_FIELDS = ("model", "registration", "callsign", "airline", "route", "altitude", "speed", "credit")
+_PNL_DEF = {"model": (True, "large", True, False), "registration": (True, "large", True, True), "callsign": (False, "large", True, True),
+            "airline": (True, "medium", False, False), "route": (True, "medium", False, False),
+            "altitude": (True, "medium", False, False), "speed": (True, "medium", False, True), "credit": (True, "small", False, False)}
+PNL = {}
+for _k, (_show, _size, _bold, _same) in _PNL_DEF.items():
+    _sz = cfg.get("panel_content", _k + "_size", fallback=_size).strip().lower()
+    _sec, _key = ("panel", "show_credit") if _k == "credit" else ("panel_content", "show_" + _k)  # show_credit existait deja dans [panel]
+    PNL[_k] = dict(show=cfg.getboolean(_sec, _key, fallback=_show),
+                   bold=cfg.getboolean("panel_content", _k + "_bold", fallback=_bold),
+                   italic=cfg.getboolean("panel_content", _k + "_italic", fallback=False),
+                   size=_sz if _sz in ("small", "medium", "large") else _size,
+                   same=cfg.getboolean("panel_content", _k + "_same_line", fallback=_same))
+_pord = [x.strip() for x in cfg.get("panel_content", "order", fallback="").split(",") if x.strip() in PANEL_FIELDS]
+PNL_ORDER = list(dict.fromkeys(_pord)) + [k for k in PANEL_FIELDS if k not in _pord]
 # Angles ou le panneau photo peut s'afficher, dans l'ordre : haut droite, haut gauche, bas droite, bas gauche
 PANEL_CORNERS = [cfg.getboolean("panel", k, fallback=True) for k in
                  ("corner_top_right", "corner_top_left", "corner_bottom_right", "corner_bottom_left")]
@@ -294,6 +309,28 @@ def label_lines(s, d):
     lines = []
     for k in LBL_ORDER:
         c, v = LBL[k], vals.get(k) or ""
+        if not c["show"] or not v:
+            continue
+        if c["same"] and lines:
+            lines[-1].append((v, k))
+        else:
+            lines.append([(v, k)])
+    return lines
+
+
+def panel_lines(s, d):
+    """Texte du panneau photo : liste de lignes, chaque ligne = liste de (texte, champ) (section [panel_content])."""
+    reg = (d["reg"] if d else "") or s.get("reg") or ""
+    vals = dict(registration=reg, callsign=s["callsign"] or "", altitude=tr("Altitude {0}", fmt_alt(s["alt"])),
+                speed=tr("Vitesse {0}", fmt_speed(s["speed"])))
+    if d:
+        vals.update(model=d["model"], airline=d["airline"], route=route(d["origin"], d["dest"]),
+                    credit=("\u00a9 %s / JetPhotos" % str(d["credit"])[:44]) if d.get("credit") else "")
+    else:  # details pas encore charges
+        vals.update(model=s["code"] or "")
+    lines = []
+    for k in PNL_ORDER:
+        c, v = PNL[k], vals.get(k) or ""
         if not c["show"] or not v:
             continue
         if c["same"] and lines:
@@ -613,6 +650,19 @@ def main():
             font_cache[key] = f
         return font_cache[key]
 
+    pfont_cache = {}
+    PCOL = {"model": (255, 255, 255), "registration": (255, 255, 255), "callsign": (255, 255, 255), "airline": (220, 225, 230),
+            "route": (220, 225, 230), "altitude": (255, 150, 150), "speed": (255, 150, 150), "credit": (140, 150, 160)}
+
+    def pfont_for(k):
+        c = PNL[k]
+        key = (c["size"], c["bold"], c["italic"])
+        if key not in pfont_cache:
+            f = mk(SIZES[c["size"]], c["bold"])
+            f.set_italic(c["italic"])
+            pfont_cache[key] = f
+        return pfont_cache[key]
+
     def label_surface(lines, hl=False):
         key = (tuple(tuple(l) for l in lines), hl)
         if key not in label_cache:
@@ -782,27 +832,11 @@ def main():
                     redownload_photo(d)
             if ph is None:
                 ph = placeholder(tr("Photo indisponible") if d else tr("Chargement des détails..."))
-            av = tr("Altitude {0}   \u00b7   Vitesse {1}", fmt_alt(s["alt"]), fmt_speed(s["speed"]))
-            if d:
-                lines = [
-                    (f'{d["model"]}  \u00b7  {d["reg"]}', f_big, (255, 255, 255)),
-                    (d["airline"], f_mid, (220, 225, 230)),
-                    (route(d["origin"], d["dest"]), f_mid, (220, 225, 230)),
-                    (av, f_mid, (255, 150, 150)),
-                ]
-                if PANEL_CREDIT and d.get("credit"):  # le credit figure deja dans l'image : cette ligne le repete
-                    lines.append((f'\u00a9 {str(d["credit"])[:44]} / JetPhotos', f_small, (140, 150, 160)))
-            else:
-                lines = [
-                    (s["callsign"] or "...", f_big, (255, 255, 255)),
-                    (s["code"] or "", f_mid, (220, 225, 230)),
-                    (av, f_mid, (255, 150, 150)),
-                ]
-            lines = [l for l in lines if l[0]]
+            lines = [[(txt, pfont_for(k), PCOL[k]) for txt, k in ln] for ln in panel_lines(s, d)]
             if cur_key in zone_ids:
-                lines.insert(0, (tr("ALERTE  \u00b7  à {0} km de la maison", f"{dist_of.get(cur_key, 0):.1f}"),
-                                 f_small, (255, 110, 110)))
-            text_h = sum(f.get_height() + 2 for _, f, _ in lines)
+                lines.insert(0, [(tr("ALERTE  \u00b7  à {0} km de la maison", f"{dist_of.get(cur_key, 0):.1f}"), f_small, (255, 110, 110))])
+            lines = [(ln, max(f.get_height() for _, f, _ in ln)) for ln in lines]
+            text_h = sum(h + 2 for _, h in lines)
             M = S(30)
             pw, phh = PANEL_W + S(20), ph.get_height() + text_h + S(26)
             rects = [pygame.Rect(W - pw - M, M, pw, phh), pygame.Rect(M, M, pw, phh),
@@ -844,9 +878,13 @@ def main():
             pygame.draw.rect(screen, RED, rect, lw)
             screen.blit(ph, (rect.x + S(10), rect.y + S(10)))
             ty = rect.y + S(10) + ph.get_height() + S(6)
-            for txt, fnt, col in lines:
-                screen.blit(fnt.render(txt, True, col), (rect.x + S(10), ty))
-                ty += fnt.get_height() + 2
+            for pieces, lh in lines:
+                x = rect.x + S(10)
+                for txt, fnt, col in pieces:
+                    r = fnt.render(txt, True, col)
+                    screen.blit(r, (x, ty + lh - r.get_height()))
+                    x += r.get_width()
+                ty += lh + 2
 
         if ground_surf:
             screen.blit(ground_surf, ground_rect.topleft)

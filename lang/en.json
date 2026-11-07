@@ -549,6 +549,13 @@
   "Journal détaillé": "Detailed log",
   "Détails": "Details",
   "Dernière mise à jour : {0} → {1}, {2}": "Last update: {0} → {1}, {2}",
-  "Vérifier": "Check"
+  "Vérifier": "Check",
+  "Contenu du panneau photo": "Photo panel content",
+  "Texte affiché sous la photo dans le panneau : réordonnez les éléments avec les flèches, choisissez ceux à afficher, leur taille, gras et italique, et s'ils partagent la ligne de l'élément précédent. La ligne d'alerte de proximité n'est pas modifiable. Pris en compte après relance du programme.": "Text shown below the photo in the panel: reorder the items with the arrows, choose which to show, their size, bold and italic, and whether they share the previous item's line. The proximity alert line cannot be changed. Applied after the program restarts.",
+  "Crédit du photographe": "Photographer credit",
+  "Le crédit est déjà visible à l'intérieur de l'image : cette ligne le répète sous la photo.": "The credit is already visible inside the image: this line repeats it below the photo.",
+  "Altitude {0}": "Altitude {0}",
+  "Vitesse {0}": "Speed {0}",
+  "aucun texte": "no text"
  }
 }

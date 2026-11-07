@@ -44,6 +44,12 @@ corner_top_right = true
 corner_bottom_left = true
 corner_bottom_right = true
 
+[panel_content]
+; Texte du panneau photo : ordre, affichage (show_*), taille (small, medium, large), gras, italique, même ligne
+; Réglage conseillé depuis webadmin (Réglages, Contenu du panneau photo). Le crédit du photographe se masque avec show_credit dans [panel].
+order = model,registration,callsign,airline,route,altitude,speed,credit
+show_callsign = false
+
 [label]
 ; Étiquettes à côté des avions : ordre, affichage (show_*), taille (small, medium, large), gras, italique, même ligne
 ; Réglage conseillé depuis webadmin (Réglages, Étiquettes des avions). Seules les valeurs modifiées sont utiles.
