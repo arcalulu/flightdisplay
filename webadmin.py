@@ -973,7 +973,7 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 
 <script>
 let SET = null, edits = {}, curCat = null, cur = 'home', logText = '', lastSt = null, volDrag = false, volTimer = null;
-let pend = {app: false, web: false}, TYPES = null, rows = {}, UPD = null, updWasRunning = false, updBusy = false;
+let pend = {app: false, web: false}, TYPES = null, rows = {}, UPD = null, updWasRunning = false, updBusy = false, updAuto = false;
 const $ = s => document.querySelector(s);
 const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
 
@@ -1282,6 +1282,7 @@ async function pollUpd() {
     if (updWasRunning && !busy && u.ok === true && u.to_label) { updWasRunning = false; renderUpd(); setTimeout(() => { location.hash = '#upd'; location.reload(); }, 2500); return; }
     updWasRunning = busy;
     renderUpd();
+    if (!u.check && !busy && !updAuto && !updBusy) { updAuto = true; checkUpd(); }
   } catch (e) {
     if (updWasRunning) { UPD = Object.assign({}, UPD, {restarting: true, running: false}); renderUpd(true); }
   }
@@ -1298,8 +1299,8 @@ function renderUpd(lost) {
   if (!UPD) return;
   const u = UPD, c = u.check, busy = u.running || u.restarting;
   const tiles = $('#updTiles'); tiles.innerHTML = '';
-  const cur = c && c.ok ? c.current : null;
-  tiles.append(tile('Version installée', cur ? cur.label : (u.from_label && !busy && u.ok === false ? u.from_label : '-'), '', cur ? cur.date + ' · ' + cur.subject : (c && !c.ok ? '' : 'Cliquez sur « Vérifier »')));
+  const cur = u.current || (c && c.ok ? c.current : null);
+  tiles.append(tile('Version installée', cur ? cur.label : '-', '', cur ? cur.date + ' · ' + cur.subject : ''));
   if (c && c.ok) {
     const lat = c.latest;
     tiles.append(tile('Dernière version', lat.label, c.behind ? 'ok' : '', lat.date + ' · ' + lat.subject));

@@ -62,6 +62,7 @@ class Updater:
         self.t_step = 0.0
         self.st = self._fresh()
         self.hist = []
+        self.current = None
         self._load()
         self._refresh_history()
 
@@ -135,7 +136,7 @@ class Updater:
             return dict(running=st["running"], ok=st["ok"], error=st["error"], done_msg=st["done_msg"], started=st["started"],
                         finished=st["finished"], from_label=st["from_label"], to_label=st["to_label"], steps=steps,
                         pct=self._pct(), lines=list(st["lines"])[-400:], live=st["live"], check=st["check"],
-                        restarting=st["restarting"], auto=self.S.UPDATE_AUTO, history=self.hist)
+                        restarting=st["restarting"], auto=self.S.UPDATE_AUTO, history=self.hist, current=self.current)
 
     def _pct(self):
         total = sum(w for _, _, w in STEPS)
@@ -226,6 +227,7 @@ class Updater:
         try:
             if os.path.isdir(os.path.join(self.S.APP_DIR, ".git")):
                 self.hist = self._history("HEAD")
+                self.current = self._info("HEAD")
         except Exception:
             pass
 
@@ -265,6 +267,7 @@ class Updater:
         files = self._git_ok("diff", "--name-only", "HEAD", remote_ref).splitlines() if behind else []
         dirty = self._dirty()
         self.hist = self._history(remote_ref, behind)
+        self.current = cur
         return dict(ok=True, checked_at=time.time(), branch=branch, current=cur, latest=latest, behind=behind, ahead=ahead,
                     commits=commits, files=files[:60], dirty=dirty,
                     installer_changed="install.sh" in files,
@@ -343,6 +346,7 @@ class Updater:
         if applied and old:
             self._log("Retour à la version précédente (%s)..." % old[:7])
             rc, out, err = self._git("reset", "--hard", old, timeout=120)
+            self._refresh_history()
             self._log("Version précédente restaurée." if rc == 0 else "ÉCHEC de la restauration : " + (err or out))
         with self.mu:
             st = self.st
