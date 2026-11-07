@@ -109,12 +109,36 @@ Si `config.ini` existe déjà, l'installeur propose de le conserver : il met alo
 | `FD_REPO_URL`, `FD_BRANCH` | Dépôt et branche à cloner. |
 | `FD_LOG` | Fichier journal (par défaut `~/flightdisplay-install.log`). |
 | `NO_COLOR=1` | Désactive les couleurs. |
+| `--lang fr\|en`, `FD_LANG` | Langue de l'installeur, de webadmin et de l'écran. Sans option, l'installeur la demande au début (français par défaut). Écrite dans `[general] language`. |
+| `--yes`, `--non-interactive`, `FD_YES=1` | Mode sans questions (voir ci-dessous). |
+
+**Mode sans questions.** Avec `--yes`, l'installeur ne lit rien au clavier : il prend ses réponses dans des variables d'environnement et utilise `sudo -n` (sudo doit fonctionner sans mot de passe, ce qui est le cas par défaut sur Raspberry Pi OS). Exemple :
+
+```
+FD_LAT=48.8566 FD_LON=2.3522 FD_RADIUS=20 FD_MAP_SIZE=1280x720 FD_CARTO_KEY=VOTRE_CLE FD_LANG=fr \
+  bash <(curl -fsSL https://raw.githubusercontent.com/arcalulu/flightdisplay/main/install.sh) --yes
+```
+
+| Variable | Défaut | Rôle |
+|---|---|---|
+| `FD_ADDRESS` ou `FD_LAT` et `FD_LON` | obligatoire à la première installation | Position (l'adresse est convertie en coordonnées). |
+| `FD_RADIUS` | 20 | Rayon de la carte en km (1 à 200). |
+| `FD_MAP_SIZE` | `1280x720` | Taille de la carte (`1920x1080` possible). |
+| `FD_AIRPORT` | vide | Code IATA d'un aéroport proche. |
+| `FD_CARTO_KEY` | vide | Clé API CARTO (sans elle, la carte se construit plus tard depuis webadmin). |
+| `FD_WEB_PASSWORD` | généré | Mot de passe de webadmin (6 caractères minimum) ; s'il est vide, un mot de passe est généré et affiché à la fin. |
+| `FD_MQTT_HOST`, `FD_MQTT_PORT`, `FD_MQTT_USER`, `FD_MQTT_PASS` | vides (port 1883) | Serveur MQTT facultatif. |
+| `FD_HDMI_FIX` | 1 | Correctif de veille d'écran (3.6). |
+| `FD_AUTO_REBOOT` | 0 | `1` : redémarrer à la fin si le correctif a été appliqué. |
+| `FD_KEEP` | 1 | Si `config.ini` existe : `1` le conserve (mise à jour du logiciel seule), `0` le réécrit. |
+
+Une valeur invalide arrête l'installeur avec un message clair avant toute installation.
 
 ### 0.8 À la fin
 
 Le résumé donne l'adresse de webadmin (`http://<nom-du-pi>.local:8080` et par adresse IP), l'identifiant, le mot de passe (s'il a été généré, il n'est plus affiché ensuite) et les commandes utiles. Si le correctif de veille a été appliqué, l'installeur redémarre le Pi (ou vous indique `sudo reboot`) selon votre réponse à la question sur le redémarrage automatique.
 
-Le mot de passe de webadmin, la clé CARTO et les identifiants MQTT sont stockés dans `config.ini`, avec des droits 600. Tous les réglages se modifient ensuite depuis webadmin. L'installeur est en français ; la langue de webadmin et de l'écran se change ensuite dans Réglages, Langue (8.1).
+Le mot de passe de webadmin, la clé CARTO et les identifiants MQTT sont stockés dans `config.ini`, avec des droits 600. Tous les réglages se modifient ensuite depuis webadmin. L'installeur existe en français et en anglais (choisi au début, ou avec `--lang`) ; la langue de webadmin et de l'écran, écrite dans `config.ini`, se change ensuite dans Réglages, Langue (8.1).
 
 ---
 
@@ -986,6 +1010,7 @@ Sur ordinateur, un menu à gauche liste les catégories ; sur téléphone, il de
 | | Application et système | config.ini | Dossier, fichiers, service, Python de la carte, sudo, commandes, script et témoin de veille, arrêt de l'affichage pendant la carte. |
 | | Mises à jour | config.ini | Vérification automatique toutes les 12 heures (`auto_check`). |
 | | Planning de l'écran | config.ini | Activation du planning et calendrier hebdomadaire des plages d'allumage (voir plus bas). |
+| | Sauvegarde | — | Export de la configuration dans un fichier et restauration (voir plus bas). |
 | | Stockage et photos | config.ini | Occupation du disque, photos en cache, bouton « Vider le cache des photos », seuil d'alerte (voir plus bas). |
 | Intégrations | MQTT / Home Assistant | config.ini | Connexion, sujets et découverte, avec état et bouton « Reconnecter ». |
 
@@ -1021,6 +1046,13 @@ Quand une modification est prise en compte :
 - **Surveillance** : le réglage « Seuil d'alerte du disque (%) » (90 par défaut, de 50 à 99) déclenche l'alerte : pastille « disque rempli à X % » en en-tête (toutes les pages), tuile Mémoire colorée, bandeau dans cette page. L'alerte orange précède le seuil de 10 points.
 - Le programme supprime de toute façon les photos de plus de 3 jours à chaque démarrage (9.7).
 
+**Sauvegarde** (Réglages, Sauvegarde)
+
+- **Exporter** : le bouton « Télécharger la sauvegarde » produit un fichier `flightdisplay-backup-<nom-du-pi>-<date>.zip` contenant `config.ini` (tous les réglages du programme et de webadmin), `types_extra.txt` (types d'avion), l'état du son et un petit fichier d'information. Les photos et la carte n'y sont pas : la carte se reconstruit depuis la configuration (position, rayon, clé CARTO).
+- **Secrets** : l'interrupteur « Inclure les mots de passe et la clé CARTO » (activé par défaut) décide si les secrets (clé CARTO, mot de passe de webadmin, mot de passe MQTT) sont dans le fichier. Avec les secrets, la restauration retrouve tout ; **le fichier est alors sensible** : ne le partagez pas. Sans secrets, il peut être partagé (par exemple pour un diagnostic). Un export avec secrets n'est possible que depuis l'interface (en-tête `X-Admin`), jamais par un simple lien.
+- **Restaurer** : choisissez un fichier puis « Restaurer » (confirmation demandée). La configuration actuelle est remplacée (l'ancien `config.ini` reste en `config.ini.bak`). Une sauvegarde faite sans secrets conserve ceux de l'installation actuelle. Le fichier est vérifié avant tout changement (format, contenu autorisé, `config.ini` lisible, règles de types valides) : un fichier invalide est refusé sans rien modifier. Webadmin propose ensuite de relancer le programme (« Enregistrer et appliquer » équivalent) ; un changement de langue recharge la page.
+- Cas typique, après une panne de carte SD : installer un Pi neuf (section 0, avec `--yes` si vous voulez), ouvrir webadmin, restaurer le fichier, relancer le programme, puis reconstruire la carte.
+
 **Planning de l'écran** (Réglages, Planning de l'écran)
 
 Allume et éteint l'écran tout seul selon un calendrier hebdomadaire, comme un agenda.
@@ -1047,6 +1079,8 @@ Allume et éteint l'écran tout seul selon un calendrier hebdomadaire, comme un 
 - **Pendant la mise à jour** : une carte compacte avec le titre (« Mise à jour vers v1.2.0 »), le pourcentage, la barre de progression, une barre de sept segments (une par étape : vérifications, téléchargement, application, bibliothèques, contrôle du code, relance de l'affichage, redémarrage de webadmin ; verte quand c'est fait, jaune en cours, rouge en erreur), l'étape en cours avec le temps écoulé, et un « Journal détaillé » replié que l'on déplie d'un clic. La page se recharge seule à la fin.
 - **Après la mise à jour**, une seule ligne résume la dernière opération (« ✓ Dernière mise à jour : v1.0.0 → v1.1.0, il y a 2 min »). Un clic sur « Détails » déplie la liste des étapes et le journal. En cas d'échec, la ligne devient rouge avec la cause et les détails s'ouvrent automatiquement.
 - « Historique des versions » : changelog groupé par version. Chaque version (étiquette git `vX.Y.Z`) est un séparateur repliable, avec ses commits dessous du plus récent au plus ancien (numéro, commit, date, description). Les commits postérieurs à la dernière version sont regroupés sous « En développement (non publiée) ». La version la plus récente est dépliée, les autres repliées. Repères : « nouveau » (pas encore installé) et « installé ». Des avertissements signalent un fichier modifié localement, des commits locaux absents de GitHub ou un `install.sh` modifié. La procédure complète est décrite en 12.1.
+- **Retour à la version précédente** : après une mise à jour (ou un retour), la ligne de la dernière opération affiche un bouton « Revenir à vX.Y.Z » qui restaure la version quittée (confirmation demandée) : mêmes étapes que la mise à jour sans téléchargement (réinstallation des bibliothèques si besoin, contrôle du code, relance de l'affichage et de webadmin, restauration automatique en cas d'échec). Le bouton permet aussi de revenir en avant (il échange les deux versions). Vos réglages ne sont pas touchés.
+- **Canal** : « Canal de mise à jour » dans Réglages, Mises à jour : « Stable » (versions publiées, défaut) ou « Développement » (chaque commit). La carte résumé indique le canal ; sur le canal stable, un Pi qui exécute un commit plus récent que la dernière version affiche « N commits après vX.Y.Z ».
 - Une puce verte « mise à jour disponible » apparaît dans l'en-tête, sur toutes les pages. Un clic sur la puce ouvre l'onglet Mises à jour ; en la survolant, une petite icône ⬆ apparaît (toujours visible sur écran tactile) : un clic dessus lance la mise à jour tout de suite, sans quitter la page en cours. La puce affiche alors « mise à jour en cours · X % », et la page se recharge à la fin. L'icône n'est proposée que si la mise à jour est possible (pas de fichier modifié localement, pas de conflit) ; en cas d'échec, un message s'affiche.
 
 **Crédits**
@@ -1087,6 +1121,7 @@ flag = /run/flight-screen-off
 stop_display = true
 
 [update]
+channel = stable
 auto_check = true
 
 [schedule]
@@ -1132,7 +1167,8 @@ interval = 30
 | `[screen]` | `helper` | `/usr/local/bin/flight-screen` | Script de veille et de réveil. |
 | | `flag` | `/run/flight-screen-off` | Fichier témoin de la veille (supprimé au redémarrage du Pi). |
 | `[build]` | `stop_display` | true | Valeur par défaut de l'interrupteur « Arrêter l'affichage pendant la construction » (reconstruction de la carte). |
-| `[update]` | `auto_check` | true | Vérifie toutes les 12 heures si une nouvelle version existe sur GitHub (signalée par une puce dans l'en-tête). N'installe rien tout seul. |
+| `[update]` | `channel` | `stable` | Canal de mise à jour : `stable` (seulement les versions publiées `vX.Y.Z`, recommandé) ou `latest` (dernier commit de la branche, développement). |
+| | `auto_check` | true | Vérifie toutes les 12 heures si une nouvelle version existe sur GitHub (signalée par une puce dans l'en-tête). N'installe rien tout seul. |
 | `[schedule]` | `enabled` | false | Active le planning d'allumage et d'extinction de l'écran. |
 | | `mon` à `sun` | vide | Plages d'allumage du jour (`HH:MM-HH:MM`, séparées par des virgules). Vide : écran éteint toute la journée quand le planning est actif. |
 | `[storage]` | `warn_percent` | 90 | Seuil d'alerte d'occupation du disque, en % (50 à 99). Alerte orange 10 points avant. |
@@ -1159,11 +1195,14 @@ Toutes les routes exigent l'authentification si un mot de passe est défini. Les
 | `/api/power` | POST | `{"action": "reboot\|poweroff"}` | Redémarre ou éteint le Pi. |
 | `/api/build` | GET / POST | `{"stop_display": true}` | État et sortie de la construction / lancement. |
 | `/api/build/cancel` | POST | `{}` | Annule la construction. |
+| `/api/backup` | GET | | Télécharge la sauvegarde (zip). `?secrets=1` inclut les secrets et exige l'en-tête `X-Admin: 1` ; `?secrets=0` les retire. |
+| `/api/backup/restore` | POST | `{"data": "<zip en base64>"}` | Restaure une sauvegarde (jusqu'à 3 Mo). |
 | `/api/storage` | GET | | Occupation du disque (total, utilisé, libre, pourcentage, niveau d'alerte) et du cache (nombre et volume des photos, autres fichiers). |
 | `/api/storage/clear` | POST | `{}` | Supprime les photos du cache ; renvoie le nombre et le volume supprimés. |
 | `/api/update` | GET | | État des mises à jour : dernière vérification (versions, nouveautés), progression, étapes et journal de la mise à jour en cours ou de la dernière. |
 | `/api/update/check` | POST | `{}` | Interroge GitHub (`git fetch`) et renvoie l'état à jour. |
 | `/api/update/start` | POST | `{}` | Lance la mise à jour en arrière-plan (suivi par `GET /api/update`). |
+| `/api/update/rollback` | POST | `{}` | Revient à la version quittée par la dernière mise à jour. |
 | `/api/mqtt/reconnect` | POST | `{}` | Reconnecte MQTT et republie la découverte. |
 | `/api/webadmin/restart` | POST | `{}` | Redémarre webadmin. |
 
@@ -1216,6 +1255,13 @@ Les mêmes réglages existent dans `config.ini`, section `[mqtt]`.
 | Son des alertes | interrupteur | `base/sound/state`, `base/sound/set` | ON si le son n'est ni coupé ni désactivé dans `config.ini`. OFF coupe le son. |
 | Volume des alertes | nombre 0-100 % (pas de 5) | `base/volume/state`, `base/volume/set` | Règle le volume en direct. |
 | Température | capteur °C | `base/temperature/state` | Température du Pi, arrondie à 0,5 °C. |
+| Avions en vol | capteur | `base/aircraft/state` | Nombre d'avions en vol affichés sur la carte. `unavailable` quand le programme est arrêté. |
+| Avions au sol | capteur | `base/aircraft_ground/state` | Nombre d'avions dans la liste au sol. |
+| Avions dans la zone d'alerte | capteur | `base/aircraft_zone/state` | Nombre d'avions dans le cercle d'alerte. |
+| Alerte en cours | capteur binaire | `base/alert/state` | ON tant qu'au moins un avion est dans la zone d'alerte. |
+| Programme actif | capteur binaire (running) | `base/program/state` | ON si le service d'affichage tourne. |
+| Images par seconde | capteur (diagnostic) | `base/fps/state` | Cadence réellement affichée. |
+| Utilisation CPU, Mémoire utilisée, Disque utilisé | capteurs % (diagnostic) | `base/cpu/state`, `base/memory/state`, `base/disk/state` | Mesures du Pi. |
 
 Les noms des entités suivent la langue choisie dans webadmin (par exemple « Screen », « Alert sound », « Alert volume », « Temperature » en anglais), publiés à chaque (re)connexion.
 
@@ -1275,7 +1321,7 @@ git tag -a v1.1.0 -m "Version 1.1.0"
 git push origin v1.1.0
 ```
 
-Les installations récupèrent les étiquettes à chaque vérification. Les mises à jour installent toujours le dernier commit de la branche, qu'il soit publié ou non.
+Les installations récupèrent les étiquettes à chaque vérification. Sur le canal **stable** (défaut, `[update] channel`), une mise à jour installe la dernière version étiquetée `vX.Y.Z` de la branche (les pré-versions comme `v1.3.0-rc1` et les commits non publiés sont ignorés) ; sur le canal **latest** (« Développement » dans Réglages, Mises à jour), elle installe le dernier commit de la branche, publié ou non. Pour qu'une version atteigne les utilisateurs du canal stable, il faut donc poser l'étiquette.
 
 ### 12.3 Ajouter une langue
 
@@ -1378,6 +1424,8 @@ sudo reboot
 | Le panneau photo n'apparaît jamais dans un angle | Cet angle est décoché dans Réglages, Panneau photo (8.6). Si les quatre angles sont décochés, il n'y a aucune restriction. |
 | La tuile Programme affiche moins d'images par seconde que la cible | Le Pi Zero ne tient pas la cadence : baisser `fps`, passer la carte en 1280×720, ou limiter le nombre d'avions (altitude maximale suivie). |
 | Alerte « disque rempli à X % » | La carte SD approche de la saturation. Ouvrir Réglages, Stockage et photos : vider le cache des photos, puis chercher les gros fichiers (`du -h --max-depth=1 ~ \| sort -h`, journaux, anciennes sauvegardes). Voir aussi 6.3. |
+| Mises à jour : aucune nouvelle version alors que des commits ont été poussés | Le canal est « Stable » : seules les versions étiquetées `vX.Y.Z` sont proposées (12.2). Passer au canal « Développement » (Réglages, Mises à jour) pour recevoir chaque commit. |
+| Restauration : « fichier de sauvegarde invalide » | Le fichier doit être un zip produit par Réglages, Sauvegarde (contenant `config.ini`, éventuellement `types_extra.txt`, `runtime.json` et `manifest.json`), non modifié et de moins de 1 Mo par fichier. |
 | Wi-Fi instable | Désactiver l'économie d'énergie (6.4). |
 
 ---

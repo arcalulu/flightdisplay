@@ -126,11 +126,12 @@ RUNTIME_FILE = os.path.join(CACHE, "runtime.json")
 FPS_FILE = "/dev/shm/flightdisplay-fps.json" if os.path.isdir("/dev/shm") else os.path.join(CACHE, "fps.json")
 
 
-def fps_publish(fps):
+def fps_publish(fps, aircraft=0, ground=0, zone=0):
+    """Etat en direct lu par webadmin : images par seconde, avions en vol / au sol / dans la zone d'alerte."""
     try:
         tmp = FPS_FILE + f".{os.getpid()}.tmp"
         with open(tmp, "w", encoding="utf-8") as fh:
-            json.dump({"fps": round(fps, 1), "t": time.time(), "pid": os.getpid()}, fh)
+            json.dump({"fps": round(fps, 1), "t": time.time(), "pid": os.getpid(), "aircraft": aircraft, "ground": ground, "zone": zone}, fh)
         os.replace(tmp, FPS_FILE)
     except OSError:
         pass
@@ -947,7 +948,7 @@ def main():
         fps_n += 1
         t_fps = time.time()
         if t_fps - fps_t0 >= 2.0:
-            fps_publish(fps_n / (t_fps - fps_t0)); fps_n, fps_t0 = 0, t_fps
+            fps_publish(fps_n / (t_fps - fps_t0), on_screen, len(gnd), len(zone_keys)); fps_n, fps_t0 = 0, t_fps
         if first:
             print("premiere image apres", round(time.time() - T0, 1), "s"); first = False
         clock.tick(FPS)

@@ -12,9 +12,10 @@ Affichage temps réel des avions autour de chez vous sur un Raspberry Pi : carte
 - Fiche photo de l'avion (texte personnalisable : ordre, taille, gras, italique), liste des avions au sol.
 - Alerte de proximité : carillon, teinte rouge clignotante, fiche prioritaire, avec plage d'altitude réglable.
 - Webadmin : tuiles de supervision (température, CPU, mémoire et disque en anneaux de progression, MQTT, images par seconde, heure du Pi), surveillance du disque et gestion du cache des photos, interrupteurs (programme, écran, son), volume en direct, réglages complets, reconstruction de la carte, logs, et mises à jour du logiciel directement depuis GitHub.
+- Sauvegarde et restauration de la configuration depuis webadmin ; mises à jour sur le canal stable (versions publiées) ou développement, avec retour à la version précédente.
 - Veille et réveil de l'écran, redémarrage et extinction du Pi à distance, et planning hebdomadaire d'allumage de l'écran (calendrier glissable, prochaine action affichée dans Pilotage).
 - Multilingue : français et anglais, au choix dans webadmin (Réglages, Langue), pour l'interface comme pour l'écran ; d'autres langues s'ajoutent avec un simple fichier (dossier `lang`).
-- Intégration Home Assistant par MQTT (écran, son, volume, température).
+- Intégration Home Assistant par MQTT (écran, son, volume, température, avions en vol / au sol / dans la zone d'alerte, alerte en cours, images par seconde, CPU, mémoire, disque).
 
 ## Avertissement important
 
@@ -61,6 +62,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/arcalulu/flightdisplay/main/
 L'installeur pose toutes ses questions au début, mot de passe `sudo` compris (adresse ou coordonnées, clé API CARTO, mot de passe de l'interface web, MQTT facultatif, correctif d'écran, redémarrage final). Les saisies restent visibles, mots de passe compris. Il installe ensuite tout le nécessaire en affichant sa progression sur une seule ligne, construit la carte et démarre l'affichage et l'interface web. À la fin, un résumé donne l'adresse de l'interface (`http://<nom-du-pi>.local:8080`), l'identifiant et le mot de passe.
 
 Sans `curl` : `sudo apt update && sudo apt install -y git && git clone https://github.com/arcalulu/flightdisplay.git ~/flightdisplay && bash ~/flightdisplay/install.sh`.
+
+L'installeur existe en français et en anglais (`--lang en`) et peut se lancer sans aucune question pour un script (`--yes`, avec des variables `FD_*`) : voir la documentation (section 0.7).
 
 Relancer la même commande plus tard met à jour le logiciel et conserve votre configuration.
 

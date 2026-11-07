@@ -12,9 +12,10 @@ Real-time display of the aircraft flying around your home on a Raspberry Pi: vec
 - Photo card of the aircraft (customizable text: order, size, bold, italic), list of aircraft on the ground.
 - Proximity alert: chime, blinking red tint, priority card, with an adjustable altitude range.
 - Webadmin: monitoring tiles (temperature, CPU, memory and disk as progress rings, MQTT, frames per second, Pi time), disk monitoring and photo cache management, switches (program, screen, sound), live volume, full settings, map rebuild, logs, and software updates straight from GitHub.
+- Backup and restore of the configuration from webadmin; updates on the stable (published versions) or development channel, with a rollback to the previous version.
 - Screen sleep and wake-up, remote restart and shutdown of the Pi, and a weekly screen schedule (draggable calendar, next action shown in Control).
 - Multilingual: French and English, selectable in webadmin (Settings, Language), for the interface and for the on-screen text; other languages can be added with a simple file (`lang` folder).
-- Home Assistant integration through MQTT (screen, sound, volume, temperature).
+- Home Assistant integration through MQTT (screen, sound, volume, temperature, aircraft in flight / on the ground / in the alert zone, active alert, frames per second, CPU, memory, disk).
 
 ## Important notice
 
@@ -58,9 +59,11 @@ This project is not affiliated with Flightradar24 or with any airline. Flight da
 bash <(curl -fsSL https://raw.githubusercontent.com/arcalulu/flightdisplay/main/install.sh)
 ```
 
-The installer asks all its questions up front, `sudo` password included (address or coordinates, CARTO API key, web interface password, optional MQTT, screen fix, final reboot). What you type stays visible, passwords included. It then installs everything needed while showing its progress on a single line, builds the map and starts the display and the web interface. At the end, a summary gives the interface address (`http://<pi-name>.local:8080`), the username and the password. The installer's prompts are currently in French only; once installed, the language can be switched to English in webadmin (Settings, Language).
+The installer asks all its questions up front, `sudo` password included (address or coordinates, CARTO API key, web interface password, optional MQTT, screen fix, final reboot). What you type stays visible, passwords included. It then installs everything needed while showing its progress on a single line, builds the map and starts the display and the web interface. At the end, a summary gives the interface address (`http://<pi-name>.local:8080`), the username and the password. The installer asks for its language first (English or French, or `--lang en`), and writes it to the configuration for webadmin and the screen.
 
 Without `curl`: `sudo apt update && sudo apt install -y git && git clone https://github.com/arcalulu/flightdisplay.git ~/flightdisplay && bash ~/flightdisplay/install.sh`.
+
+The installer exists in French and in English (`--lang en`) and can run with no question at all for a script (`--yes`, with `FD_*` variables): see the documentation (section 0.7).
 
 Running the same command again later updates the software and keeps your configuration.
 

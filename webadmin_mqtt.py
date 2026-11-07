@@ -154,6 +154,24 @@ class Bridge:
             ("sensor", "temperature", {"name": i18n.tr("Température"), "device_class": "temperature",
                                        "unit_of_measurement": "°C", "state_class": "measurement",
                                        "state_topic": self.t("temperature/state")}),
+            ("sensor", "aircraft", {"name": i18n.tr("Avions en vol"), "icon": "mdi:airplane", "state_class": "measurement",
+                                    "state_topic": self.t("aircraft/state")}),
+            ("sensor", "aircraft_ground", {"name": i18n.tr("Avions au sol"), "icon": "mdi:airplane-landing", "state_class": "measurement",
+                                           "state_topic": self.t("aircraft_ground/state")}),
+            ("sensor", "aircraft_zone", {"name": i18n.tr("Avions dans la zone d'alerte"), "icon": "mdi:airplane-alert",
+                                         "state_class": "measurement", "state_topic": self.t("aircraft_zone/state")}),
+            ("binary_sensor", "alert", {"name": i18n.tr("Alerte en cours"), "icon": "mdi:alert-circle", "payload_on": "ON",
+                                        "payload_off": "OFF", "state_topic": self.t("alert/state")}),
+            ("binary_sensor", "program", {"name": i18n.tr("Programme actif"), "device_class": "running", "payload_on": "ON",
+                                          "payload_off": "OFF", "state_topic": self.t("program/state")}),
+            ("sensor", "fps", {"name": i18n.tr("Images par seconde"), "icon": "mdi:speedometer", "unit_of_measurement": "fps",
+                               "state_class": "measurement", "entity_category": "diagnostic", "state_topic": self.t("fps/state")}),
+            ("sensor", "cpu", {"name": i18n.tr("Utilisation CPU"), "icon": "mdi:cpu-32-bit", "unit_of_measurement": "%",
+                               "state_class": "measurement", "entity_category": "diagnostic", "state_topic": self.t("cpu/state")}),
+            ("sensor", "memory", {"name": i18n.tr("Mémoire utilisée"), "icon": "mdi:memory", "unit_of_measurement": "%",
+                                  "state_class": "measurement", "entity_category": "diagnostic", "state_topic": self.t("memory/state")}),
+            ("sensor", "disk", {"name": i18n.tr("Disque utilisé"), "icon": "mdi:sd", "unit_of_measurement": "%",
+                                "state_class": "measurement", "entity_category": "diagnostic", "state_topic": self.t("disk/state")}),
         ]
         for comp, key, cfg in ents:
             cfg.update(unique_id=f"{self.uid}_{key}", availability_topic=avail, device=dev)
@@ -167,6 +185,21 @@ class Bridge:
              "volume": str(int(round(ss["volume"] * 100)))}
         if si.get("temp") is not None:
             d["temperature"] = f"{round(si['temp'] * 2) / 2:.1f}"
+        live = self.api["live"]() if "live" in self.api else None
+        d["program"] = "ON" if self.api.get("service_active", lambda: False)() else "OFF"
+        d["aircraft"] = str(live["aircraft"]) if live else "unavailable"
+        d["aircraft_ground"] = str(live["ground"]) if live else "unavailable"
+        d["aircraft_zone"] = str(live["zone"]) if live else "unavailable"
+        d["alert"] = "ON" if live and live["zone"] > 0 else "OFF"
+        d["fps"] = f"{live['fps']:.1f}" if live else "unavailable"
+        cpu = self.api["cpu"]() if "cpu" in self.api else None
+        if cpu is not None:
+            d["cpu"] = f"{cpu:.0f}"
+        if si.get("mem_total"):
+            d["memory"] = f"{100.0 * (si['mem_total'] - si['mem_avail']) / si['mem_total']:.0f}"
+        disk = self.api["disk"]() if "disk" in self.api else None
+        if disk:
+            d["disk"] = f"{disk['pct']:.1f}"
         return d
 
     def publish_states(self, force=False):

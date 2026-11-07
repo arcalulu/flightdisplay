@@ -110,6 +110,8 @@ flag = /run/flight-screen-off
 stop_display = true
 
 [update]
+; Canal : stable (versions publiées vX.Y.Z, recommandé) ou latest (dernier commit, développement)
+channel = stable
 ; Vérifier toutes les 12 heures si une nouvelle version existe sur GitHub (n'installe rien tout seul)
 auto_check = true
 

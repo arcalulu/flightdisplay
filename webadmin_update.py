@@ -22,6 +22,7 @@ STEPS = [  # (identifiant, libelle, poids dans la barre de progression)
 CHECK_EVERY = 12 * 3600
 MIN_FREE_MB = 100
 BRANCH_RE = re.compile(r"^[A-Za-z0-9._/-]+$")
+STABLE_TAG_RE = re.compile(r"^v\d+(\.\d+)*$")  # versions publiees (pas de pre-version type v1.3.0-rc1)
 
 # Dependances importees par build_map_vector.py et absentes du venv (meme analyse que install.sh).
 MAP_DEPS_SCRIPT = r'''
@@ -65,6 +66,7 @@ class Updater:
         self.st = self._fresh()
         self.hist = []
         self.current = None
+        self.previous = None  # version quittee par la derniere operation (pour le retour arriere)
         self._load()
         self._refresh_history()
 
@@ -72,7 +74,7 @@ class Updater:
     def _fresh(self):
         return dict(running=False, ok=None, error="", done_msg="", started=None, finished=None, from_label="", to_label="",
                     steps=[dict(id=i, label=l, status="pending", detail="") for i, l, _ in STEPS],
-                    lines=collections.deque(maxlen=600), live="", check=None, restarting=False)
+                    lines=collections.deque(maxlen=600), live="", check=None, restarting=False, mode="update")
 
     def _state_file(self):
         return os.path.join(self.S.APP_DIR, "cache", "update.json")
@@ -82,7 +84,7 @@ class Updater:
             d = dict(ok=self.st["ok"], error=self.st["error"], done_msg=self.st["done_msg"], started=self.st["started"],
                      finished=self.st["finished"], from_label=self.st["from_label"], to_label=self.st["to_label"],
                      steps=self.st["steps"], lines=list(self.st["lines"]), check=self.st["check"],
-                     restarting=self.st["restarting"], running=self.st["running"])
+                     restarting=self.st["restarting"], running=self.st["running"], mode=self.st["mode"], previous=self.previous)
         try:
             path = self._state_file()
             os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -103,17 +105,20 @@ class Updater:
         if not isinstance(d, dict):
             return
         st = self.st
-        for k in ("ok", "error", "done_msg", "started", "finished", "from_label", "to_label", "check"):
+        for k in ("ok", "error", "done_msg", "started", "finished", "from_label", "to_label", "check", "mode"):
             if k in d:
                 st[k] = d[k]
+        if isinstance(d.get("previous"), dict):
+            self.previous = d["previous"]
         if isinstance(d.get("steps"), list) and len(d["steps"]) == len(STEPS):
             st["steps"] = d["steps"]
         st["lines"].extend(d.get("lines") or [])
         if d.get("restarting"):
             st["steps"][-1].update(status="done", detail="")
             st["ok"], st["error"], st["finished"] = True, "", time.time()
-            st["done_msg"] = "Mise à jour terminée : webadmin tourne maintenant en " + (st["to_label"] or "nouvelle version") + "."
-            st["lines"].append("Webadmin redémarré : mise à jour terminée.")
+            back = st.get("mode") == "rollback"
+            st["done_msg"] = ("Retour à la version précédente terminé : webadmin tourne maintenant en " if back else "Mise à jour terminée : webadmin tourne maintenant en ") + (st["to_label"] or "nouvelle version") + "."
+            st["lines"].append("Webadmin redémarré : retour à la version précédente terminé." if back else "Webadmin redémarré : mise à jour terminée.")
             st["check"] = None  # l'etat des versions a change : une nouvelle verification s'impose
             self._save()
         elif d.get("running"):
@@ -128,6 +133,12 @@ class Updater:
     def available(self):
         c = self.st.get("check")
         return bool(c and c.get("ok") and c.get("behind", 0) > 0)
+
+    def _previous_info(self):
+        p, cur = self.previous, self.current
+        if not p or not cur or p.get("hash") == cur.get("hash"):
+            return None
+        return dict(label=p.get("label", ""), date=p.get("date", ""), short=str(p.get("hash", ""))[:7])
 
     def can_update(self):
         c = self.st.get("check")
@@ -147,7 +158,7 @@ class Updater:
             return dict(running=st["running"], ok=st["ok"], error=tr(st["error"]), done_msg=tr(st["done_msg"]), started=st["started"],
                         finished=st["finished"], from_label=st["from_label"], to_label=st["to_label"], steps=steps,
                         pct=self._pct(), lines=[tr(l) for l in list(st["lines"])[-400:]], live=st["live"], check=check,
-                        restarting=st["restarting"], auto=self.S.UPDATE_AUTO, history=[] if st["running"] or st["restarting"] else self.hist, current=self.current)
+                        restarting=st["restarting"], mode=st.get("mode", "update"), channel=self.S.UPDATE_CHANNEL, previous=self._previous_info(), auto=self.S.UPDATE_AUTO, history=[] if st["running"] or st["restarting"] else self.hist, current=self.current)
 
     def _pct(self):
         total = sum(w for _, _, w in STEPS)
@@ -213,6 +224,17 @@ class Updater:
         if rc != 0 or not out:
             raise UpdateError("Le dépôt Git n'a pas de remote « origin » : impossible de joindre GitHub.")
 
+    def _target(self, branch):
+        """Reference a installer : canal « stable » = derniere version etiquetee (vX.Y.Z) de la branche ; sinon le dernier commit."""
+        remote = "origin/" + branch
+        if self.S.UPDATE_CHANNEL != "stable":
+            return remote
+        rc, out, _ = self._git("tag", "--list", "v[0-9]*", "--sort=-v:refname", "--merged", remote)
+        for t in (out.splitlines() if rc == 0 else []):
+            if STABLE_TAG_RE.match(t.strip()):
+                return t.strip()
+        return None  # aucune version etiquetee : rien a installer sur le canal stable
+
     def _info(self, ref):
         out = self._git_ok("log", "-1", "--format=%H%x1f%h%x1f%cs%x1f%s", ref)
         h, short, date, subject = (out.split("\x1f") + ["", "", "", ""])[:4]
@@ -224,15 +246,15 @@ class Updater:
         return [l[3:] for l in out.splitlines() if l.strip()]
 
     # ------------------------------------------------------------ historique des versions (changelog)
-    def _history(self, ref, new=0, n=150):
-        """Derniers commits de ref ; les `new` premiers sont ceux qui ne sont pas encore installes."""
-        out = self._git_ok("log", "-n", str(n), "--format=%h%x1f%cs%x1f%s%x1f%D", ref)
+    def _history(self, ref, new=(), n=150):
+        """Derniers commits de ref ; `new` = hashes complets des commits pas encore installes."""
+        out = self._git_ok("log", "-n", str(n), "--format=%H%x1f%h%x1f%cs%x1f%s%x1f%D", ref)
         total = int(self._git_ok("rev-list", "--count", ref))  # numero de version = rang du commit dans l'historique
         res = []
         for i, l in enumerate(out.splitlines()):
-            p = (l.split("\x1f") + ["", "", "", ""])[:4]
-            tag = next((t[5:] for t in p[3].split(", ") if t.startswith("tag: ")), "")
-            res.append(dict(short=p[0], date=p[1], subject=p[2], tag=tag, new=i < new, num=total - i))
+            p = (l.split("\x1f") + ["", "", "", "", ""])[:5]
+            tag = next((t[5:] for t in p[4].split(", ") if t.startswith("tag: ")), "")
+            res.append(dict(short=p[1], date=p[2], subject=p[3], tag=tag, new=p[0] in new, num=total - i))
         return res
 
     def _refresh_history(self):
@@ -267,21 +289,24 @@ class Updater:
         if rc != 0:
             raise UpdateError("Impossible de joindre GitHub : " + (err or out or "erreur inconnue"))
         remote_ref = "origin/" + branch
-        cur, latest = self._info("HEAD"), self._info(remote_ref)
-        behind = int(self._git_ok("rev-list", "--count", "HEAD.." + remote_ref))
-        ahead = int(self._git_ok("rev-list", "--count", remote_ref + "..HEAD"))
+        target = self._target(branch) or "HEAD"
+        cur, latest = self._info("HEAD"), self._info(target)
+        behind = int(self._git_ok("rev-list", "--count", "HEAD.." + target))
+        ahead = int(self._git_ok("rev-list", "--count", remote_ref + "..HEAD"))  # commits locaux absents de GitHub
+        dev_ahead = int(self._git_ok("rev-list", "--count", target + "..HEAD")) if self.S.UPDATE_CHANNEL == "stable" else 0
         commits = []
         if behind:
-            for l in self._git_ok("log", "-n", "40", "--format=%h%x1f%cs%x1f%s", "HEAD.." + remote_ref).splitlines():
+            for l in self._git_ok("log", "-n", "40", "--format=%h%x1f%cs%x1f%s", "HEAD.." + target).splitlines():
                 p = l.split("\x1f")
                 if len(p) == 3:
                     commits.append(dict(short=p[0], date=p[1], subject=p[2]))
-        files = self._git_ok("diff", "--name-only", "HEAD", remote_ref).splitlines() if behind else []
+        files = self._git_ok("diff", "--name-only", "HEAD", target).splitlines() if behind else []
         dirty = self._dirty()
-        self.hist = self._history(remote_ref, behind)
+        newset = set(self._git_ok("rev-list", "HEAD.." + target).split()) if behind else set()
+        self.hist = self._history(remote_ref, newset)
         self.current = cur
-        return dict(ok=True, checked_at=time.time(), branch=branch, current=cur, latest=latest, behind=behind, ahead=ahead,
-                    commits=commits, files=files[:60], dirty=dirty,
+        return dict(ok=True, checked_at=time.time(), branch=branch, channel=self.S.UPDATE_CHANNEL, dev_ahead=dev_ahead,
+                    current=cur, latest=latest, behind=behind, ahead=ahead, commits=commits, files=files[:60], dirty=dirty,
                     installer_changed="install.sh" in files,
                     can_update=behind > 0 and ahead == 0 and not dirty)
 
@@ -342,7 +367,14 @@ class Updater:
             self._log(text)
 
     # ------------------------------------------------------------ mise a jour
-    def start(self):
+    def rollback(self):
+        """Revient a la version quittee par la derniere mise a jour."""
+        info = self._previous_info()
+        if not info:
+            raise UpdateError("Aucune version précédente à restaurer.")
+        self.start("rollback")
+
+    def start(self, mode="update"):
         if self.build_running():
             raise UpdateError("Une reconstruction de la carte est en cours : attendez qu'elle se termine.")
         if not self.busy.acquire(blocking=False):
@@ -350,9 +382,9 @@ class Updater:
         with self.mu:
             old = self.st["check"]
             self.st = self._fresh()
-            self.st.update(running=True, started=time.time(), check=old)
+            self.st.update(running=True, started=time.time(), check=old, mode=mode)
             self.cur, self.frac = -1, 0.0
-        threading.Thread(target=self._run, daemon=True).start()
+        threading.Thread(target=self._run, args=(mode,), daemon=True).start()
 
     def _fail(self, msg, old, applied):
         if applied and old:
@@ -370,8 +402,9 @@ class Updater:
             st["check"] = None
         self._save()
 
-    def _run(self):
+    def _run(self, mode="update"):
         old, applied, released = "", False, False
+        back = mode == "rollback"
         try:
             # 1. verifications
             self._begin(0)
@@ -391,39 +424,51 @@ class Updater:
             self._log("Version actuelle : %s (%s) sur la branche %s" % (cur["label"], cur["date"], branch))
             self._end(0)
 
-            # 2. telechargement
+            # 2. telechargement (inutile pour un retour arriere)
             self._begin(1)
             remote_ref = "origin/" + branch
-            rc = self._stream(["git", "fetch", "--progress", "--force", "--tags", "origin",
-                               "+refs/heads/%s:refs/remotes/origin/%s" % (branch, branch)], 600, git_progress=True)
-            if rc != 0:
-                raise UpdateError("Le téléchargement depuis GitHub a échoué (voir le journal ci-dessous).")
-            latest = self._info(remote_ref)
-            behind = int(self._git_ok("rev-list", "--count", "HEAD.." + remote_ref))
-            ahead = int(self._git_ok("rev-list", "--count", remote_ref + "..HEAD"))
-            if behind == 0:
+            if back:
+                prev = (self.previous or {}).get("hash", "")
+                if not prev or self._git("cat-file", "-e", prev + "^{commit}")[0] != 0:
+                    raise UpdateError("Version précédente introuvable dans le dépôt local.")
+                latest = self._info(prev)
+                target = prev
+                self._log("Version cible : %s (%s)" % (latest["label"], latest["date"]))
+                self._end(1, "skipped", "aucun téléchargement nécessaire")
+            else:
+                rc = self._stream(["git", "fetch", "--progress", "--force", "--tags", "origin",
+                                   "+refs/heads/%s:refs/remotes/origin/%s" % (branch, branch)], 600, git_progress=True)
+                if rc != 0:
+                    raise UpdateError("Le téléchargement depuis GitHub a échoué (voir le journal ci-dessous).")
+                target = self._target(branch) or "HEAD"
+                latest = self._info(target)
+                behind = int(self._git_ok("rev-list", "--count", "HEAD.." + target))
+                ahead = int(self._git_ok("rev-list", "--count", remote_ref + "..HEAD"))
+                if behind == 0:
+                    self._end(1)
+                    for i in range(2, len(STEPS)):
+                        self._end(i, "skipped")
+                    with self.mu:
+                        self.st.update(running=False, ok=True, finished=time.time(), to_label=cur["label"],
+                                       done_msg="Aucune mise à jour : vous avez déjà la dernière version (%s)." % cur["label"])
+                        self.st["lines"].append("Déjà à jour.")
+                        self.st["check"] = None
+                    self._save()
+                    return
+                if ahead:
+                    raise UpdateError("Cette installation contient des commits locaux absents de GitHub : mise à jour impossible sans conflit.")
                 self._end(1)
-                for i in range(2, len(STEPS)):
-                    self._end(i, "skipped")
-                with self.mu:
-                    self.st.update(running=False, ok=True, finished=time.time(), to_label=cur["label"],
-                                   done_msg="Aucune mise à jour : vous avez déjà la dernière version (%s)." % cur["label"])
-                    self.st["lines"].append("Déjà à jour.")
-                    self.st["check"] = None
-                self._save()
-                return
-            if ahead:
-                raise UpdateError("Cette installation contient des commits locaux absents de GitHub : mise à jour impossible sans conflit.")
             self.st["to_label"] = latest["label"]
-            changed = self._git_ok("diff", "--name-only", old, remote_ref).splitlines()
-            self._log("Nouvelle version : %s (%s) - %d fichier(s) modifié(s)" % (latest["label"], latest["date"], len(changed)))
-            self._end(1)
+            changed = self._git_ok("diff", "--name-only", old, latest["hash"]).splitlines()
+            if not back:
+                self._log("Nouvelle version : %s (%s) - %d fichier(s) modifié(s)" % (latest["label"], latest["date"], len(changed)))
 
             # 3. application
             self._begin(2)
-            rc = self._stream(["git", "merge", "--ff-only", remote_ref], 120)
+            cmd = ["git", "reset", "--hard", latest["hash"]] if back else ["git", "merge", "--ff-only", latest["hash"]]
+            rc = self._stream(cmd, 120)
             if rc != 0:
-                raise UpdateError("L'application de la nouvelle version a échoué.")
+                raise UpdateError("Le retour à la version précédente a échoué." if back else "L'application de la nouvelle version a échoué.")
             applied = True
             self._end(2)
 
@@ -491,6 +536,7 @@ class Updater:
             # 7. webadmin
             self._begin(6)
             self._log("Redémarrage de webadmin pour charger la nouvelle version...")
+            self.previous = dict(hash=old, label=cur["label"], date=cur["date"])
             with self.mu:
                 self.st.update(running=False, restarting=True)
             self._save()

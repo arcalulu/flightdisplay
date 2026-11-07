@@ -88,6 +88,7 @@ class Settings:
         self.SCREEN_FLAG = gs("screen", "flag", "/run/flight-screen-off")
         self.BUILD_STOP_DISPLAY = gb("build", "stop_display", True)
         self.UPDATE_AUTO = gb("update", "auto_check", True)
+        self.UPDATE_CHANNEL = "latest" if gs("update", "channel", "stable").lower() in ("latest", "dev", "main") else "stable"
         self.LANG = i18n.set_language(gs("general", "language", "fr"))
         self.SCHEDULE_ENABLED = gb("schedule", "enabled", False)
         try:
@@ -134,6 +135,7 @@ CATS = [
     ("update", "Mises à jour", "Webadmin"),
     ("schedule", "Planning de l'écran", "Webadmin"),
     ("storage", "Stockage et photos", "Webadmin"),
+    ("backup", "Sauvegarde", "Webadmin"),
     ("mqtt", "MQTT / Home Assistant", "Intégrations"),
 ]
 CAT_NOTES = {
@@ -142,6 +144,7 @@ CAT_NOTES = {
     "position": "Modifier ces valeurs oblige à reconstruire la carte (section Reconstruction de la carte, en bas de cette page).",
     "server": "Le port et l'adresse d'écoute demandent un redémarrage de webadmin. L'identifiant et le mot de passe s'appliquent immédiatement.",
     "paths": "Réglages avancés. Une valeur vide utilise le comportement par défaut.",
+    "backup": "Exporte la configuration du Raspberry Pi dans un fichier, et la restaure (par exemple sur une nouvelle carte SD après une panne).",
     "storage": "Espace disque du Raspberry Pi et photos de JetPhotos conservées dans le cache. Le programme supprime lui-même les photos de plus de 3 jours et retélécharge une photo effacée quand elle est de nouveau nécessaire.",
     "schedule": "Allume et éteint l'écran tout seul selon un calendrier hebdomadaire : faites glisser sur le calendrier pour tracer les plages d'allumage. Appliqué immédiatement.",
     "update": "La mise à jour elle-même se lance depuis l'onglet « Mises à jour ».",
@@ -277,6 +280,8 @@ PARAMS = [
     W("paths", "app", "journalctl", "text", "", "Chemin de journalctl", "", "Système"),
     W("paths", "screen", "helper", "text", "/usr/local/bin/flight-screen", "Script de veille de l'écran", "", "Écran"),
     W("paths", "screen", "flag", "text", "/run/flight-screen-off", "Fichier témoin de la veille", "", "Écran"),
+    W("update", "update", "channel", "choice", "stable", "Canal de mise à jour", "Stable : seulement les versions publiées (v1.2.0…), plus sûr. Développement : chaque nouveau commit, y compris ceux qui ne sont pas encore publiés.", "Version", apply="live",
+      options=["stable", "latest"], labels={"stable": "Stable", "latest": "Développement"}),
     W("update", "update", "auto_check", "bool", True, "Vérifier automatiquement", "Interroge GitHub toutes les 12 heures pour signaler une nouvelle version. Rien n'est installé sans votre accord.", "Vérification", apply="live"),
     W("schedule", "schedule", "enabled", "bool", False, "Activer le planning", "Hors des plages d'allumage, l'écran est éteint.", "Planning", apply="live"),
     *[W("schedule", "schedule", k, "text", "", name, "Plages d'allumage, au format 07:00-09:30,18:00-24:00.", "Plages", apply="live", slots=True) for k, name in SCHED_DAYS],
@@ -355,6 +360,7 @@ def get_settings():
                          needs_map=False, apply="app" if f == "config" else "live", present=True, min=None, max=None,
                          step=None, ui=None, secret=False, set=True, value=cur["value"]))
     cats["types"].update(kind="types", groups=[], file=None)
+    cats["backup"].update(kind="backup", groups=[], file=None)
     cats["label"].update(kind="fields", editor=field_editor("label", LABEL_FIELDS, "label"))
     cats["panel"].update(kind="fields", editor=dict(field_editor("panel_content", PANEL_FIELDS, "panel", PANEL_SHOW_KEYS), note=tr(PANEL_NOTE)))
     cats["schedule"]["kind"] = "schedule"
@@ -364,14 +370,14 @@ def get_settings():
         items = []
         for cid, title, m in CATS:
             c = cats[cid]
-            if m == gname and (cid == "types" or c["groups"]):
+            if m == gname and (cid in ("types", "backup") or c["groups"]):
                 items.append(dict(id=cid, title=title))
         if items:
             menu.append(dict(group=tr(gname), items=items))
     for c in cats.values():
-        if c.get("kind") != "types":
+        if c.get("kind") not in ("types", "backup"):
             c["groups"] = [dict(name=tr(n), params=ps) for n, ps in c["groups"].items()]
-    return dict(menu=menu, cats={k: v for k, v in cats.items() if v.get("kind") == "types" or v["groups"]},
+    return dict(menu=menu, cats={k: v for k, v in cats.items() if v.get("kind") in ("types", "backup") or v["groups"]},
                 has_backup={f: os.path.exists(path_of(f) + ".bak") for f in ("config", "web")})
 
 
@@ -525,6 +531,125 @@ def restore_backup(f):
     MQTT.restart(S.ini)
 
 
+# ---------------------------------------------------------------- sauvegarde et restauration
+BACKUP_SECRETS = (("map", "carto_key"), ("server", "password"), ("mqtt", "password"))
+BACKUP_MAX = 1024 * 1024
+BACKUP_FILES = {"config.ini", "types_extra.txt", "runtime.json", "manifest.json"}
+
+
+def _read_text(path):
+    try:
+        with open(path, encoding="utf-8-sig") as fh:
+            return fh.read()
+    except OSError:
+        return ""
+
+
+def blank_secrets(text):
+    sec, out = None, []
+    for line in text.split("\n"):
+        m = SEC_RE.match(line.strip())
+        if m:
+            sec = m.group(1)
+        else:
+            k = KEY_RE.match(line)
+            if k and sec and (sec, k.group(2).lower()) in BACKUP_SECRETS:
+                line = f"{k.group(1)}{k.group(2)} ="
+        out.append(line)
+    return "\n".join(out)
+
+
+def build_backup(secrets):
+    import io, zipfile
+    buf = io.BytesIO()
+    cfg = _read_text(INI_PATH)
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("config.ini", cfg if secrets else blank_secrets(cfg))
+        types = _read_text(S.TYPES_FILE)
+        if types:
+            z.writestr("types_extra.txt", types)
+        rt = runtime_read()
+        if rt:
+            z.writestr("runtime.json", json.dumps({k: rt[k] for k in ("muted", "volume") if k in rt}))
+        cur = UPD.state().get("current") or {}
+        z.writestr("manifest.json", json.dumps(dict(app="flightdisplay", version=cur.get("label", ""), host=socket.gethostname(),
+                                                    created=time.strftime("%Y-%m-%dT%H:%M:%S%z"), secrets=bool(secrets))))
+    return buf.getvalue()
+
+
+def backup_filename():
+    host = re.sub(r"[^A-Za-z0-9_.-]+", "-", socket.gethostname()) or "pi"
+    return "flightdisplay-backup-%s-%s.zip" % (host, time.strftime("%Y%m%d-%H%M"))
+
+
+def _set_in_text(text, sec, key, value):
+    lines = text.split("\n")
+    vals, secs = parse(lines)
+    cur = vals.get((sec, key.lower()))
+    if cur:
+        lines[cur["line"]] = f'{cur["indent"]}{cur["orig"]} = {value}'
+    elif sec in secs:
+        lines.insert(secs[sec]["last"] + 1, f"{key} = {value}")
+    else:
+        lines += ["", f"[{sec}]", f"{key} = {value}"]
+    return "\n".join(lines)
+
+
+def restore_from_backup(blob):
+    """Restaure une sauvegarde (zip) : config.ini, types_extra.txt, etat du son. L'ancien config.ini est conserve en .bak."""
+    import io, zipfile
+    try:
+        z = zipfile.ZipFile(io.BytesIO(blob))
+    except (zipfile.BadZipFile, ValueError):
+        raise ValueError("fichier de sauvegarde invalide")
+    names = set(z.namelist())
+    if "config.ini" not in names or not names <= BACKUP_FILES or any(i.file_size > BACKUP_MAX for i in z.infolist()):
+        raise ValueError("fichier de sauvegarde invalide")
+    try:
+        manifest = json.loads(z.read("manifest.json")) if "manifest.json" in names else {}
+        if not isinstance(manifest, dict) or manifest.get("app", "flightdisplay") != "flightdisplay":
+            raise ValueError
+        cfg = z.read("config.ini").decode("utf-8-sig")
+        configparser.ConfigParser(interpolation=None, strict=False).read_string(cfg)
+        types = z.read("types_extra.txt").decode("utf-8-sig") if "types_extra.txt" in names else None
+        rt = json.loads(z.read("runtime.json")) if "runtime.json" in names else None
+        if rt is not None and not isinstance(rt, dict):
+            raise ValueError
+    except (ValueError, UnicodeDecodeError, configparser.Error):
+        raise ValueError("fichier de sauvegarde invalide")
+    if types is not None:
+        check_types(types)
+    if manifest.get("secrets") is False:  # sauvegarde sans secrets : on garde ceux de cette installation
+        cur, _ = parse(read_lines(INI_PATH))
+        for sec, key in BACKUP_SECRETS:
+            old = cur.get((sec, key))
+            if old and old["value"]:
+                cfg = _set_in_text(cfg, sec, key, old["value"])
+    lang_before = S.LANG
+    done = ["config.ini"]
+    with file_lock:
+        if os.path.exists(INI_PATH):
+            shutil.copy2(INI_PATH, INI_PATH + ".bak")
+        tmp = INI_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            fh.write(cfg.rstrip("\n") + "\n")
+        try:
+            os.chmod(tmp, 0o600)
+        except OSError:
+            pass
+        os.replace(tmp, INI_PATH)
+    if types is not None:
+        write_types(types)
+        done.append("types_extra.txt")
+    if rt:
+        sound_update({k: rt[k] for k in ("muted", "volume") if k in rt})
+        done.append("runtime.json")
+    S.reload()
+    MQTT.restart(S.ini)
+    SCHED["align"] = True
+    return dict(restored=done, restart_app=True, restart_web=(S.HOST, S.PORT) != BOUND, port=S.PORT, lang_changed=S.LANG != lang_before)
+
+
 # ---------------------------------------------------------------- types d'avion
 def unknown_types(known):
     found = []
@@ -542,8 +667,7 @@ def read_types():
         return ""
 
 
-def write_types(text):
-    known = set()
+def check_types(text):
     for n, line in enumerate(text.splitlines(), 1):
         body = line.split("#")[0].split()
         if not body:
@@ -554,7 +678,10 @@ def write_types(text):
             raise ValueError(f"ligne {n} : code de type invalide")
         if body[1] not in TYPE_CATS:
             raise ValueError(f"ligne {n} : catégorie inconnue (" + ", ".join(TYPE_CATS) + ")")
-        known.add(body[0].upper())
+
+
+def write_types(text):
+    check_types(text)
     path = S.TYPES_FILE
     with file_lock:
         if os.path.exists(path):
@@ -599,6 +726,18 @@ def fps_info():
         if time.time() - float(d["t"]) > 8:
             return None
         return round(float(d["fps"]), 1)
+    except Exception:
+        return None
+
+
+def live_info():
+    """Etat en direct publie par main.py (None si le programme ne tourne pas) : fps, avions en vol, au sol, dans la zone d'alerte."""
+    try:
+        with open(FPS_FILE, encoding="utf-8") as fh:
+            d = json.load(fh)
+        if time.time() - float(d["t"]) > 8:
+            return None
+        return dict(fps=float(d["fps"]), aircraft=int(d.get("aircraft", 0)), ground=int(d.get("ground", 0)), zone=int(d.get("zone", 0)))
     except Exception:
         return None
 
@@ -921,7 +1060,8 @@ def now_info():
 
 UPD = webadmin_update.Updater(S, svc_state, screen_off, lambda: build["running"], self_restart)
 MQTT = webadmin_mqtt.Bridge(dict(sysinfo=sysinfo, sound_state=sound_state, sound_update=sound_update,
-                                 screen_off=screen_off, screen=screen_cmd))
+                                 screen_off=screen_off, screen=screen_cmd, live=live_info, disk=disk_info,
+                                 cpu=lambda: cpu["pct"], service_active=lambda: svc_state() == "active"))
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -1002,6 +1142,18 @@ class Handler(BaseHTTPRequestHandler):
             elif u.path == "/api/logs":
                 n = int(parse_qs(u.query).get("lines", ["300"])[0])
                 self.send_json({"text": journal(max(10, min(n, 2000)))})
+            elif u.path == "/api/backup":
+                secrets = parse_qs(u.query).get("secrets", ["0"])[0] == "1"
+                if secrets and self.headers.get("X-Admin") != "1":
+                    return self.send_json({"error": "requête refusée"}, 403)
+                data = build_backup(secrets)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/zip")
+                self.send_header("Content-Disposition", 'attachment; filename="%s"' % backup_filename())
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(data)
             elif u.path == "/api/storage":
                 self.send_json(storage_info())
             elif u.path == "/api/update":
@@ -1021,10 +1173,10 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json({"error": "requête refusée"}, 403)
         try:
             n = int(self.headers.get("Content-Length", "0"))
-            if n > 65536:
+            path = urlparse(self.path).path
+            if n > (3 * 1024 * 1024 if path == "/api/backup/restore" else 65536):
                 return self.send_json({"error": "requête trop grande"}, 413)
             body = json.loads(self.rfile.read(n) or b"{}")
-            path = urlparse(self.path).path
             act = str(body.get("action", ""))
             if path == "/api/settings":
                 return self.send_json(dict(ok=True, **apply_settings(body.get("changes") or {})))
@@ -1064,12 +1216,21 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/build/cancel":
                 cancel_build()
                 return self.send_json(dict(ok=True))
+            if path == "/api/backup/restore":
+                try:
+                    blob = base64.b64decode(str(body.get("data", "")), validate=True)
+                except Exception:
+                    raise ValueError("fichier de sauvegarde invalide")
+                return self.send_json(dict(ok=True, **restore_from_backup(blob)))
             if path == "/api/storage/clear":
                 n, b = clear_photo_cache()
                 return self.send_json(dict(ok=True, count=n, bytes=b))
             if path == "/api/update/check":
                 UPD.check()
                 return self.send_json(UPD.state())
+            if path == "/api/update/rollback":
+                UPD.rollback()
+                return self.send_json(dict(ok=True))
             if path == "/api/update/start":
                 UPD.start()
                 return self.send_json(dict(ok=True))
@@ -1216,7 +1377,7 @@ button.b:disabled{opacity:.45}
 .runstep{font-size:14px;margin-top:10px}.runstep.err{color:#ffb4ae}
 .utog{color:var(--mut);font-size:12px;margin-top:10px;cursor:pointer;user-select:none}
 .utog .chev{display:inline-block;transition:transform .15s;margin-right:6px}.utog .chev.shut{transform:rotate(-90deg)}
-.ulast{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:10px;font-size:14px;user-select:none}
+.ulast{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 14px;display:flex;align-items:center;flex-wrap:wrap;gap:10px;cursor:pointer;margin-bottom:10px;font-size:14px;user-select:none}
 .ulast.bad{border-color:#6b2420}.ulast .ic{color:var(--ok)}.ulast.bad .ic{color:var(--bad)}.ulast .more{margin-left:auto;color:var(--mut);font-size:12px;white-space:nowrap}
 .chip.upd{display:inline-flex;align-items:center;cursor:pointer}
 .chip .uico{display:inline-flex;align-items:center;max-width:0;overflow:hidden;opacity:0;margin:0;padding:0;border:0;background:var(--ok);color:#06210f;border-radius:99px;font-size:12px;line-height:1;height:18px;cursor:pointer;transition:max-width .2s,opacity .2s,margin .2s,padding .2s}
@@ -1663,6 +1824,7 @@ function renderCatBase() {
   const cat = SET.cats[curCat]; if (!cat) return;
   const head = el('div', 'catt'); head.append(el('h3', null, cat.title)); box.append(head);
   if (cat.kind === 'types') return renderTypes(box);
+  if (cat.kind === 'backup') { if (cat.note) box.append(el('p', 'note', cat.note)); return renderBackup(box); }
   if (cat.kind === 'storage') renderStorage(box);
   if (cat.kind === 'schedule') { if (cat.note) box.append(el('p', 'note', cat.note)); return renderSchedule(box); }
   if (cat.kind === 'fields') {
@@ -1754,6 +1916,44 @@ async function renderTypes(box) {
   const save = el('button', 'b p', 'Enregistrer'), save2 = el('button', 'b', 'Enregistrer et relancer');
   const doSave = async relaunch => { try { await api('/api/types', {text: ta.value}); toast('Types enregistrés'); if (relaunch) await svc('restart'); else { pend.app = true; showPending(); } } catch (e) { toast(e.message, true); } };
   save.onclick = () => doSave(false); save2.onclick = () => doSave(true); bt.append(save, save2); box.append(bt);
+}
+
+/* ---------- Sauvegarde et restauration ---------- */
+function renderBackup(box) {
+  box.append(el('h2', 't', 'Exporter la configuration'));
+  const l1 = el('div', 'list'), r1 = el('div', 'li'), t1 = el('div', 'lt');
+  t1.append(el('b', null, 'Inclure les mots de passe et la clé CARTO'), el('small', null, "Nécessaire pour tout retrouver après une panne. Le fichier contient alors des secrets : ne le partagez pas et gardez-le en lieu sûr."));
+  const tg = toggle(true, () => {}); r1.append(t1, tg.label); l1.append(r1);
+  const r2 = el('div', 'li stack'), dl = el('button', 'b p', 'Télécharger la sauvegarde');
+  dl.onclick = async () => {
+    try {
+      const r = await fetch('/api/backup?secrets=' + (tg.input.checked ? 1 : 0), {headers: {'X-Admin': '1'}});
+      if (!r.ok) throw new Error(((await r.json().catch(() => ({}))).error) || ('Erreur HTTP ' + r.status));
+      const m = /filename="([^"]+)"/.exec(r.headers.get('Content-Disposition') || ''), a = document.createElement('a');
+      a.href = URL.createObjectURL(await r.blob()); a.download = m ? m[1] : 'flightdisplay-backup.zip'; document.body.append(a); a.click(); a.remove();
+      toast('Sauvegarde téléchargée');
+    } catch (e) { toast(e.message, true); }
+  };
+  r2.append(dl); l1.append(r2); box.append(l1);
+  box.append(el('p', 'note', 'La sauvegarde contient config.ini (réglages, avec ou sans les secrets), la liste des types d\'avion et l\'état du son. Les photos et la carte ne sont pas incluses : la carte se reconstruit depuis la configuration.'));
+  box.append(el('h2', 't', 'Restaurer une sauvegarde'));
+  const l2 = el('div', 'list'), r3 = el('div', 'li stack'), t3 = el('div', 'lt');
+  t3.append(el('b', null, 'Choisir un fichier de sauvegarde'), el('small', null, "Remplace la configuration actuelle (l'ancienne est conservée en config.ini.bak). Une sauvegarde sans secrets garde ceux de cette installation."));
+  const fi = document.createElement('input'); fi.type = 'file'; fi.accept = '.zip'; fi.style.marginTop = '8px'; t3.append(fi);
+  const r4 = el('div', 'li stack'), rb = el('button', 'b d', 'Restaurer'); rb.disabled = true;
+  fi.onchange = () => { rb.disabled = !fi.files.length; };
+  rb.onclick = async () => {
+    const f = fi.files[0]; if (!f) return;
+    if (!confirm(_t('Restaurer la configuration depuis « {0} » ? Les réglages actuels seront remplacés.', f.name))) return;
+    try {
+      const bytes = new Uint8Array(await f.arrayBuffer()); let bin = ''; for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+      const r = await api('/api/backup/restore', {data: btoa(bin)});
+      toast('Configuration restaurée'); fi.value = ''; rb.disabled = true;
+      if (r.lang_changed) { setTimeout(() => location.reload(), 1200); return; }
+      await loadSettings(); pend = {app: true, web: !!r.restart_web, port: r.port}; showPending();
+    } catch (e) { toast(e.message, true); }
+  };
+  r3.append(t3); r4.append(rb); l2.append(r3, r4); box.append(l2);
 }
 
 /* ---------- Stockage et photos ---------- */
@@ -2035,6 +2235,11 @@ async function pollUpd() {
 async function quickUpdate() {
   try { await api('/api/update/start', {}); updWasRunning = true; updQuick = true; await pollUpd(); pollStatus(); } catch (e) { toast(e.message, true); }
 }
+async function startRollback() {
+  const pv = UPD && UPD.previous; if (!pv) return;
+  if (!confirm(_t("Revenir à la version {0} ? L'affichage sera relancé, puis webadmin redémarrera.", pv.label))) return;
+  try { await api('/api/update/rollback', {}); updWasRunning = true; updQuick = false; await pollUpd(); } catch (e) { toast(e.message, true); }
+}
 async function checkUpd() {
   updBusy = true; renderUpd();
   try { UPD = await api('/api/update/check', {}); } catch (e) { toast(e.message, true); }
@@ -2058,8 +2263,9 @@ function renderUpd(lost) {
   else if (c && !c.ok) vr.append(chip('vérification impossible', 'bad'));
   else vr.append(chip('non vérifié'));
   const sub = el('div', 'usub');
-  sub.textContent = behind ? _t(behind > 1 ? '{0} nouveautés' : '{0} nouveauté', behind) + ' · ' + _t('vérifié {0}', ago(c.checked_at))
-    : (cur ? cur.date + ' · ' + cur.subject : '') + (c && c.ok ? ' · ' + _t('vérifié {0}', ago(c.checked_at)) : '');
+  const chan = u.channel === 'stable' ? tl('canal stable') : tl('canal développement');
+  sub.textContent = behind ? _t(behind > 1 ? '{0} nouveautés' : '{0} nouveauté', behind) + ' · ' + _t('vérifié {0}', ago(c.checked_at)) + ' · ' + chan
+    : (c && c.ok && c.dev_ahead ? _t('{0} commit(s) après {1}', c.dev_ahead, c.latest.label) + ' · ' : '') + (cur ? cur.date + ' · ' + cur.subject : '') + (c && c.ok ? ' · ' + _t('vérifié {0}', ago(c.checked_at)) + ' · ' + chan : '');
   left.append(vr, sub);
   const btns = el('div', 'ubtns');
   const bc = el('button', 'b s', updBusy ? 'Vérification...' : (behind ? 'Vérifier' : 'Vérifier les mises à jour')); bc.disabled = updBusy || busy; bc.onclick = checkUpd; btns.append(bc);
@@ -2081,7 +2287,7 @@ function renderUpd(lost) {
   const idleOpen = updDetailsOpen === null ? u.ok === false : updDetailsOpen;
   let showOut = false;
   if (busy) {
-    $('#runT').textContent = u.to_label ? _t('Mise à jour vers {0}', u.to_label) : tl('Mise à jour en cours');
+    $('#runT').textContent = u.to_label ? _t(u.mode === 'rollback' ? 'Retour à la version {0}' : 'Mise à jour vers {0}', u.to_label) : tl(u.mode === 'rollback' ? 'Retour à la version précédente' : 'Mise à jour en cours');
     $('#runP').textContent = (u.pct || 0) + ' %';
     $('#updBar').firstElementChild.style.width = (u.pct || 0) + '%';
     const sg = $('#updSegs'); sg.innerHTML = ''; for (const s of u.steps) sg.append(el('i', s.status));
@@ -2093,9 +2299,10 @@ function renderUpd(lost) {
   } else if (u.started) {
     const bad = u.ok === false, from = u.from_label, to = u.to_label;
     last.style.display = 'flex'; last.className = 'ulast' + (bad ? ' bad' : ''); last.innerHTML = '';
-    const txt = bad ? _t('Dernière tentative en échec : {0}', u.error) : (from && to && from !== to ? _t('Dernière mise à jour : {0} → {1}, {2}', from, to, ago(u.finished)) : (u.done_msg || ''));
+    const txt = bad ? _t('Dernière tentative en échec : {0}', u.error) : (from && to && from !== to ? _t(u.mode === 'rollback' ? 'Retour arrière : {0} → {1}, {2}' : 'Dernière mise à jour : {0} → {1}, {2}', from, to, ago(u.finished)) : (u.done_msg || ''));
     last.append(el('span', 'ic', bad ? '✕' : '✓'), el('span', null, txt));
-    const more = el('span', 'more'); more.append(el('span', 'chev' + (idleOpen ? '' : ' shut'), '▾'), el('span', null, 'Détails')); more.firstChild.style.cssText = 'display:inline-block;transition:transform .15s;margin-right:4px' + (idleOpen ? '' : ';transform:rotate(-90deg)');
+    if (u.previous) { const rb = el('button', 'b s', _t('Revenir à {0}', u.previous.label)); rb.style.marginLeft = 'auto'; rb.onclick = e => { e.stopPropagation(); startRollback(); }; last.append(rb); }
+    const more = el('span', 'more'); if (!u.previous) more.style.marginLeft = 'auto'; more.append(el('span', 'chev' + (idleOpen ? '' : ' shut'), '▾'), el('span', null, 'Détails')); more.firstChild.style.cssText = 'display:inline-block;transition:transform .15s;margin-right:4px' + (idleOpen ? '' : ';transform:rotate(-90deg)');
     last.append(more); last.onclick = () => { updDetailsOpen = !idleOpen; renderUpd(); };
     det.style.display = idleOpen ? 'block' : 'none'; showOut = idleOpen;
     det.innerHTML = '';

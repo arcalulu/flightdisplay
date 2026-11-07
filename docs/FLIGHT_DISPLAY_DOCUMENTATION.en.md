@@ -109,12 +109,36 @@ If `config.ini` already exists, the installer offers to keep it: it then updates
 | `FD_REPO_URL`, `FD_BRANCH` | Repository and branch to clone. |
 | `FD_LOG` | Log file (`~/flightdisplay-install.log` by default). |
 | `NO_COLOR=1` | Disables colors. |
+| `--lang fr\|en`, `FD_LANG` | Language of the installer, of webadmin and of the screen. Without an option, the installer asks at the start (French by default). Written to `[general] language`. |
+| `--yes`, `--non-interactive`, `FD_YES=1` | No-questions mode (see below). |
+
+**No-questions mode.** With `--yes`, the installer reads nothing from the keyboard: it takes its answers from environment variables and uses `sudo -n` (sudo must work without a password, which is the default on Raspberry Pi OS). Example:
+
+```
+FD_LAT=48.8566 FD_LON=2.3522 FD_RADIUS=20 FD_MAP_SIZE=1280x720 FD_CARTO_KEY=YOUR_KEY FD_LANG=en \
+  bash <(curl -fsSL https://raw.githubusercontent.com/arcalulu/flightdisplay/main/install.sh) --yes
+```
+
+| Variable | Default | Role |
+|---|---|---|
+| `FD_ADDRESS` or `FD_LAT` and `FD_LON` | required for a first installation | Position (the address is converted to coordinates). |
+| `FD_RADIUS` | 20 | Map radius in km (1 to 200). |
+| `FD_MAP_SIZE` | `1280x720` | Map size (`1920x1080` possible). |
+| `FD_AIRPORT` | empty | IATA code of a nearby airport. |
+| `FD_CARTO_KEY` | empty | CARTO API key (without it, the map is built later from webadmin). |
+| `FD_WEB_PASSWORD` | generated | webadmin password (6 characters minimum); if empty, a password is generated and shown at the end. |
+| `FD_MQTT_HOST`, `FD_MQTT_PORT`, `FD_MQTT_USER`, `FD_MQTT_PASS` | empty (port 1883) | Optional MQTT server. |
+| `FD_HDMI_FIX` | 1 | Screen sleep fix (3.6). |
+| `FD_AUTO_REBOOT` | 0 | `1`: reboot at the end if the fix was applied. |
+| `FD_KEEP` | 1 | If `config.ini` exists: `1` keeps it (software update only), `0` rewrites it. |
+
+An invalid value stops the installer with a clear message before anything is installed.
 
 ### 0.8 At the end
 
 The summary gives the webadmin address (`http://<pi-name>.local:8080` and by IP address), the username, the password (if it was generated, it is not shown again afterwards) and the useful commands. If the sleep fix was applied, the installer reboots the Pi (or tells you `sudo reboot`) depending on your answer to the automatic reboot question.
 
-The webadmin password, the CARTO key and the MQTT credentials are stored in `config.ini`, with permissions 600. All settings are then changed from webadmin. The installer is in French; the language of webadmin and of the screen is changed afterwards in Settings, Language (8.1).
+The webadmin password, the CARTO key and the MQTT credentials are stored in `config.ini`, with permissions 600. All settings are then changed from webadmin. The installer exists in French and in English (chosen at the start, or with `--lang`); the language of webadmin and of the screen, written to `config.ini`, is changed afterwards in Settings, Language (8.1).
 
 ---
 
@@ -986,6 +1010,7 @@ On a computer, a menu on the left lists the categories; on a phone, it becomes a
 | | Application and system | config.ini | Folder, files, service, map Python, sudo, commands, sleep script and marker, stopping the display during the map build. |
 | | Updates | config.ini | Automatic check every 12 hours (`auto_check`). |
 | | Screen schedule | config.ini | Schedule switch and weekly calendar of the on ranges (see below). |
+| | Backup | — | Export of the configuration to a file and restore (see below). |
 | | Storage and photos | config.ini | Disk usage, cached photos, "Clear the photo cache" button, alert threshold (see below). |
 | Integrations | MQTT / Home Assistant | config.ini | Connection, topics and discovery, with state and a "Reconnect" button. |
 
@@ -1021,6 +1046,13 @@ When a change takes effect:
 - **Monitoring**: the "Disk alert threshold (%)" setting (90 by default, from 50 to 99) triggers the alert: "disk X % full" chip in the header (all pages), colored Memory tile, banner in this page. The orange alert comes 10 points before the threshold.
 - The program deletes photos older than 3 days at each start anyway (9.7).
 
+**Backup** (Settings, Backup)
+
+- **Export**: the "Download the backup" button produces a file `flightdisplay-backup-<pi-name>-<date>.zip` containing `config.ini` (all the program and webadmin settings), `types_extra.txt` (aircraft types), the sound state and a small information file. Photos and the map are not in it: the map is rebuilt from the configuration (position, radius, CARTO key).
+- **Secrets**: the "Include passwords and the CARTO key" switch (on by default) decides whether the secrets (CARTO key, webadmin password, MQTT password) are in the file. With the secrets, the restore gets everything back; **the file is then sensitive**: do not share it. Without secrets, it can be shared (for example for a diagnosis). An export with secrets is only possible from the interface (`X-Admin` header), never through a plain link.
+- **Restore**: choose a file then "Restore" (confirmation asked). The current configuration is replaced (the old `config.ini` stays as `config.ini.bak`). A backup made without secrets keeps those of the current installation. The file is checked before any change (format, allowed content, readable `config.ini`, valid type rules): an invalid file is refused without changing anything. Webadmin then offers to restart the program (equivalent to "Save and apply"); a language change reloads the page.
+- Typical case, after an SD card failure: install a new Pi (section 0, with `--yes` if you like), open webadmin, restore the file, restart the program, then rebuild the map.
+
 **Screen schedule** (Settings, Screen schedule)
 
 Turns the screen on and off by itself following a weekly calendar, like a diary.
@@ -1047,6 +1079,8 @@ Turns the screen on and off by itself following a weekly calendar, like a diary.
 - **During the update**: a compact card with the title ("Updating to v1.2.0"), the percentage, the progress bar, a seven-segment bar (one per step: checks, download, apply, libraries, code check, display restart, webadmin restart; green when done, yellow in progress, red on error), the current step with the elapsed time, and a "Detailed log" that is collapsed and opens with a click. The page reloads by itself at the end.
 - **After the update**, a single line summarizes the last operation ("✓ Last update: v1.0.0 → v1.1.0, 2 min ago"). A click on "Details" opens the list of steps and the log. On failure, the line turns red with the cause and the details open automatically.
 - "Version history": changelog grouped by version. Each version (git tag `vX.Y.Z`) is a collapsible separator, with its commits below it from the most recent to the oldest (number, commit, date, description). The commits after the latest version are grouped under "In development (unreleased)". The most recent version is expanded, the others collapsed. Markers: "new" (not installed yet) and "installed". Warnings point out a locally modified file, local commits missing from GitHub or a modified `install.sh`. The complete procedure is described in 12.1.
+- **Going back to the previous version**: after an update (or a rollback), the line of the last operation shows a "Go back to vX.Y.Z" button that restores the version left (confirmation asked): same steps as an update without the download (libraries reinstalled if needed, code check, restart of the display and of webadmin, automatic restore on failure). The button also lets you go forward again (it swaps the two versions). Your settings are not touched.
+- **Channel**: "Update channel" in Settings, Updates: "Stable" (published versions, default) or "Development" (every commit). The summary card shows the channel; on the stable channel, a Pi running a commit newer than the latest version shows "N commits after vX.Y.Z".
 - A green "update available" chip appears in the header, on every page. A click on the chip opens the Updates tab; hovering it reveals a small ⬆ icon (always visible on a touch screen): a click on it starts the update at once, without leaving the current page. The chip then shows "update in progress · X %", and the page reloads at the end. The icon is only offered if the update is possible (no locally modified file, no conflict); on failure, a message is shown.
 
 **Credits**
@@ -1087,6 +1121,7 @@ flag = /run/flight-screen-off
 stop_display = true
 
 [update]
+channel = stable
 auto_check = true
 
 [schedule]
@@ -1132,7 +1167,8 @@ interval = 30
 | `[screen]` | `helper` | `/usr/local/bin/flight-screen` | Sleep and wake-up script. |
 | | `flag` | `/run/flight-screen-off` | Sleep marker file (deleted when the Pi reboots). |
 | `[build]` | `stop_display` | true | Default value of the "Stop the display during the build" switch (map rebuild). |
-| `[update]` | `auto_check` | true | Checks every 12 hours whether a new version exists on GitHub (shown by a chip in the header). Installs nothing by itself. |
+| `[update]` | `channel` | `stable` | Update channel: `stable` (only published `vX.Y.Z` versions, recommended) or `latest` (latest commit of the branch, development). |
+| | `auto_check` | true | Checks every 12 hours whether a new version exists on GitHub (shown by a chip in the header). Installs nothing by itself. |
 | `[schedule]` | `enabled` | false | Enables the screen on/off schedule. |
 | | `mon` to `sun` | empty | On ranges of the day (`HH:MM-HH:MM`, separated by commas). Empty: screen off all day while the schedule is active. |
 | `[storage]` | `warn_percent` | 90 | Disk usage alert threshold, in % (50 to 99). Orange alert 10 points earlier. |
@@ -1159,11 +1195,14 @@ All routes require authentication if a password is set. `POST` requests addition
 | `/api/power` | POST | `{"action": "reboot\|poweroff"}` | Restarts or shuts down the Pi. |
 | `/api/build` | GET / POST | `{"stop_display": true}` | State and output of the build / start. |
 | `/api/build/cancel` | POST | `{}` | Cancels the build. |
+| `/api/backup` | GET | | Downloads the backup (zip). `?secrets=1` includes the secrets and requires the `X-Admin: 1` header; `?secrets=0` removes them. |
+| `/api/backup/restore` | POST | `{"data": "<zip in base64>"}` | Restores a backup (up to 3 MB). |
 | `/api/storage` | GET | | Disk usage (total, used, free, percentage, alert level) and cache usage (number and volume of photos, other files). |
 | `/api/storage/clear` | POST | `{}` | Deletes the photos of the cache; returns the number and volume deleted. |
 | `/api/update` | GET | | State of the updates: last check (versions, changes), progress, steps and log of the current or last update, version history. |
 | `/api/update/check` | POST | `{}` | Queries GitHub (`git fetch`) and returns the updated state. |
 | `/api/update/start` | POST | `{}` | Starts the update in the background (followed through `GET /api/update`). |
+| `/api/update/rollback` | POST | `{}` | Goes back to the version left by the last update. |
 | `/api/mqtt/reconnect` | POST | `{}` | Reconnects MQTT and republishes the discovery. |
 | `/api/webadmin/restart` | POST | `{}` | Restarts webadmin. |
 
@@ -1216,6 +1255,13 @@ The same settings exist in `config.ini`, section `[mqtt]`.
 | Alert sound | switch | `base/sound/state`, `base/sound/set` | ON if the sound is neither muted nor disabled in `config.ini`. OFF mutes the sound. |
 | Alert volume | number 0-100% (steps of 5) | `base/volume/state`, `base/volume/set` | Sets the volume live. |
 | Temperature | sensor °C | `base/temperature/state` | Pi temperature, rounded to 0.5 °C. |
+| Aircraft in flight | sensor | `base/aircraft/state` | Number of aircraft in flight shown on the map. `unavailable` when the program is stopped. |
+| Aircraft on the ground | sensor | `base/aircraft_ground/state` | Number of aircraft in the ground list. |
+| Aircraft in the alert zone | sensor | `base/aircraft_zone/state` | Number of aircraft inside the alert circle. |
+| Alert active | binary sensor | `base/alert/state` | ON as long as at least one aircraft is in the alert zone. |
+| Program running | binary sensor (running) | `base/program/state` | ON if the display service is running. |
+| Frames per second | sensor (diagnostic) | `base/fps/state` | Rate really displayed. |
+| CPU usage, Memory used, Disk used | % sensors (diagnostic) | `base/cpu/state`, `base/memory/state`, `base/disk/state` | Pi measurements. |
 
 The entity names follow the language chosen in webadmin (for example "Écran", "Son des alertes", "Volume des alertes", "Température" in French), published at each (re)connection.
 
@@ -1275,7 +1321,7 @@ git tag -a v1.1.0 -m "Version 1.1.0"
 git push origin v1.1.0
 ```
 
-Installations fetch the tags at each check. Updates always install the latest commit of the branch, published or not.
+Installations fetch the tags at each check. On the **stable** channel (default, `[update] channel`), an update installs the latest `vX.Y.Z` tagged version of the branch (pre-releases such as `v1.3.0-rc1` and unpublished commits are ignored); on the **latest** channel ("Development" in Settings, Updates), it installs the latest commit of the branch, published or not. For a version to reach stable-channel users, the tag must therefore be placed.
 
 ### 12.3 Adding a language
 
@@ -1378,6 +1424,8 @@ sudo reboot
 | The photo panel never appears in a corner | That corner is unticked in Settings, Photo panel (8.6). If all four corners are unticked, there is no restriction. |
 | The Program tile shows fewer frames per second than the target | The Pi Zero cannot keep the pace: lower `fps`, switch the map to 1280×720, or limit the number of aircraft (maximum tracked altitude). |
 | "disk X % full" alert | The SD card is approaching saturation. Open Settings, Storage and photos: clear the photo cache, then look for big files (`du -h --max-depth=1 ~ \| sort -h`, logs, old backups). See also 6.3. |
+| Updates: no new version although commits were pushed | The channel is "Stable": only tagged `vX.Y.Z` versions are offered (12.2). Switch to the "Development" channel (Settings, Updates) to receive every commit. |
+| Restore: "invalid backup file" | The file must be a zip produced by Settings, Backup (containing `config.ini`, possibly `types_extra.txt`, `runtime.json` and `manifest.json`), unmodified and under 1 MB per file. |
 | Unstable Wi-Fi | Disable power saving (6.4). |
 
 ---
