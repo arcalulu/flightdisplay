@@ -46,7 +46,7 @@ corner_bottom_right = true
 
 [panel_content]
 ; Texte du panneau photo : ordre, affichage (show_*), taille (small, medium, large), gras, italique, même ligne
-; Réglage conseillé depuis webadmin (Réglages, Contenu du panneau photo). Le crédit du photographe se masque avec show_credit dans [panel].
+; Réglage conseillé depuis webadmin (Réglages, Panneau photo, onglet Contenu du texte). Le crédit du photographe se masque avec show_credit dans [panel].
 order = model,registration,callsign,airline,route,altitude,speed,credit
 show_callsign = false
 

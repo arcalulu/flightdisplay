@@ -556,6 +556,8 @@
   "Le crédit est déjà visible à l'intérieur de l'image : cette ligne le répète sous la photo.": "The credit is already visible inside the image: this line repeats it below the photo.",
   "Altitude {0}": "Altitude {0}",
   "Vitesse {0}": "Speed {0}",
-  "aucun texte": "no text"
+  "aucun texte": "no text",
+  "Contenu du texte": "Text content",
+  "Taille et angles": "Size and corners"
  }
 }

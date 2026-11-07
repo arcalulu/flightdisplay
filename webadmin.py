@@ -125,7 +125,6 @@ CATS = [
     ("display", "Affichage", "Programme"),
     ("label", "Étiquettes des avions", "Programme"),
     ("panel", "Panneau photo", "Programme"),
-    ("pcontent", "Contenu du panneau photo", "Programme"),
     ("ground", "Avions au sol", "Programme"),
     ("alert", "Alerte de proximité", "Programme"),
     ("types", "Types d'avion", "Programme"),
@@ -139,7 +138,6 @@ CATS = [
 ]
 CAT_NOTES = {
     "language": "Langue de webadmin (immédiat) et du texte affiché à l'écran par le programme (après sa relance : « Enregistrer et appliquer »). Pour ajouter une langue, déposez un fichier dans le dossier lang (voir la documentation).",
-    "pcontent": "Texte affiché sous la photo dans le panneau : réordonnez les éléments avec les flèches, choisissez ceux à afficher, leur taille, gras et italique, et s'ils partagent la ligne de l'élément précédent. La ligne d'alerte de proximité n'est pas modifiable. Pris en compte après relance du programme.",
     "label": "Petits panneaux affichés à côté de chaque avion sur la carte. Réordonnez les éléments avec les flèches, choisissez ceux à afficher, leur taille, gras et italique, et s'ils partagent la ligne de l'élément précédent. Si tout est masqué, aucun panneau n'est affiché. Pris en compte après relance du programme.",
     "position": "Modifier ces valeurs oblige à reconstruire la carte (section Reconstruction de la carte, en bas de cette page).",
     "server": "Le port et l'adresse d'écoute demandent un redémarrage de webadmin. L'identifiant et le mot de passe s'appliquent immédiatement.",
@@ -180,17 +178,20 @@ FIELD_HINTS = {"credit": "Le crédit est déjà visible à l'intérieur de l'ima
 PANEL_SHOW_KEYS = {"credit": ("panel", "show_credit")}
 
 
+PANEL_NOTE = "Texte affiché sous la photo dans le panneau : réordonnez les éléments avec les flèches, choisissez ceux à afficher, leur taille, gras et italique, et s'ils partagent la ligne de l'élément précédent. La ligne d'alerte de proximité n'est pas modifiable. Pris en compte après relance du programme."
+
+
 def field_params(cat, sec, fields, show_keys=None):
     ids = [f[0] for f in fields]
-    out = [C(cat, sec, "order", "text", ",".join(ids), "Ordre des éléments", "Ordre d'affichage, de haut en bas.", "Disposition", fields=ids)]
+    out = [C(cat, sec, "order", "text", ",".join(ids), "Ordre des éléments", "Ordre d'affichage, de haut en bas.", "Disposition", fields=ids, editor=True)]
     for _id, _name, _show, _size, _same, _bold in fields:
         ssec, skey = (show_keys or {}).get(_id, (sec, "show_" + _id))
         out += [
-            C(cat, ssec, skey, "bool", _show, _name, "", "Contenu"),
-            C(cat, sec, _id + "_size", "choice", _size, _name + " : taille", "", "Style", options=["small", "medium", "large"]),
-            C(cat, sec, _id + "_bold", "bool", _bold, _name + " : gras", "", "Style"),
-            C(cat, sec, _id + "_italic", "bool", False, _name + " : italique", "", "Style"),
-            C(cat, sec, _id + "_same_line", "bool", _same, _name + " : sur la ligne précédente", "", "Style"),
+            C(cat, ssec, skey, "bool", _show, _name, "", "Contenu", editor=True),
+            C(cat, sec, _id + "_size", "choice", _size, _name + " : taille", "", "Style", options=["small", "medium", "large"], editor=True),
+            C(cat, sec, _id + "_bold", "bool", _bold, _name + " : gras", "", "Style", editor=True),
+            C(cat, sec, _id + "_italic", "bool", False, _name + " : italique", "", "Style", editor=True),
+            C(cat, sec, _id + "_same_line", "bool", _same, _name + " : sur la ligne précédente", "", "Style", editor=True),
         ]
     return out
 
@@ -208,7 +209,7 @@ def field_editor(sec, fields, mode, show_keys=None):
 
 
 LABEL_PARAMS = field_params("label", "label", LABEL_FIELDS)
-PANEL_PARAMS = field_params("pcontent", "panel_content", PANEL_FIELDS, PANEL_SHOW_KEYS)
+PANEL_PARAMS = field_params("panel", "panel_content", PANEL_FIELDS, PANEL_SHOW_KEYS)
 
 LANGS = i18n.languages()
 
@@ -340,7 +341,7 @@ def get_settings():
         out = dict(id=f'{p["file"]}:{p["sec"]}.{p["key"]}', cat=p["cat"], key=p["key"], type=p["type"], label=tr(p["label"]),
                    help=tr(p["help"]), options=p.get("options"), labels=p.get("labels"), needs_map=bool(p.get("needs_map")), apply=p["apply"],
                    present=cur is not None, min=p.get("min"), max=p.get("max"), step=p.get("step"), ui=p.get("ui"),
-                   secret=p["type"] == "secret", set=bool(cur and cur["value"]), value="" if p["type"] == "secret" else raw)
+                   editor=bool(p.get("editor")), secret=p["type"] == "secret", set=bool(cur and cur["value"]), value="" if p["type"] == "secret" else raw)
         cats[p["cat"]]["groups"].setdefault(p["group"], []).append(out)
         cats[p["cat"]]["file"] = p["file"]
     for f, vals in state.items():
@@ -355,7 +356,7 @@ def get_settings():
                          step=None, ui=None, secret=False, set=True, value=cur["value"]))
     cats["types"].update(kind="types", groups=[], file=None)
     cats["label"].update(kind="fields", editor=field_editor("label", LABEL_FIELDS, "label"))
-    cats["pcontent"].update(kind="fields", editor=field_editor("panel_content", PANEL_FIELDS, "panel", PANEL_SHOW_KEYS))
+    cats["panel"].update(kind="fields", editor=dict(field_editor("panel_content", PANEL_FIELDS, "panel", PANEL_SHOW_KEYS), note=tr(PANEL_NOTE)))
     cats["schedule"]["kind"] = "schedule"
     cats["storage"]["kind"] = "storage"
     menu = []
@@ -1160,6 +1161,7 @@ button.b:disabled{opacity:.45}
 .stp.running .ic{display:inline-block;animation:spin 1s linear infinite}
 .cm{display:flex;gap:10px;padding:8px 14px;border-top:1px solid var(--line);font-size:14px}
 .cm:first-child{border-top:0}.cm code{white-space:nowrap;color:var(--mut);font:12px ui-monospace,Menlo,Consolas,monospace;flex:none;padding-top:2px}.cm span:nth-child(2){flex:1;min-width:0}.cm .chip{flex:none;align-self:flex-start}
+.lprev.sticky{z-index:4}
 .lprev{display:inline-block;background:#0a0e14;border:1px solid var(--line);border-radius:6px;padding:6px 10px;margin:4px 4px 10px;line-height:1.3}
 .lrow{padding:10px 14px;border-top:1px solid var(--line)}.lrow:first-child{border-top:0}
 .lrow .top{display:flex;align-items:center;gap:8px}.lrow .top b{flex:1;font-weight:500}
@@ -1249,6 +1251,7 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
   nav button.on{background:var(--card2)}
   main{padding-bottom:110px}
   .set{display:grid;grid-template-columns:230px 1fr;gap:22px;align-items:start}
+  .lprev.sticky{position:sticky;top:62px;box-shadow:0 6px 14px #000a}
   .menu{flex-direction:column;overflow:visible;position:sticky;top:76px;margin:0;gap:2px;padding:0}
   .menu .mg{display:block;color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin:14px 10px 4px}
   .menu .mg:first-child{margin-top:0}
@@ -1630,25 +1633,13 @@ function renderCat() {
   renderCatBase();
   if (curCat === 'position' && mb) { const box = $('#catbox'); box.appendChild(el('h2', 't', 'Reconstruction de la carte')); box.appendChild(mb); pollBuild(); }
 }
-function renderCatBase() {
-  const box = $('#catbox'); box.innerHTML = '';
-  const cat = SET.cats[curCat]; if (!cat) return;
-  const head = el('div', 'catt'); head.append(el('h3', null, cat.title)); box.append(head);
-  if (cat.kind === 'types') return renderTypes(box);
-  if (cat.kind === 'storage') renderStorage(box);
-  if (cat.kind === 'schedule') { if (cat.note) box.append(el('p', 'note', cat.note)); return renderSchedule(box); }
-  if (cat.kind === 'fields') { if (cat.note) box.append(el('p', 'note', cat.note)); return renderFields(box, cat); }
-  if (cat.id === 'mqtt') {
-    const st = lastSt ? lastSt.mqtt : 'off', h = el('div', 'tools'); const c = chip('État : ' + (st === 'off' ? 'désactivé' : st), st === 'connecte' ? 'ok' : (st === 'off' ? '' : 'bad')); c.style.flex = 'none';
-    const b = el('button', 'b s', 'Reconnecter / republier'); b.style.flex = 'none'; b.onclick = async () => { try { await api('/api/mqtt/reconnect', {}); toast('Reconnexion demandée'); setTimeout(pollStatus, 2000); } catch (e) { toast(e.message, true); } };
-    h.append(c, b); box.append(h);
-  }
-  if (cat.note) box.append(el('p', 'note', cat.note));
-  if (cat.id === 'server') { const w = el('div', 'hint', "Aucun mot de passe n'est défini : toute personne du réseau local peut piloter le Raspberry Pi. Définissez-en un ci-dessous."); w.id = 'authWarn'; w.style.display = (lastSt && !lastSt.auth) ? 'block' : 'none'; box.append(w); }  
+function renderGroups(box, cat) {
   for (const g of cat.groups) {
+    const ps = g.params.filter(p => !p.editor);
+    if (!ps.length) continue;
     if (g.name) box.append(el('h2', 't', g.name));
     const list = el('div', 'list');
-    for (const p of g.params) {
+    for (const p of ps) {
       const ctl = control(p), row = el('div', 'li' + (ctl.inline ? '' : ' full')), t = el('div', 'lt'), b = el('b', null, p.label);
       if (p.needs_map) b.append(el('span', 'flag', 'recalcule la carte'));
       t.append(b); const hp = (p.help || '') + (p.present ? '' : (p.help ? ' ' : '') + _t('(absent du fichier : valeur par défaut)'));
@@ -1657,6 +1648,32 @@ function renderCatBase() {
     }
     box.append(list);
   }
+}
+let fieldTab = {};
+function renderCatBase() {
+  const box = $('#catbox'); box.innerHTML = '';
+  const cat = SET.cats[curCat]; if (!cat) return;
+  const head = el('div', 'catt'); head.append(el('h3', null, cat.title)); box.append(head);
+  if (cat.kind === 'types') return renderTypes(box);
+  if (cat.kind === 'storage') renderStorage(box);
+  if (cat.kind === 'schedule') { if (cat.note) box.append(el('p', 'note', cat.note)); return renderSchedule(box); }
+  if (cat.kind === 'fields') {
+    const extra = cat.groups.some(g => g.params.some(p => !p.editor));
+    if (!extra) { if (cat.note) box.append(el('p', 'note', cat.note)); return renderFields(box, cat); }
+    const tab = fieldTab[cat.id] || 'content', tabs = el('div', 'seg'); tabs.style.margin = '4px 0 12px';
+    for (const [v, t] of [['content', 'Contenu du texte'], ['size', 'Taille et angles']]) { const b = el('button', tab === v ? 'on' : '', t); b.onclick = () => { fieldTab[cat.id] = v; renderCat(); }; tabs.append(b); }
+    box.append(tabs);
+    if (tab === 'content') { if (cat.editor.note) box.append(el('p', 'note', cat.editor.note)); return renderFields(box, cat); }
+    renderGroups(box, cat); return;
+  }
+  if (cat.id === 'mqtt') {
+    const st = lastSt ? lastSt.mqtt : 'off', h = el('div', 'tools'); const c = chip('État : ' + (st === 'off' ? 'désactivé' : st), st === 'connecte' ? 'ok' : (st === 'off' ? '' : 'bad')); c.style.flex = 'none';
+    const b = el('button', 'b s', 'Reconnecter / republier'); b.style.flex = 'none'; b.onclick = async () => { try { await api('/api/mqtt/reconnect', {}); toast('Reconnexion demandée'); setTimeout(pollStatus, 2000); } catch (e) { toast(e.message, true); } };
+    h.append(c, b); box.append(h);
+  }
+  if (cat.note) box.append(el('p', 'note', cat.note));
+  if (cat.id === 'server') { const w = el('div', 'hint', "Aucun mot de passe n'est défini : toute personne du réseau local peut piloter le Raspberry Pi. Définissez-en un ci-dessous."); w.id = 'authWarn'; w.style.display = (lastSt && !lastSt.auth) ? 'block' : 'none'; box.append(w); }  
+  renderGroups(box, cat);
   if (cat.file) {
     const r = el('button', 'b s', 'Revenir à la version précédente de ' + 'config.ini');
     r.onclick = async () => { if (!confirm('Remplacer le fichier par sa version précédente ?')) return; try { await api('/api/settings/restore', {file: cat.file}); toast('Version précédente restaurée'); await loadSettings(); } catch (e) { toast(e.message, true); } };
@@ -1938,13 +1955,13 @@ function renderFields(box, cat) {
     altitude: panel ? _t('Altitude {0}', '3 000 ft') : '3 000 ft', speed: panel ? _t('Vitesse {0}', '450 km/h') : '450 km/h', credit: '© J. Dupont / JetPhotos'};
   const colors = panel ? {model: '#fff', registration: '#fff', callsign: '#fff', airline: '#dce1e6', route: '#dce1e6', altitude: '#ff9696', speed: '#ff9696', credit: '#8c96a0'}
     : {model: '#fff', registration: '#fff', callsign: '#fff', airline: '#bec8d2', route: '#bec8d2', altitude: '#bec8d2', speed: '#bec8d2'};
-  const prev = el('div', 'lprev'), list = el('div', 'list');
+  const prev = el('div', 'lprev sticky'), list = el('div', 'list');
   if (panel) prev.style.cssText = 'display:block;max-width:380px;padding:10px';
   box.append(el('h2', 't', 'Aperçu'), prev, el('h2', 't', 'Contenu, ordre et style'), list);
   const on = (k, w) => pvalue(F[k].ids[w]) === 'true', val = (k, w) => pvalue(F[k].ids[w]), set = (k, w, v) => pset(F[k].ids[w], v);
   function preview() {
     prev.innerHTML = '';
-    if (panel) { const ph = el('div', null, 'photo'); ph.style.cssText = 'height:110px;border-radius:6px;background:#1f2a38;color:#5b6b80;display:flex;align-items:center;justify-content:center;font-size:12px;margin-bottom:8px'; prev.append(ph); }
+    if (panel) { const ph = el('div', null, 'photo'); ph.style.cssText = 'height:70px;border-radius:6px;background:#1f2a38;color:#5b6b80;display:flex;align-items:center;justify-content:center;font-size:12px;margin-bottom:8px'; prev.append(ph); }
     const lines = [];
     for (const k of fieldOrder(ed)) {
       if (!on(k, 'show')) continue;
