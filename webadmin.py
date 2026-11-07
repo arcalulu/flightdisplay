@@ -84,7 +84,7 @@ CATS = [
     ("mqtt", "MQTT / Home Assistant", "Intégrations"),
 ]
 CAT_NOTES = {
-    "label": "Petits panneaux affichés à côté de chaque avion sur la carte. Si tout est décoché, aucun panneau n'est affiché. Pris en compte après relance du programme.",
+    "label": "Petits panneaux affichés à côté de chaque avion sur la carte. Réordonnez les éléments avec les flèches, choisissez ceux à afficher, leur taille, gras et italique, et s'ils partagent la ligne de l'élément précédent. Si tout est masqué, aucun panneau n'est affiché. Pris en compte après relance du programme.",
     "position": "Modifier ces valeurs oblige à reconstruire la carte (section Reconstruction de la carte, en bas de cette page).",
     "server": "Le port et l'adresse d'écoute demandent un redémarrage de webadmin. L'identifiant et le mot de passe s'appliquent immédiatement.",
     "paths": "Réglages avancés. Une valeur vide utilise le comportement par défaut.",
@@ -108,6 +108,22 @@ def W(*a, **k):
     return P(a[0], "web", *a[1:], **k)
 
 
+# Champs des etiquettes d'avion : (id, nom, visible, taille, meme ligne que le precedent). Memes defauts que main.py.
+LABEL_FIELDS = [("model", "Modèle de l'avion", True, "medium", False), ("registration", "Immatriculation", False, "medium", True),
+                ("callsign", "Indicatif de vol", False, "medium", True), ("airline", "Compagnie", True, "small", False),
+                ("route", "Trajet", True, "small", False), ("altitude", "Altitude", True, "small", False),
+                ("speed", "Vitesse", True, "small", True)]
+LABEL_PARAMS = [C("label", "label", "order", "text", ",".join(f[0] for f in LABEL_FIELDS), "Ordre des éléments",
+                  "Ordre d'affichage, de haut en bas.", "Disposition", fields=[f[0] for f in LABEL_FIELDS])]
+for _id, _name, _show, _size, _same in LABEL_FIELDS:
+    LABEL_PARAMS += [
+        C("label", "label", "show_" + _id, "bool", _show, _name, "", "Contenu"),
+        C("label", "label", _id + "_size", "choice", _size, _name + " : taille", "", "Style", options=["small", "medium", "large"]),
+        C("label", "label", _id + "_bold", "bool", False, _name + " : gras", "", "Style"),
+        C("label", "label", _id + "_italic", "bool", False, _name + " : italique", "", "Style"),
+        C("label", "label", _id + "_same_line", "bool", _same, _name + " : sur la ligne précédente", "", "Style"),
+    ]
+
 PARAMS = [
     C("position", "position", "latitude", "float", "", "Latitude", "Degrés décimaux (ex. 44.8378).", "Maison", min=-90, max=90, needs_map=True),
     C("position", "position", "longitude", "float", "", "Longitude", "Degrés décimaux (ex. -0.5792).", "Maison", min=-180, max=180, needs_map=True),
@@ -125,13 +141,7 @@ PARAMS = [
     C("display", "display", "icon_scale", "float", 1.25, "Taille des icônes", "", "Filtre et icônes", min=0.3, max=5),
     C("position", "display", "width", "int", 1920, "Largeur de la carte (px)", "Taille de l'image de fond. Demande de reconstruire la carte.", "Taille de la carte", min=320, max=7680, needs_map=True),
     C("position", "display", "height", "int", 1080, "Hauteur de la carte (px)", "Taille de l'image de fond. Demande de reconstruire la carte.", "Taille de la carte", min=240, max=4320, needs_map=True),
-    C("label", "label", "show_model", "bool", True, "Modèle de l'avion", "Ex. Airbus A320. Sans détails chargés, le code du type est affiché.", "Contenu des étiquettes"),
-    C("label", "label", "show_registration", "bool", False, "Immatriculation", "Ex. F-GKXA.", "Contenu des étiquettes"),
-    C("label", "label", "show_callsign", "bool", False, "Indicatif de vol", "Ex. AFR1234.", "Contenu des étiquettes"),
-    C("label", "label", "show_airline", "bool", True, "Compagnie", "", "Contenu des étiquettes"),
-    C("label", "label", "show_route", "bool", True, "Trajet", "Ville de départ et d'arrivée.", "Contenu des étiquettes"),
-    C("label", "label", "show_altitude", "bool", True, "Altitude", "", "Contenu des étiquettes"),
-    C("label", "label", "show_speed", "bool", True, "Vitesse", "", "Contenu des étiquettes"),
+    *LABEL_PARAMS,
     C("panel", "panel", "width", "int", 480, "Largeur (px, base 1080p)", "", "Fiche photo", min=200, max=1200),
     C("panel", "panel", "rotate_seconds", "float", 12, "Rotation entre avions (s)", "", "Fiche photo", min=3, max=120),
     C("panel", "panel", "corner_top_left", "bool", True, "Haut gauche", "Décochez un angle pour que le panneau n'y soit jamais affiché, même si un avion passe derrière les autres angles. Si tout est décoché, aucune restriction.", "Angles autorisés"),
@@ -250,6 +260,7 @@ def get_settings():
                          needs_map=False, apply="app" if f == "config" else "live", present=True, min=None, max=None,
                          step=None, ui=None, secret=False, set=True, value=cur["value"]))
     cats["types"].update(kind="types", groups=[], file=None)
+    cats["label"]["kind"] = "labels"
     menu = []
     for gname in ("Programme", "Webadmin", "Intégrations"):
         items = []
@@ -262,7 +273,7 @@ def get_settings():
     for c in cats.values():
         if c.get("kind") != "types":
             c["groups"] = [dict(name=n, params=ps) for n, ps in c["groups"].items()]
-    return dict(menu=menu, cats={k: v for k, v in cats.items() if v.get("kind") == "types" or v["groups"]},
+    return dict(label_fields=[dict(id=f[0], name=f[1]) for f in LABEL_FIELDS], menu=menu, cats={k: v for k, v in cats.items() if v.get("kind") == "types" or v["groups"]},
                 has_backup={f: os.path.exists(path_of(f) + ".bak") for f in ("config", "web")})
 
 
@@ -296,6 +307,11 @@ def norm_value(p, v):
         return v
     if p["file"] == "config" and "%" in v:
         raise ValueError("le caractère % n'est pas autorisé dans config.ini")
+    if p.get("fields"):  # liste ordonnee d'identifiants : on la complete avec les champs manquants
+        items = [x.strip() for x in v.split(",") if x.strip()]
+        if any(x not in p["fields"] for x in items) or len(set(items)) != len(items):
+            raise ValueError("liste d'éléments invalide")
+        return ",".join(items + [x for x in p["fields"] if x not in items])
     return v.upper() if p.get("upper") else v
 
 
@@ -873,6 +889,11 @@ button.b:disabled{opacity:.45}
 .stp.running .ic{display:inline-block;animation:spin 1s linear infinite}
 .cm{display:flex;gap:10px;padding:8px 14px;border-top:1px solid var(--line);font-size:14px}
 .cm:first-child{border-top:0}.cm code{color:var(--mut);font:12px ui-monospace,Menlo,Consolas,monospace;flex:none;padding-top:2px}.cm span:nth-child(2){flex:1;min-width:0}.cm .chip{flex:none;align-self:flex-start}
+.lprev{display:inline-block;background:#0a0e14;border:1px solid var(--line);border-radius:6px;padding:6px 10px;margin:4px 4px 10px;line-height:1.3}
+.lrow{padding:10px 14px;border-top:1px solid var(--line)}.lrow:first-child{border-top:0}
+.lrow .top{display:flex;align-items:center;gap:8px}.lrow .top b{flex:1;font-weight:500}
+.lrow .opt{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center}.lrow.off .opt{opacity:.45}
+.lrow button.b.s{padding:6px 12px}.lrow button.b.s.on{background:var(--acc);color:#1a1400;border-color:var(--acc)}
 .dotn{position:relative}.dotn.dot::after{content:"";position:absolute;top:8px;right:calc(50% - 38px);width:8px;height:8px;border-radius:50%;background:var(--acc)}
 .set{display:block}
 .menu{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin:0 -4px 6px;scrollbar-width:none}
@@ -1208,6 +1229,7 @@ function renderCatBase() {
   const cat = SET.cats[curCat]; if (!cat) return;
   const head = el('div', 'catt'); head.append(el('h3', null, cat.title)); box.append(head);
   if (cat.kind === 'types') return renderTypes(box);
+  if (cat.kind === 'labels') { if (cat.note) box.append(el('p', 'note', cat.note)); return renderLabels(box); }
   if (cat.id === 'mqtt') {
     const st = lastSt ? lastSt.mqtt : 'off', h = el('div', 'tools'); const c = chip('État : ' + (st === 'off' ? 'désactivé' : st), st === 'connecte' ? 'ok' : (st === 'off' ? '' : 'bad')); c.style.flex = 'none';
     const b = el('button', 'b s', 'Reconnecter / republier'); b.style.flex = 'none'; b.onclick = async () => { try { await api('/api/mqtt/reconnect', {}); toast('Reconnexion demandée'); setTimeout(pollStatus, 2000); } catch (e) { toast(e.message, true); } };
@@ -1298,6 +1320,71 @@ async function renderTypes(box) {
   const save = el('button', 'b p', 'Enregistrer'), save2 = el('button', 'b', 'Enregistrer et relancer');
   const doSave = async relaunch => { try { await api('/api/types', {text: ta.value}); toast('Types enregistrés'); if (relaunch) await svc('restart'); else { pend.app = true; showPending(); } } catch (e) { toast(e.message, true); } };
   save.onclick = () => doSave(false); save2.onclick = () => doSave(true); bt.append(save, save2); box.append(bt);
+}
+
+/* ---------- Étiquettes des avions ---------- */
+const LBL_SAMPLE = {model: 'Airbus A320', registration: 'F-GKXA', callsign: 'AFR1234', airline: 'Air France', route: 'Paris  →  Nice', altitude: '3 000 ft', speed: '450 km/h'};
+const LBL_PX = {small: 13, medium: 17, large: 21}, LBL_SIZES = [['small', 'Petit'], ['medium', 'Moyen'], ['large', 'Grand']];
+function lp(key) { return allParams().find(p => p.id === 'config:label.' + key); }
+function lval(key) { const p = lp(key); return p ? pval(p) : ''; }
+function lset(key, v) { const p = lp(key); if (p) setEdit(p, String(v)); }
+function labelOrder() {
+  const names = SET.label_fields.map(f => f.id);
+  let o = String(lval('order')).split(',').map(x => x.trim()).filter(x => names.includes(x));
+  o = o.filter((x, i) => o.indexOf(x) === i);
+  for (const n of names) if (!o.includes(n)) o.push(n);
+  return o;
+}
+function renderLabels(box) {
+  const names = Object.fromEntries(SET.label_fields.map(f => [f.id, f.name]));
+  const prev = el('div', 'lprev'), list = el('div', 'list');
+  box.append(el('h2', 't', 'Aperçu'), prev, el('h2', 't', 'Contenu, ordre et style'), list);
+  const on = k => lval(k) === 'true';
+  function preview() {
+    prev.innerHTML = '';
+    const lines = [];
+    for (const k of labelOrder()) {
+      if (!on('show_' + k)) continue;
+      if (on(k + '_same_line') && lines.length) lines[lines.length - 1].push(k); else lines.push([k]);
+    }
+    if (!lines.length) { prev.append(el('span', 'chip', 'aucune étiquette')); return; }
+    for (const ln of lines) {
+      const d = el('div'); d.style.whiteSpace = 'nowrap';
+      ln.forEach((k, i) => {
+        if (i) { const s = el('span', null, '  ·  '); s.style.color = '#bec8d2'; s.style.fontSize = LBL_PX[lval(ln[i - 1] + '_size')] + 'px'; d.append(s); }
+        const s = el('span', null, LBL_SAMPLE[k]);
+        s.style.fontSize = LBL_PX[lval(k + '_size')] + 'px'; s.style.fontWeight = on(k + '_bold') ? '700' : '400';
+        s.style.fontStyle = on(k + '_italic') ? 'italic' : 'normal'; s.style.color = ['model', 'registration', 'callsign'].includes(k) ? '#fff' : '#bec8d2';
+        d.append(s);
+      });
+      prev.append(d);
+    }
+  }
+  function tbtn(label, active, fn, title) {
+    const b = el('button', 'b s' + (active ? ' on' : ''), label); if (title) b.title = title; b.onclick = fn; return b;
+  }
+  function draw() {
+    list.innerHTML = '';
+    const order = labelOrder();
+    order.forEach((k, i) => {
+      const row = el('div', 'lrow' + (on('show_' + k) ? '' : ' off')), top = el('div', 'top');
+      const up = tbtn('▲', false, () => { if (i > 0) { [order[i - 1], order[i]] = [order[i], order[i - 1]]; lset('order', order.join(',')); draw(); } });
+      const dn = tbtn('▼', false, () => { if (i < order.length - 1) { [order[i + 1], order[i]] = [order[i], order[i + 1]]; lset('order', order.join(',')); draw(); } });
+      up.disabled = i === 0; dn.disabled = i === order.length - 1;
+      const tg = toggle(on('show_' + k), v => { lset('show_' + k, v ? 'true' : 'false'); draw(); });
+      top.append(el('b', null, names[k]), up, dn, tg.label);
+      const opt = el('div', 'opt');
+      const sz = el('div', 'seg');
+      for (const [v, t] of LBL_SIZES) { const b = el('button', lval(k + '_size') === v ? 'on' : '', t); b.onclick = () => { lset(k + '_size', v); draw(); }; sz.append(b); }
+      opt.append(sz,
+        tbtn('G', on(k + '_bold'), () => { lset(k + '_bold', on(k + '_bold') ? 'false' : 'true'); draw(); }, 'Gras'),
+        tbtn('I', on(k + '_italic'), () => { lset(k + '_italic', on(k + '_italic') ? 'false' : 'true'); draw(); }, 'Italique'),
+        tbtn('Même ligne', on(k + '_same_line'), () => { lset(k + '_same_line', on(k + '_same_line') ? 'false' : 'true'); draw(); }, "Afficher sur la même ligne que l'élément précédent"));
+      row.append(top, opt); list.append(row);
+    });
+    preview();
+  }
+  draw();
 }
 
 /* ---------- Mises à jour ---------- */

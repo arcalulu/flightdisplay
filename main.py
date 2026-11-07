@@ -69,10 +69,21 @@ def S(v):
 
 
 ICON = cfg.getfloat("display", "icon_scale", fallback=1.25) * UI
-# Contenu des etiquettes affichees a cote de chaque avion (section [label])
-LBL = {k: cfg.getboolean("label", "show_" + k, fallback=d) for k, d in
-       (("model", True), ("airline", True), ("route", True), ("altitude", True), ("speed", True),
-        ("registration", False), ("callsign", False))}
+# Etiquettes affichees a cote de chaque avion (section [label]) : ordre, visibilite, taille, gras, italique
+LABEL_FIELDS = ("model", "registration", "callsign", "airline", "route", "altitude", "speed")
+_LBL_DEF = {"model": (True, "medium", False), "registration": (False, "medium", True),
+            "callsign": (False, "medium", True), "airline": (True, "small", False),
+            "route": (True, "small", False), "altitude": (True, "small", False), "speed": (True, "small", True)}
+LBL = {}
+for _k, (_show, _size, _same) in _LBL_DEF.items():
+    _sz = cfg.get("label", _k + "_size", fallback=_size).strip().lower()
+    LBL[_k] = dict(show=cfg.getboolean("label", "show_" + _k, fallback=_show),
+                   bold=cfg.getboolean("label", _k + "_bold", fallback=False),
+                   italic=cfg.getboolean("label", _k + "_italic", fallback=False),
+                   size=_sz if _sz in ("small", "medium", "large") else _size,
+                   same=cfg.getboolean("label", _k + "_same_line", fallback=_same))
+_ord = [x.strip() for x in cfg.get("label", "order", fallback="").split(",") if x.strip() in LABEL_FIELDS]
+LBL_ORDER = list(dict.fromkeys(_ord)) + [k for k in LABEL_FIELDS if k not in _ord]
 PANEL_W = S(cfg.getint("panel", "width", fallback=480))
 ROTATE = cfg.getfloat("panel", "rotate_seconds", fallback=12)
 # Angles ou le panneau photo peut s'afficher, dans l'ordre : haut droite, haut gauche, bas droite, bas gauche
@@ -267,19 +278,23 @@ def fmt_speed(kt):
     return f"{round(kt * 1.852)} km/h"
 
 def label_lines(s, d):
-    """Lignes de l'etiquette d'un avion selon la section [label] (liste vide : pas d'etiquette)."""
+    """Etiquette d'un avion : liste de lignes, chaque ligne = liste de (texte, champ). Vide : pas d'etiquette."""
     reg = (d["reg"] if d else "") or s.get("reg") or ""
-    av = "   \u00b7   ".join(x for x in (fmt_alt(s["alt"]) if LBL["altitude"] else "",
-                                       fmt_speed(s["speed"]) if LBL["speed"] else "") if x)
+    vals = dict(registration=reg, callsign=s["callsign"] or "", altitude=fmt_alt(s["alt"]), speed=fmt_speed(s["speed"]))
     if d:
-        head = [d["model"] if LBL["model"] else "", reg if LBL["registration"] else "",
-                s["callsign"] if LBL["callsign"] else ""]
-        rest = [d["airline"] if LBL["airline"] else "", route(d["origin"], d["dest"]) if LBL["route"] else "", av]
-    else:  # details pas encore charges
-        head = [s["callsign"] if (LBL["callsign"] or LBL["model"]) else "", reg if LBL["registration"] else ""]
-        rest = [(s["code"] or "") if LBL["model"] else "", "", av]
-    first = "  \u00b7  ".join(x for x in head if x)
-    return [l for l in [first] + rest if l]
+        vals.update(model=d["model"], airline=d["airline"], route=route(d["origin"], d["dest"]))
+    else:  # details pas encore charges : seul le code du type est connu
+        vals.update(model=s["code"] or "")
+    lines = []
+    for k in LBL_ORDER:
+        c, v = LBL[k], vals.get(k) or ""
+        if not c["show"] or not v:
+            continue
+        if c["same"] and lines:
+            lines[-1].append((v, k))
+        else:
+            lines.append([(v, k)])
+    return lines
 
 
 def route(o, t):
@@ -561,19 +576,42 @@ def main():
             overlays.append(surf)
     zone_ids = set()
 
+    SIZES = {"small": max(10, S(17)), "medium": S(22), "large": S(26)}
+    WHITE, GREY = (255, 255, 255), (190, 200, 210)
+    font_cache = {}
+
+    def font_for(k):
+        c = LBL[k]
+        key = (c["size"], c["bold"], c["italic"])
+        if key not in font_cache:
+            f = mk(SIZES[c["size"]], c["bold"])
+            f.set_italic(c["italic"])
+            font_cache[key] = f
+        return font_cache[key]
+
     def label_surface(lines, hl=False):
-        key = (tuple(lines), hl)
+        key = (tuple(tuple(l) for l in lines), hl)
         if key not in label_cache:
             if len(label_cache) > 300: label_cache.clear()
-            rs = [f_mid.render(lines[0], True, (255, 255, 255))] + \
-                 [f_small.render(l, True, (190, 200, 210)) for l in lines[1:]]
-            w = max(r.get_width() for r in rs) + S(14)
-            h = sum(r.get_height() for r in rs) + S(10)
+            rows = []
+            for line in lines:
+                parts, prev = [], None
+                for txt, k in line:
+                    if prev:
+                        parts.append(font_for(prev).render("  \u00b7  ", True, GREY))
+                    parts.append(font_for(k).render(txt, True, WHITE if k in ("model", "registration", "callsign") else GREY))
+                    prev = k
+                rows.append((parts, max(p.get_height() for p in parts), sum(p.get_width() for p in parts)))
+            w = max(r[2] for r in rows) + S(14)
+            h = sum(r[1] for r in rows) + S(10)
             surf = pygame.Surface((w, h), pygame.SRCALPHA)
             surf.fill((70, 14, 14, 190) if hl else (10, 14, 20, 170))
             y = S(5)
-            for r in rs:
-                surf.blit(r, (S(7), y)); y += r.get_height()
+            for parts, rh, _ in rows:
+                x = S(7)
+                for p in parts:
+                    surf.blit(p, (x, y + rh - p.get_height())); x += p.get_width()
+                y += rh
             label_cache[key] = surf
         return label_cache[key]
 
