@@ -1,15 +1,17 @@
 # Flight display
 
+🇫🇷 **Français** · [🇬🇧 English](README.en.md)
+
 Affichage temps réel des avions autour de chez vous sur un Raspberry Pi : carte vectorielle, fiches photo, alerte de proximité (son et teinte rouge), liste des avions au sol, et une interface web d'administration pour tout régler depuis un téléphone ou un ordinateur (réglages, carte, logs, son, veille d'écran, MQTT / Home Assistant).
 
 <!-- Ajoutez ici une capture d'écran : ![Flight display](docs/capture.png) -->
 
 ## Fonctionnalités
 
-- Carte vectorielle centrée sur votre domicile, avions orientés selon leur cap, étiquettes (modèle, compagnie, trajet, altitude, vitesse).
+- Carte vectorielle centrée sur votre domicile, avions orientés selon leur cap, étiquettes (modèle, compagnie, trajet, altitude, vitesse) que vous pouvez réordonner et mettre en forme.
 - Fiche photo de l'avion, liste des avions au sol.
 - Alerte de proximité : carillon, teinte rouge clignotante, fiche prioritaire, avec plage d'altitude réglable.
-- Webadmin : tuiles de supervision (température, CPU, mémoire, MQTT), interrupteurs (programme, écran, son), volume en direct, réglages complets, reconstruction de la carte, logs.
+- Webadmin : tuiles de supervision (température, CPU, mémoire, MQTT, images par seconde), interrupteurs (programme, écran, son), volume en direct, réglages complets, reconstruction de la carte, logs, et mises à jour du logiciel directement depuis GitHub.
 - Veille et réveil de l'écran, redémarrage et extinction du Pi à distance.
 - Multilingue : français et anglais, au choix dans webadmin (Réglages, Langue), pour l'interface comme pour l'écran ; d'autres langues s'ajoutent avec un simple fichier (dossier `lang`).
 - Intégration Home Assistant par MQTT (écran, son, volume, température).
@@ -42,7 +44,7 @@ Ce projet n'est affilié ni à Flightradar24 ni à aucune compagnie. Les donnée
 - L'attribution « © OpenStreetMap contributors, © CARTO » doit rester visible : Flight display l'affiche dans la ligne d'état en bas de l'écran, ne la retirez pas.
 - Vous pouvez installer sans clé : tout est installé sauf la carte, que vous construirez plus tard.
 
-**Où elle est enregistrée.** L'installeur l'écrit dans `config.ini`, section `[map]`, clé `carto_key` (fichier en droits 600). Pour la changer plus tard : webadmin, Réglages, Carte et position, champ « Clé API CARTO » (masqué), puis onglet Carte, « Reconstruire la carte ».
+**Où elle est enregistrée.** L'installeur l'écrit dans `config.ini`, section `[map]`, clé `carto_key` (fichier en droits 600). Pour la changer plus tard : webadmin, Réglages, Carte et position, champ « Clé API CARTO » (masqué), puis, en bas de la même page, « Reconstruire la carte ».
 
 **Clé perdue ou refusée.** Si la construction de la carte échoue avec une erreur HTTP 401 ou 403, la clé est probablement incorrecte ou invalide : demandez-en une nouvelle sur la même page, remplacez-la dans webadmin, puis reconstruisez la carte.
 
@@ -64,7 +66,7 @@ Relancer la même commande plus tard met à jour le logiciel et conserve votre c
 
 ## Documentation
 
-Le guide complet (installation manuelle, référence de tous les réglages, webadmin, MQTT, dépannage) est dans [docs/FLIGHT_DISPLAY_DOCUMENTATION.md](docs/FLIGHT_DISPLAY_DOCUMENTATION.md).
+Le guide complet (installation manuelle, référence de tous les réglages, webadmin, MQTT, dépannage) est dans [docs/FLIGHT_DISPLAY_DOCUMENTATION.md](docs/FLIGHT_DISPLAY_DOCUMENTATION.md) (en français uniquement pour l'instant).
 
 ## Mettre à jour
 
