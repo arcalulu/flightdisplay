@@ -61,7 +61,9 @@ class Updater:
         self.cur = -1
         self.t_step = 0.0
         self.st = self._fresh()
+        self.hist = []
         self._load()
+        self._refresh_history()
 
     # ------------------------------------------------------------ etat
     def _fresh(self):
@@ -133,7 +135,7 @@ class Updater:
             return dict(running=st["running"], ok=st["ok"], error=st["error"], done_msg=st["done_msg"], started=st["started"],
                         finished=st["finished"], from_label=st["from_label"], to_label=st["to_label"], steps=steps,
                         pct=self._pct(), lines=list(st["lines"])[-400:], live=st["live"], check=st["check"],
-                        restarting=st["restarting"], auto=self.S.UPDATE_AUTO)
+                        restarting=st["restarting"], auto=self.S.UPDATE_AUTO, history=self.hist)
 
     def _pct(self):
         total = sum(w for _, _, w in STEPS)
@@ -209,6 +211,24 @@ class Updater:
         out = self._git_ok("-c", "core.fileMode=false", "status", "--porcelain", "--untracked-files=no")
         return [l[3:] for l in out.splitlines() if l.strip()]
 
+    # ------------------------------------------------------------ historique des versions (changelog)
+    def _history(self, ref, new=0, n=30):
+        """Derniers commits de ref ; les `new` premiers sont ceux qui ne sont pas encore installes."""
+        out = self._git_ok("log", "-n", str(n), "--format=%h%x1f%cs%x1f%s%x1f%D", ref)
+        res = []
+        for i, l in enumerate(out.splitlines()):
+            p = (l.split("\x1f") + ["", "", "", ""])[:4]
+            tag = next((t[5:] for t in p[3].split(", ") if t.startswith("tag: ")), "")
+            res.append(dict(short=p[0], date=p[1], subject=p[2], tag=tag, new=i < new))
+        return res
+
+    def _refresh_history(self):
+        try:
+            if os.path.isdir(os.path.join(self.S.APP_DIR, ".git")):
+                self.hist = self._history("HEAD")
+        except Exception:
+            pass
+
     # ------------------------------------------------------------ verification de disponibilite
     def check(self):
         if not self.busy.acquire(blocking=False):
@@ -244,6 +264,7 @@ class Updater:
                     commits.append(dict(short=p[0], date=p[1], subject=p[2]))
         files = self._git_ok("diff", "--name-only", "HEAD", remote_ref).splitlines() if behind else []
         dirty = self._dirty()
+        self.hist = self._history(remote_ref, behind)
         return dict(ok=True, checked_at=time.time(), branch=branch, current=cur, latest=latest, behind=behind, ahead=ahead,
                     commits=commits, files=files[:60], dirty=dirty,
                     installer_changed="install.sh" in files,

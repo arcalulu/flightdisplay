@@ -844,7 +844,7 @@ button.b:disabled{opacity:.45}
 @keyframes spin{to{transform:rotate(360deg)}}
 .stp.running .ic{display:inline-block;animation:spin 1s linear infinite}
 .cm{display:flex;gap:10px;padding:8px 14px;border-top:1px solid var(--line);font-size:14px}
-.cm:first-child{border-top:0}.cm code{color:var(--mut);font:12px ui-monospace,Menlo,Consolas,monospace;flex:none;padding-top:2px}
+.cm:first-child{border-top:0}.cm code{color:var(--mut);font:12px ui-monospace,Menlo,Consolas,monospace;flex:none;padding-top:2px}.cm span:nth-child(2){flex:1;min-width:0}.cm .chip{flex:none;align-self:flex-start}
 .dotn{position:relative}.dotn.dot::after{content:"";position:absolute;top:8px;right:calc(50% - 38px);width:8px;height:8px;border-radius:50%;background:var(--acc)}
 .set{display:block}
 .menu{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin:0 -4px 6px;scrollbar-width:none}
@@ -949,7 +949,7 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
     <pre id="updOut"></pre>
   </div>
   <div id="updNew" style="display:none">
-    <h2 class="t">Nouveautés</h2>
+    <h2 class="t">Historique des versions</h2>
     <div class="list" id="updCommits"></div>
   </div>
 </section>
@@ -1292,8 +1292,6 @@ async function checkUpd() {
   updBusy = false; renderUpd(); pollStatus();
 }
 async function startUpd() {
-  const c = UPD && UPD.check;
-  if (!confirm('Mettre à jour Flight display' + (c && c.latest ? ' vers ' + c.latest.label : '') + " ?\nL'affichage sera relancé, puis webadmin redémarrera (quelques secondes d'indisponibilité).")) return;
   try { await api('/api/update/start', {}); updWasRunning = true; await pollUpd(); } catch (e) { toast(e.message, true); }
 }
 function renderUpd(lost) {
@@ -1343,9 +1341,15 @@ function renderUpd(lost) {
     o.textContent = u.lines.join('\n') + (u.live ? '\n' + u.live : ''); if (atEnd) o.scrollTop = o.scrollHeight;
   }
   const nw = $('#updNew'), cl = $('#updCommits'); cl.innerHTML = '';
-  if (c && c.ok && c.commits.length && !busy) {
+  if (u.history && u.history.length && !busy) {
     nw.style.display = 'block';
-    for (const m of c.commits) { const d = el('div', 'cm'); d.append(el('code', null, m.date.slice(5)), el('span', null, m.subject)); cl.append(d); }
+    for (const m of u.history) {
+      const d = el('div', 'cm'), t = el('span', null, m.subject);
+      d.append(el('code', null, m.date), t);
+      if (m.tag) d.append(el('span', 'chip', m.tag));
+      if (m.new) d.append(el('span', 'chip ok', 'nouveau'));
+      cl.append(d);
+    }
   } else nw.style.display = 'none';
 }
 
