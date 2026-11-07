@@ -844,7 +844,7 @@ simulate_seconds = 3
 - Positions are extrapolated between two updates (speed and heading) then smoothed, for a fluid movement. A trail of the last positions is drawn behind each aircraft.
 - Each aircraft has a label whose content, order and formatting (size, bold, italic) are set in Settings, Aircraft labels (8.7). By default: model, airline, route (origin → destination) and altitude · speed; the registration and the callsign are available as options. Until the details have arrived, it shows the type code (and the registration or callsign if they are enabled). The route is omitted if the origin and the destination are unknown (no declared flight plan). If only one is known, the other appears as `?`.
 - The labels are placed to avoid overlapping each other and leaving the screen.
-- The status line at the bottom left shows the number of aircraft in flight, above the altitude limit, on the ground, network errors and the "old data" mention if updates are late. On the right of the same line, the credits "© OpenStreetMap contributors · © CARTO · Flightradar24" are always shown (they are also in the webadmin footer): the attribution required by OpenStreetMap and CARTO must remain visible. See [CREDITS.md](../CREDITS.md).
+- The status line at the bottom left shows the number of aircraft in flight, above the altitude limit, on the ground, network errors and the "old data" mention if updates are late. On the right of the same line, the credits "© OpenStreetMap contributors · © CARTO · Flightradar24" are always shown (they are also in the "Credits" page of webadmin, reached through the link at the top of the interface): the attribution required by OpenStreetMap and CARTO must remain visible. See [CREDITS.md](../CREDITS.md).
 
 ### 9.2 Photo panel
 
@@ -1004,6 +1004,10 @@ When a change takes effect:
 - "Check for updates" queries GitHub; "Update" starts the update immediately, without confirmation. During the operation: global progress bar, list of the seven steps (checks, download, apply, libraries, code check, display restart, webadmin restart) with the elapsed time, and a detailed live log. The page reloads by itself at the end.
 - "Version history": changelog grouped by version. Each version (git tag `vX.Y.Z`) is a collapsible separator, with its commits below it from the most recent to the oldest (number, commit, date, description). The commits after the latest version are grouped under "In development (unreleased)". The most recent version is expanded, the others collapsed. Markers: "new" (not installed yet) and "installed". Warnings point out a locally modified file, local commits missing from GitHub or a modified `install.sh`. The complete procedure is described in 12.1.
 - A dot on the tab and a chip in the header show that a version is available.
+
+**Credits**
+
+The small "Credits" link, at the top of the page next to the status chips, opens a dedicated page: sources of the maps (OpenStreetMap, CARTO), of the flight data (Flightradar24, FlightRadarAPI), of the photos (JetPhotos) and the licenses of the libraries, with a link to `CREDITS.md` for the detail. The "Back" button returns to Control.
 
 **Logs**
 

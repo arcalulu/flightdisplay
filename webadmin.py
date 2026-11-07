@@ -917,7 +917,9 @@ button.b:disabled{opacity:.45}
 .vh.shut{border-radius:10px}.vh b{font-weight:600}.vh small{margin-left:auto;color:var(--mut);font-size:12px;text-align:right}
 .vh .chev{color:var(--mut);transition:transform .15s}.vh.shut .chev{transform:rotate(-90deg)}
 .vb{background:var(--card);border:1px solid var(--line);border-top:0;border-radius:0 0 10px 10px;overflow:hidden}
-.cr{margin:26px 4px 0;color:var(--mut);font-size:12px}.cr p{margin:3px 0}.cr a{color:var(--mut)}.cr span,.cr a{margin-right:8px}
+.hr{display:flex;align-items:center;gap:10px;justify-content:flex-end;min-width:0}
+.crl{font-size:12px;color:var(--mut);white-space:nowrap}
+.cl{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px}.cl a{color:var(--acc);font-size:14px}
 .dotn{position:relative}.dotn.dot::after{content:"";position:absolute;top:8px;right:calc(50% - 38px);width:8px;height:8px;border-radius:50%;background:var(--acc)}
 .set{display:block}
 .menu{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin:0 -4px 6px;scrollbar-width:none}
@@ -965,7 +967,7 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 </style>
 </head>
 <body>
-<header><h1>Flight display</h1><div class="chips" id="chips"></div></header>
+<header><h1>Flight display</h1><div class="hr"><div class="chips" id="chips"></div><a href="#" class="crl" onclick="go('credits');return false">Crédits</a></div></header>
 <nav id="nav">
   <button data-t="home" class="on" onclick="go('home')">Pilotage</button>
   <button data-t="cfg" onclick="go('cfg')">Réglages</button>
@@ -1027,6 +1029,24 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
   </div>
 </section>
 
+<section class="tab" id="t-credits">
+  <div class="catt"><h3>Crédits et licences</h3></div>
+  <p class="note">Flight display s'appuie sur des données, des services et des bibliothèques de tiers.</p>
+  <div class="list">
+    <div class="li stack"><div class="lt"><b>Cartes</b><small>Fond de carte vectoriel, affiché en permanence en bas à droite de l'écran.</small>
+      <div class="cl"><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a><a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">© CARTO</a></div></div></div>
+    <div class="li stack"><div class="lt"><b>Données de vol</b><small>Flightradar24, via la bibliothèque non officielle FlightRadarAPI. Usage personnel et non commercial uniquement.</small>
+      <div class="cl"><a href="https://www.flightradar24.com/terms-of-service" target="_blank" rel="noopener noreferrer">Flightradar24</a><a href="https://github.com/JeanExtreme002/FlightRadarAPI" target="_blank" rel="noopener noreferrer">FlightRadarAPI</a></div></div></div>
+    <div class="li stack"><div class="lt"><b>Photos</b><small>© leurs auteurs, via JetPhotos. Le crédit du photographe est visible dans l'image.</small>
+      <div class="cl"><a href="https://www.jetphotos.com" target="_blank" rel="noopener noreferrer">JetPhotos</a></div></div></div>
+    <div class="li stack"><div class="lt"><b>Bibliothèques</b><small>pygame (LGPL), requests (Apache 2.0), Pillow (MIT-CMU), paho-mqtt (EPL 2.0 ou BSD 3-Clause), polices DejaVu.</small></div></div>
+  </div>
+  <div class="grid" style="margin-top:12px">
+    <a style="text-align:center;text-decoration:none;display:block;padding:12px;border-radius:10px;border:1px solid var(--line);background:#1b2431;color:var(--txt);font-size:16px" href="https://github.com/arcalulu/flightdisplay/blob/main/CREDITS.md" target="_blank" rel="noopener noreferrer">Conditions et licences en détail</a>
+    <button class="b" onclick="go('home')">Retour</button>
+  </div>
+</section>
+
 <section class="tab" id="t-log">
   <div class="tools">
     <select id="logN" onchange="loadLogs()"><option>100</option><option selected>300</option><option>1000</option></select>
@@ -1035,11 +1055,6 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
   <div class="list"><div class="li"><div class="lt"><b>Actualisation automatique</b><small>Toutes les 3 secondes</small></div><label class="tg"><input type="checkbox" id="logAuto" checked><span></span></label></div></div>
   <pre id="logOut">Chargement...</pre>
 </section>
-<footer class="cr">
-  <p><span>Cartes :</span> <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a> <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">© CARTO</a></p>
-  <p><span>Données de vol :</span> <a href="https://www.flightradar24.com" target="_blank" rel="noopener noreferrer">Flightradar24</a> <a href="https://github.com/JeanExtreme002/FlightRadarAPI" target="_blank" rel="noopener noreferrer">FlightRadarAPI</a> <span>Photos :</span> <span>© leurs auteurs</span> <a href="https://www.jetphotos.com" target="_blank" rel="noopener noreferrer">JetPhotos</a></p>
-  <p><a href="https://github.com/arcalulu/flightdisplay/blob/main/CREDITS.md" target="_blank" rel="noopener noreferrer">Crédits et licences</a></p>
-</footer>
 </main>
 
 <div class="bar" id="saveBar"><div class="in"><span id="barTxt"></span>

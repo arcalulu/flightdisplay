@@ -844,7 +844,7 @@ simulate_seconds = 3
 - Les positions sont extrapolées entre deux mises à jour (vitesse et cap) puis lissées, pour un mouvement fluide. Une traînée des dernières positions est tracée derrière chaque avion.
 - Chaque avion a une étiquette dont le contenu, l'ordre et la mise en forme (taille, gras, italique) se règlent dans Réglages, Étiquettes des avions (8.7). Par défaut : modèle, compagnie, trajet (origine → destination) et altitude · vitesse ; l'immatriculation et l'indicatif de vol sont disponibles en option. Tant que les détails ne sont pas arrivés, elle affiche le code du type (et l'immatriculation ou l'indicatif s'ils sont activés). Le trajet est omis si l'origine et la destination sont inconnues (pas de plan de vol déclaré). Si une seule est connue, l'autre apparaît sous la forme `?`.
 - Les étiquettes sont placées pour éviter de se recouvrir et de sortir de l'écran.
-- La ligne d'état en bas à gauche indique le nombre d'avions en vol, au-dessus de la limite d'altitude, au sol, les erreurs réseau et la mention « données anciennes » si les mises à jour tardent. À droite de la même ligne, les crédits « © OpenStreetMap contributors · © CARTO · Flightradar24 » sont toujours affichés (ils figurent aussi dans le pied de page de webadmin) : l'attribution exigée par OpenStreetMap et CARTO doit rester visible. Voir [CREDITS.md](../CREDITS.md).
+- La ligne d'état en bas à gauche indique le nombre d'avions en vol, au-dessus de la limite d'altitude, au sol, les erreurs réseau et la mention « données anciennes » si les mises à jour tardent. À droite de la même ligne, les crédits « © OpenStreetMap contributors · © CARTO · Flightradar24 » sont toujours affichés (ils figurent aussi dans la page « Crédits » de webadmin, accessible par le lien en haut de l'interface) : l'attribution exigée par OpenStreetMap et CARTO doit rester visible. Voir [CREDITS.md](../CREDITS.md).
 
 ### 9.2 Panneau photo
 
@@ -1004,6 +1004,10 @@ Quand une modification est prise en compte :
 - « Vérifier les mises à jour » interroge GitHub ; « Mettre à jour » lance la mise à jour immédiatement, sans confirmation. Pendant l'opération : barre de progression globale, liste des sept étapes (vérifications, téléchargement, application, bibliothèques, contrôle du code, relance de l'affichage, redémarrage de webadmin) avec le temps écoulé, et journal détaillé en direct. La page se recharge seule à la fin.
 - « Historique des versions » : changelog groupé par version. Chaque version (étiquette git `vX.Y.Z`) est un séparateur repliable, avec ses commits dessous du plus récent au plus ancien (numéro, commit, date, description). Les commits postérieurs à la dernière version sont regroupés sous « En développement (non publiée) ». La version la plus récente est dépliée, les autres repliées. Repères : « nouveau » (pas encore installé) et « installé ». Des avertissements signalent un fichier modifié localement, des commits locaux absents de GitHub ou un `install.sh` modifié. La procédure complète est décrite en 12.1.
 - Une pastille sur l'onglet et une puce dans l'en-tête signalent une version disponible.
+
+**Crédits**
+
+Le petit lien « Crédits », en haut de la page à côté des pastilles d'état, ouvre une page dédiée : sources des cartes (OpenStreetMap, CARTO), des données de vol (Flightradar24, FlightRadarAPI), des photos (JetPhotos) et licences des bibliothèques, avec un lien vers `CREDITS.md` pour le détail. Le bouton « Retour » revient à Pilotage.
 
 **Logs**
 

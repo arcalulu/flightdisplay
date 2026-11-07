@@ -445,12 +445,20 @@
   "en cours...": "in progress...",
   "terminé avec succès": "finished successfully",
   "terminé avec erreur (code {0})": "finished with an error (code {0})",
-  "Cartes :": "Maps:",
-  "Données de vol :": "Flight data:",
-  "Photos :": "Photos:",
-  "© leurs auteurs": "© their authors",
   "Crédits et licences": "Credits and licenses",
   "Crédit du photographe sous la photo": "Photographer credit below the photo",
-  "Le crédit est déjà visible à l'intérieur de l'image : cette option ajoute en plus une ligne de texte sous la photo dans le panneau. Décochez-la pour la masquer.": "The credit is already visible inside the image: this option adds an extra line of text below the photo in the panel. Untick it to hide it."
+  "Le crédit est déjà visible à l'intérieur de l'image : cette option ajoute en plus une ligne de texte sous la photo dans le panneau. Décochez-la pour la masquer.": "The credit is already visible inside the image: this option adds an extra line of text below the photo in the panel. Untick it to hide it.",
+  "Crédits": "Credits",
+  "Flight display s'appuie sur des données, des services et des bibliothèques de tiers.": "Flight display relies on third-party data, services and libraries.",
+  "Cartes": "Maps",
+  "Fond de carte vectoriel, affiché en permanence en bas à droite de l'écran.": "Vector base map, always shown at the bottom right of the screen.",
+  "Données de vol": "Flight data",
+  "Flightradar24, via la bibliothèque non officielle FlightRadarAPI. Usage personnel et non commercial uniquement.": "Flightradar24, through the unofficial FlightRadarAPI library. Personal, non-commercial use only.",
+  "Photos": "Photos",
+  "© leurs auteurs, via JetPhotos. Le crédit du photographe est visible dans l'image.": "© their authors, through JetPhotos. The photographer's credit is visible inside the image.",
+  "Bibliothèques": "Libraries",
+  "pygame (LGPL), requests (Apache 2.0), Pillow (MIT-CMU), paho-mqtt (EPL 2.0 ou BSD 3-Clause), polices DejaVu.": "pygame (LGPL), requests (Apache 2.0), Pillow (MIT-CMU), paho-mqtt (EPL 2.0 or BSD 3-Clause), DejaVu fonts.",
+  "Conditions et licences en détail": "Full terms and licenses",
+  "Retour": "Back"
  }
 }
