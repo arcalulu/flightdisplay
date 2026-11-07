@@ -75,6 +75,10 @@ LBL = {k: cfg.getboolean("label", "show_" + k, fallback=d) for k, d in
         ("registration", False), ("callsign", False))}
 PANEL_W = S(cfg.getint("panel", "width", fallback=480))
 ROTATE = cfg.getfloat("panel", "rotate_seconds", fallback=12)
+# Angles ou le panneau photo peut s'afficher, dans l'ordre : haut droite, haut gauche, bas droite, bas gauche
+PANEL_CORNERS = [cfg.getboolean("panel", k, fallback=True) for k in
+                 ("corner_top_right", "corner_top_left", "corner_bottom_right", "corner_bottom_left")]
+PANEL_ALLOWED = [i for i in range(4) if PANEL_CORNERS[i]] or [0, 1, 2, 3]  # tous decoches : aucune restriction
 G_W = S(cfg.getint("ground", "width", fallback=780))
 
 if abs(meta["lat"] - LAT) > 1e-4 or abs(meta["lon"] - LON) > 1e-4:
@@ -729,8 +733,10 @@ def main():
             scores = [sum(1 for v in vis if r.inflate(S(90), S(90)).collidepoint(v[3], v[4])) for r in rects]
             if ground_rect:
                 scores[2] = 999
+            if corner not in PANEL_ALLOWED:
+                corner = PANEL_ALLOWED[0]
             if scores[corner] > 0:
-                corner = min(range(4), key=lambda i: (scores[i], i != corner))
+                corner = min(PANEL_ALLOWED, key=lambda i: (scores[i], i != corner))
             panel = (rects[corner], ph, lines)
             placed.append(rects[corner])
 

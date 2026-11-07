@@ -689,6 +689,7 @@ Toute l'interface est dessinée à la résolution de la carte. Sous Windows et s
 |---|---|---|---|
 | `width` | 480 | 200 à 1200 | Largeur du panneau (px, base 1080p). |
 | `rotate_seconds` | 12 | 3 à 120 | Durée d'affichage de chaque avion quand plusieurs sont éligibles. |
+| `corner_top_left`, `corner_top_right`, `corner_bottom_left`, `corner_bottom_right` | true | true / false | Angles où le panneau peut s'afficher. Un angle décoché n'est jamais utilisé, même si des avions passent derrière les autres angles (le panneau choisit alors le moins gênant parmi les angles autorisés). Si les quatre sont décochés, aucune restriction. |
 
 ### 8.5 bis `[label]` — catégorie « Étiquettes des avions »
 
