@@ -690,6 +690,20 @@ Toute l'interface est dessinée à la résolution de la carte. Sous Windows et s
 | `width` | 480 | 200 à 1200 | Largeur du panneau (px, base 1080p). |
 | `rotate_seconds` | 12 | 3 à 120 | Durée d'affichage de chaque avion quand plusieurs sont éligibles. |
 
+### 8.5 bis `[label]` — catégorie « Étiquettes des avions »
+
+Contenu des petits panneaux affichés à côté de chaque avion sur la carte (le grand panneau photo n'est pas concerné). Toutes les options sont des booléens (`true` / `false`). Si tout est décoché, aucun panneau n'est affiché. Pris en compte après relance du programme.
+
+| Option | Défaut | Description |
+|---|---|---|
+| `show_model` | true | Modèle de l'avion (avant le chargement des détails : code du type). |
+| `show_registration` | false | Immatriculation (ex. F-GKXA), sur la première ligne après le modèle. |
+| `show_callsign` | false | Indicatif de vol (ex. AFR1234), sur la première ligne. |
+| `show_airline` | true | Compagnie. |
+| `show_route` | true | Trajet (villes de départ et d'arrivée). |
+| `show_altitude` | true | Altitude. |
+| `show_speed` | true | Vitesse. Altitude et vitesse partagent la dernière ligne. |
+
 ### 8.6 `[ground]` — catégorie « Avions au sol »
 
 | Option | Défaut | Plage | Description |

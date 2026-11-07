@@ -69,6 +69,10 @@ def S(v):
 
 
 ICON = cfg.getfloat("display", "icon_scale", fallback=1.25) * UI
+# Contenu des etiquettes affichees a cote de chaque avion (section [label])
+LBL = {k: cfg.getboolean("label", "show_" + k, fallback=d) for k, d in
+       (("model", True), ("airline", True), ("route", True), ("altitude", True), ("speed", True),
+        ("registration", False), ("callsign", False))}
 PANEL_W = S(cfg.getint("panel", "width", fallback=480))
 ROTATE = cfg.getfloat("panel", "rotate_seconds", fallback=12)
 G_W = S(cfg.getint("ground", "width", fallback=780))
@@ -246,6 +250,22 @@ def fmt_speed(kt):
         return f"{round(kt)} kt"
     return f"{round(kt * 1.852)} km/h"
 
+def label_lines(s, d):
+    """Lignes de l'etiquette d'un avion selon la section [label] (liste vide : pas d'etiquette)."""
+    reg = (d["reg"] if d else "") or s.get("reg") or ""
+    av = "   \u00b7   ".join(x for x in (fmt_alt(s["alt"]) if LBL["altitude"] else "",
+                                       fmt_speed(s["speed"]) if LBL["speed"] else "") if x)
+    if d:
+        head = [d["model"] if LBL["model"] else "", reg if LBL["registration"] else "",
+                s["callsign"] if LBL["callsign"] else ""]
+        rest = [d["airline"] if LBL["airline"] else "", route(d["origin"], d["dest"]) if LBL["route"] else "", av]
+    else:  # details pas encore charges
+        head = [s["callsign"] if (LBL["callsign"] or LBL["model"]) else "", reg if LBL["registration"] else ""]
+        rest = [(s["code"] or "") if LBL["model"] else "", "", av]
+    first = "  \u00b7  ".join(x for x in head if x)
+    return [l for l in [first] + rest if l]
+
+
 def route(o, t):
     o = "" if o in (None, "?") else o
     t = "" if t in (None, "?") else t
@@ -343,7 +363,7 @@ def poll_loop():
                         states[f.id] = dict(lat=f.latitude, lon=f.longitude, speed=f.ground_speed or 0,
                                             heading=f.heading or 0, alt=f.altitude or 0, t=ts,
                                             trail=trail, callsign=f.callsign or f.registration or "",
-                                            code=f.aircraft_code, ground=bool(f.on_ground),
+                                            code=f.aircraft_code, ground=bool(f.on_ground), reg=f.registration or "",
                                             o_iata=f.origin_airport_iata, d_iata=f.destination_airport_iata)
                     if (f.id not in details and f.id not in queued
                             and not (f.on_ground and (f.ground_speed or 0) < G_MIN)):
@@ -720,12 +740,10 @@ def main():
                 pts = [to_xy(*p) for p in s["trail"]] + [(x, y)]
                 pygame.draw.lines(screen, (170, 80, 80) if hl else (90, 130, 170), False, pts, lw)
             draw_plane(screen, RED if hl else (255, 210, 80), x, y, s["heading"], s["code"])
-            av = f'{fmt_alt(s["alt"])}   \u00b7   {fmt_speed(s["speed"])}'
-            if d:
-                txt = [d["model"], d["airline"], route(d["origin"], d["dest"]), av]
-            else:
-                txt = [s["callsign"] or "...", s["code"] or "", "", av]
-            ls = label_surface([l for l in txt if l], hl)
+            txt = label_lines(s, d)
+            if not txt:
+                continue
+            ls = label_surface(txt, hl)
             w, h = ls.get_size()
             dx, up, dn = S(22), S(6), S(10)
             cands = [(x + dx, y - h - up), (x + dx, y + dn), (x - w - dx, y - h - up), (x - w - dx, y + dn)]
