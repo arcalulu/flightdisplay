@@ -538,6 +538,7 @@
   "Détails des avions, état du son, mise à jour.": "Aircraft details, sound state, update.",
   "Vider le cache des photos": "Clear the photo cache",
   "Supprimer les {0} photo(s) en cache ({1}) ? Elles seront retéléchargées au besoin.": "Delete the {0} cached photo(s) ({1})? They will be downloaded again if needed.",
-  "{0} photo(s) supprimée(s) ({1} libérés)": "{0} photo(s) deleted ({1} freed)"
+  "{0} photo(s) supprimée(s) ({1} libérés)": "{0} photo(s) deleted ({1} freed)",
+  "Libre : {0}": "Free: {0}"
  }
 }

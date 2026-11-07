@@ -931,12 +931,13 @@ Catégories valides : `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `b
 
 **Pilotage** (page d'accueil)
 
-- Huit tuiles de supervision, sur deux rangées de quatre sur ordinateur et sur deux colonnes sur téléphone :
+- Neuf tuiles de supervision, sur trois rangées sur ordinateur (quatre colonnes) et sur deux colonnes sur téléphone :
   - Programme : actif ou arrêté. Quand il est actif, le nombre d'images par seconde réellement affichées (moyenne sur 2 secondes) est indiqué sous le statut, avec la cible réglée dans `[display] fps`. Une valeur nettement plus basse que la cible signale un Pi Zero surchargé. Le programme publie cette mesure dans `/dev/shm/flightdisplay-fps.json` (mémoire, pas la carte SD ; `cache/fps.json` si `/dev/shm` n'existe pas).
   - Écran : allumé ou en veille.
   - Température du Pi.
   - Utilisation CPU : pourcentage d'occupation du processeur, mesuré toutes les 2 secondes (orange au-dessus de 85 %, rouge au-dessus de 95 %), avec en petit la charge moyenne du système sur 1 et 5 minutes. La charge moyenne n'est pas un pourcentage : sur le Pi Zero, qui n'a qu'un seul cœur, 1.00 correspond déjà à un processeur saturé.
-  - Mémoire : pourcentage utilisé, avec les Mo. Sous la mémoire, l'espace disque libre (par exemple « Disque : 8,2 Go libres sur 29,7 Go (45 %) »). La tuile passe en orange puis en rouge quand le disque approche du seuil d'alerte (voir « Stockage et photos »).
+  - Mémoire : anneau de progression avec le pourcentage utilisé et les Mo (orange au-dessus de 80 %, rouge au-dessus de 90 %).
+  - Disque : anneau de progression avec le pourcentage utilisé et l'espace libre (le survol donne le total). L'anneau passe en orange 10 points avant le seuil d'alerte et en rouge au seuil, avec un cadre coloré (voir « Stockage et photos »).
   - Allumé depuis : durée de fonctionnement et nom d'hôte.
   - Heure du Pi : heure locale du Raspberry Pi (à la seconde), date et fuseau horaire. C'est l'heure utilisée par le planning de l'écran : si elle est fausse, voir 3.4.
   - MQTT : connecté (vert), déconnecté ou refusé (rouge), désactivé (neutre), avec l'adresse du serveur.

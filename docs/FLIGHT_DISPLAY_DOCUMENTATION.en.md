@@ -931,12 +931,13 @@ Valid categories: `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `bizje
 
 **Control** (home page)
 
-- Eight monitoring tiles, in two rows of four on a computer and in two columns on a phone:
+- Nine monitoring tiles, in three rows on a computer (four columns) and in two columns on a phone:
   - Program: active or stopped. When it is active, the number of frames per second really displayed (average over 2 seconds) is shown under the status, with the target set in `[display] fps`. A value clearly lower than the target signals an overloaded Pi Zero. The program publishes this measurement in `/dev/shm/flightdisplay-fps.json` (memory, not the SD card; `cache/fps.json` if `/dev/shm` does not exist).
   - Screen: on or asleep.
   - Pi temperature.
   - CPU usage: percentage of processor occupation, measured every 2 seconds (orange above 85%, red above 95%), with the system load average over 1 and 5 minutes in small print. The load average is not a percentage: on the Pi Zero, which has a single core, 1.00 already means a saturated processor.
-  - Memory: percentage used, with the MB. Under the memory, the free disk space (for example "Disk: 8.2 GB free of 29.7 GB (45 %)"). The tile turns orange then red when the disk approaches the alert threshold (see "Storage and photos").
+  - Memory: progress ring with the percentage used and the MB (orange above 80%, red above 90%).
+  - Disk: progress ring with the percentage used and the free space (hover for the total). The ring turns orange 10 points before the alert threshold and red at the threshold, with a colored frame (see "Storage and photos").
   - Up for: uptime and hostname.
   - Pi time: local time of the Raspberry Pi (to the second), date and time zone. This is the time used by the screen schedule: if it is wrong, see 3.4.
   - MQTT: connected (green), disconnected or refused (red), disabled (neutral), with the server address.

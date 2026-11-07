@@ -11,7 +11,7 @@ Real-time display of the aircraft flying around your home on a Raspberry Pi: vec
 - Vector map centered on your home, aircraft oriented along their heading, labels (model, airline, route, altitude, speed) that you can reorder and style.
 - Photo card of the aircraft, list of aircraft on the ground.
 - Proximity alert: chime, blinking red tint, priority card, with an adjustable altitude range.
-- Webadmin: monitoring tiles (temperature, CPU, memory and disk space, MQTT, frames per second, Pi time), disk monitoring and photo cache management, switches (program, screen, sound), live volume, full settings, map rebuild, logs, and software updates straight from GitHub.
+- Webadmin: monitoring tiles (temperature, CPU, memory and disk as progress rings, MQTT, frames per second, Pi time), disk monitoring and photo cache management, switches (program, screen, sound), live volume, full settings, map rebuild, logs, and software updates straight from GitHub.
 - Screen sleep and wake-up, remote restart and shutdown of the Pi, and a weekly screen schedule (draggable calendar, next action shown in Control).
 - Multilingual: French and English, selectable in webadmin (Settings, Language), for the interface and for the on-screen text; other languages can be added with a simple file (`lang` folder).
 - Home Assistant integration through MQTT (screen, sound, volume, temperature).

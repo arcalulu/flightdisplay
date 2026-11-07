@@ -1140,6 +1140,12 @@ button.b:disabled{opacity:.45}
 .sleg span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px;background:var(--ok)}
 .sleg .l-p::before{background:#5b9cf0}.sleg .l-w::before{background:#fff;width:3px;border-radius:0}
 .sleg.warn .l-u::before{background:var(--warn)}.sleg.critical .l-u::before{background:var(--bad)}
+.tile.ring{display:flex;align-items:center;gap:12px}
+.tile.ring.bad{border-color:#6b2420}.tile.ring.warn{border-color:#5a4410}
+.ring svg{flex:none}.ring .rb{stroke:#0e141b}.ring .rg{stroke:var(--ok);transition:stroke-dasharray .5s}
+.ring.warn .rg{stroke:var(--warn)}.ring.bad .rg{stroke:var(--bad)}
+.ring text{fill:var(--txt);font-size:12px;font-weight:600}
+.ring .ri{min-width:0}.ring .ri i{font-size:13px;color:var(--txt);margin-top:3px}.ring.bad .ri i{color:#ffb4ae}
 .dotn{position:relative}.dotn.dot::after{content:"";position:absolute;top:8px;right:calc(50% - 38px);width:8px;height:8px;border-radius:50%;background:var(--acc)}
 .set{display:block}
 .menu{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin:0 -4px 6px;scrollbar-width:none}
@@ -1417,6 +1423,16 @@ function tile(label, value, cls, sub) {
   if (sub) d.append(el('i', null, sub)); return d;
 }
 function fmtUp(s) { const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60); return d ? d + ' j ' + h + ' h' : (h ? h + ' h ' + m + ' min' : m + ' min'); }
+function ringTile(label, pct, cls, text, detail, tip) {
+  const NS = 'http://www.w3.org/2000/svg', C = 2 * Math.PI * 22, d = el('div', 'tile ring ' + (cls || ''));
+  const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('width', '54'); svg.setAttribute('height', '54'); svg.setAttribute('viewBox', '0 0 54 54');
+  const circle = (c, dash) => { const e = document.createElementNS(NS, 'circle'); for (const [k, v] of Object.entries({cx: 27, cy: 27, r: 22, fill: 'none', 'stroke-width': 6})) e.setAttribute(k, v); e.setAttribute('class', c); if (dash !== undefined) { e.setAttribute('stroke-linecap', dash > 0.5 ? 'round' : 'butt'); e.setAttribute('stroke-dasharray', dash + ' ' + C); e.setAttribute('transform', 'rotate(-90 27 27)'); } return e; };
+  const tx = document.createElementNS(NS, 'text'); tx.setAttribute('x', 27); tx.setAttribute('y', 31); tx.setAttribute('text-anchor', 'middle'); tx.textContent = text;
+  svg.append(circle('rb'), circle('rg', Math.max(0, Math.min(100, pct || 0)) / 100 * C), tx);
+  const info = el('div', 'ri'); info.append(el('small', null, label)); if (detail) info.append(el('i', null, detail));
+  if (tip) d.title = tip;
+  d.append(svg, info); return d;
+}
 async function pollStatus() {
   try {
     const s = await api('/api/status'); lastSt = s;
@@ -1436,16 +1452,14 @@ async function pollStatus() {
     t.append(tile('Température', s.temp !== null ? s.temp.toFixed(0) + ' °C' : '-', s.temp > 75 ? 'bad' : (s.temp > 65 ? 'warn' : '')));
     t.append(tile('Utilisation CPU', s.cpu !== null ? Math.round(s.cpu) + ' %' : '-', s.cpu > 95 ? 'bad' : (s.cpu > 85 ? 'warn' : ''), 'charge moyenne : ' + s.load[0].toFixed(2) + ' / ' + s.load[1].toFixed(2)));
     {
-      let mem = '-', mcls = '', sub = '';
+      let mp = 0, mt = '-', mcls = '', md = '';
       if (s.mem_total) {
-        const used = Math.round((s.mem_total - s.mem_avail) / 1024), tot = Math.round(s.mem_total / 1024), pct = Math.round(used * 100 / tot);
-        mem = pct + ' %'; mcls = pct > 90 ? 'bad' : (pct > 80 ? 'warn' : ''); sub = _t('{0} / {1} Mo', used, tot);
+        const used = Math.round((s.mem_total - s.mem_avail) / 1024), tot = Math.round(s.mem_total / 1024);
+        mp = Math.round(used * 100 / tot); mt = mp + ' %'; mcls = mp > 90 ? 'bad' : (mp > 80 ? 'warn' : ''); md = _t('{0} / {1} Mo', used, tot);
       }
-      if (s.disk) {
-        sub += (sub ? '\n' : '') + _t('Disque : {0} libres sur {1} ({2} %)', fmtBytes(s.disk.free), fmtBytes(s.disk.total), fmtPct(s.disk.pct));
-        if (s.disk.level === 'critical') mcls = 'bad'; else if (s.disk.level === 'warn' && mcls !== 'bad') mcls = 'warn';
-      }
-      t.append(tile('Mémoire', mem, mcls, sub));
+      t.append(ringTile('Mémoire', mp, mcls, mt, md));
+      if (s.disk) t.append(ringTile('Disque', s.disk.pct, s.disk.level === 'critical' ? 'bad' : (s.disk.level === 'warn' ? 'warn' : ''), Math.round(s.disk.pct) + ' %', _t('Libre : {0}', fmtBytes(s.disk.free)),
+        _t('Disque : {0} libres sur {1} ({2} %)', fmtBytes(s.disk.free), fmtBytes(s.disk.total), fmtPct(s.disk.pct))));
     }
     t.append(tile('Allumé depuis', fmtUp(s.uptime), '', s.host));
     { const c = tile('Heure du Pi', '--:--:--', '', ''); c.querySelector('b').id = 'clk'; const i = el('i'); i.id = 'clkd'; c.append(i); t.append(c); tickClock(); }
