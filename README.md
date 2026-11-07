@@ -70,7 +70,7 @@ Le guide complet (installation manuelle, référence de tous les réglages, weba
 
 ## Mettre à jour
 
-Le plus simple : interface web, onglet **Mises à jour**. « Vérifier les mises à jour » interroge GitHub, « Mettre à jour » télécharge et installe la nouvelle version en affichant la progression étape par étape (en cas de problème, la version précédente est restaurée automatiquement). Une pastille sur l'onglet signale qu'une nouvelle version est disponible.
+Le plus simple : interface web, onglet **Mises à jour**. « Vérifier les mises à jour » interroge GitHub, « Mettre à jour » télécharge et installe la nouvelle version en affichant la progression étape par étape (en cas de problème, la version précédente est restaurée automatiquement). Une puce « mise à jour disponible » apparaît en haut de la page : en la survolant, une icône permet de lancer la mise à jour directement.
 
 Ou en ligne de commande :
 

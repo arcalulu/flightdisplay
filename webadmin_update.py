@@ -129,6 +129,10 @@ class Updater:
         c = self.st.get("check")
         return bool(c and c.get("ok") and c.get("behind", 0) > 0)
 
+    def can_update(self):
+        c = self.st.get("check")
+        return bool(c and c.get("ok") and c.get("can_update"))
+
     def state(self):
         with self.mu:
             st = self.st

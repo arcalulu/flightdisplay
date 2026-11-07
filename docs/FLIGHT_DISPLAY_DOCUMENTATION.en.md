@@ -1047,7 +1047,7 @@ Turns the screen on and off by itself following a weekly calendar, like a diary.
 - **During the update**: a compact card with the title ("Updating to v1.2.0"), the percentage, the progress bar, a seven-segment bar (one per step: checks, download, apply, libraries, code check, display restart, webadmin restart; green when done, yellow in progress, red on error), the current step with the elapsed time, and a "Detailed log" that is collapsed and opens with a click. The page reloads by itself at the end.
 - **After the update**, a single line summarizes the last operation ("✓ Last update: v1.0.0 → v1.1.0, 2 min ago"). A click on "Details" opens the list of steps and the log. On failure, the line turns red with the cause and the details open automatically.
 - "Version history": changelog grouped by version. Each version (git tag `vX.Y.Z`) is a collapsible separator, with its commits below it from the most recent to the oldest (number, commit, date, description). The commits after the latest version are grouped under "In development (unreleased)". The most recent version is expanded, the others collapsed. Markers: "new" (not installed yet) and "installed". Warnings point out a locally modified file, local commits missing from GitHub or a modified `install.sh`. The complete procedure is described in 12.1.
-- A dot on the tab and a chip in the header show that a version is available.
+- A green "update available" chip appears in the header, on every page. A click on the chip opens the Updates tab; hovering it reveals a small ⬆ icon (always visible on a touch screen): a click on it starts the update at once, without leaving the current page. The chip then shows "update in progress · X %", and the page reloads at the end. The icon is only offered if the update is possible (no locally modified file, no conflict); on failure, a message is shown.
 
 **Credits**
 
@@ -1132,7 +1132,7 @@ interval = 30
 | `[screen]` | `helper` | `/usr/local/bin/flight-screen` | Sleep and wake-up script. |
 | | `flag` | `/run/flight-screen-off` | Sleep marker file (deleted when the Pi reboots). |
 | `[build]` | `stop_display` | true | Default value of the "Stop the display during the build" switch (map rebuild). |
-| `[update]` | `auto_check` | true | Checks every 12 hours whether a new version exists on GitHub (shown by a dot). Installs nothing by itself. |
+| `[update]` | `auto_check` | true | Checks every 12 hours whether a new version exists on GitHub (shown by a chip in the header). Installs nothing by itself. |
 | `[schedule]` | `enabled` | false | Enables the screen on/off schedule. |
 | | `mon` to `sun` | empty | On ranges of the day (`HH:MM-HH:MM`, separated by commas). Empty: screen off all day while the schedule is active. |
 | `[storage]` | `warn_percent` | 90 | Disk usage alert threshold, in % (50 to 99). Orange alert 10 points earlier. |
@@ -1245,7 +1245,7 @@ The volume and the sound remain adjustable during the screen sleep: the values w
 
 **From webadmin (recommended).** **Updates** tab:
 
-1. "Check for updates" compares your version with the one on GitHub (branch followed by the installation, `main` by default) and lists the changes. A dot shows that a version is available; by default, webadmin checks by itself every 12 hours (Settings, "Updates", `auto_check` option, `[update]` section of `config.ini`). Nothing is installed without a click on "Update".
+1. "Check for updates" compares your version with the one on GitHub (branch followed by the installation, `main` by default) and lists the changes. An "update available" chip appears at the top of the page; by default, webadmin checks by itself every 12 hours (Settings, "Updates", `auto_check` option, `[update]` section of `config.ini`). Nothing is installed without a click on "Update".
 2. "Update" chains: checks (Git repository, disk space, no locally modified file), download, apply (fast-forward only), Python libraries (only if `requirements.txt` or the dependencies of `build_map_vector.py` changed), code check, display restart, webadmin restart. The progress and the log are shown live; the page reloads at the end.
 3. If the code of the new version contains an error or if the display does not stay active after the restart, the previous version is restored automatically.
 

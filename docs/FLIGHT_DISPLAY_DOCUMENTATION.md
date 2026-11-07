@@ -1047,7 +1047,7 @@ Allume et éteint l'écran tout seul selon un calendrier hebdomadaire, comme un 
 - **Pendant la mise à jour** : une carte compacte avec le titre (« Mise à jour vers v1.2.0 »), le pourcentage, la barre de progression, une barre de sept segments (une par étape : vérifications, téléchargement, application, bibliothèques, contrôle du code, relance de l'affichage, redémarrage de webadmin ; verte quand c'est fait, jaune en cours, rouge en erreur), l'étape en cours avec le temps écoulé, et un « Journal détaillé » replié que l'on déplie d'un clic. La page se recharge seule à la fin.
 - **Après la mise à jour**, une seule ligne résume la dernière opération (« ✓ Dernière mise à jour : v1.0.0 → v1.1.0, il y a 2 min »). Un clic sur « Détails » déplie la liste des étapes et le journal. En cas d'échec, la ligne devient rouge avec la cause et les détails s'ouvrent automatiquement.
 - « Historique des versions » : changelog groupé par version. Chaque version (étiquette git `vX.Y.Z`) est un séparateur repliable, avec ses commits dessous du plus récent au plus ancien (numéro, commit, date, description). Les commits postérieurs à la dernière version sont regroupés sous « En développement (non publiée) ». La version la plus récente est dépliée, les autres repliées. Repères : « nouveau » (pas encore installé) et « installé ». Des avertissements signalent un fichier modifié localement, des commits locaux absents de GitHub ou un `install.sh` modifié. La procédure complète est décrite en 12.1.
-- Une pastille sur l'onglet et une puce dans l'en-tête signalent une version disponible.
+- Une puce verte « mise à jour disponible » apparaît dans l'en-tête, sur toutes les pages. Un clic sur la puce ouvre l'onglet Mises à jour ; en la survolant, une petite icône ⬆ apparaît (toujours visible sur écran tactile) : un clic dessus lance la mise à jour tout de suite, sans quitter la page en cours. La puce affiche alors « mise à jour en cours · X % », et la page se recharge à la fin. L'icône n'est proposée que si la mise à jour est possible (pas de fichier modifié localement, pas de conflit) ; en cas d'échec, un message s'affiche.
 
 **Crédits**
 
@@ -1132,7 +1132,7 @@ interval = 30
 | `[screen]` | `helper` | `/usr/local/bin/flight-screen` | Script de veille et de réveil. |
 | | `flag` | `/run/flight-screen-off` | Fichier témoin de la veille (supprimé au redémarrage du Pi). |
 | `[build]` | `stop_display` | true | Valeur par défaut de l'interrupteur « Arrêter l'affichage pendant la construction » (reconstruction de la carte). |
-| `[update]` | `auto_check` | true | Vérifie toutes les 12 heures si une nouvelle version existe sur GitHub (signalée par une pastille). N'installe rien tout seul. |
+| `[update]` | `auto_check` | true | Vérifie toutes les 12 heures si une nouvelle version existe sur GitHub (signalée par une puce dans l'en-tête). N'installe rien tout seul. |
 | `[schedule]` | `enabled` | false | Active le planning d'allumage et d'extinction de l'écran. |
 | | `mon` à `sun` | vide | Plages d'allumage du jour (`HH:MM-HH:MM`, séparées par des virgules). Vide : écran éteint toute la journée quand le planning est actif. |
 | `[storage]` | `warn_percent` | 90 | Seuil d'alerte d'occupation du disque, en % (50 à 99). Alerte orange 10 points avant. |
@@ -1245,7 +1245,7 @@ Le volume et le son restent réglables pendant la veille de l'écran : les valeu
 
 **Depuis webadmin (recommandé).** Onglet **Mises à jour** :
 
-1. « Vérifier les mises à jour » compare votre version à celle de GitHub (branche suivie par l'installation, `main` par défaut) et liste les nouveautés. Une pastille signale une version disponible ; par défaut, webadmin vérifie seul toutes les 12 heures (Réglages, « Mises à jour », option `auto_check`, section `[update]` de `config.ini`). Rien n'est installé sans clic sur « Mettre à jour ».
+1. « Vérifier les mises à jour » compare votre version à celle de GitHub (branche suivie par l'installation, `main` par défaut) et liste les nouveautés. Une puce « mise à jour disponible » apparaît en haut de la page ; par défaut, webadmin vérifie seul toutes les 12 heures (Réglages, « Mises à jour », option `auto_check`, section `[update]` de `config.ini`). Rien n'est installé sans clic sur « Mettre à jour ».
 2. « Mettre à jour » enchaîne : vérifications (dépôt Git, espace disque, aucun fichier modifié localement), téléchargement, application (fast-forward uniquement), bibliothèques Python (seulement si `requirements.txt` ou les dépendances de `build_map_vector.py` ont changé), contrôle du code, relance de l'affichage, redémarrage de webadmin. La progression et le journal s'affichent en direct ; la page se recharge à la fin.
 3. Si le code de la nouvelle version contient une erreur ou si l'affichage ne reste pas actif après la relance, la version précédente est restaurée automatiquement.
 

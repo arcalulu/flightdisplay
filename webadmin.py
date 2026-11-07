@@ -983,6 +983,7 @@ class Handler(BaseHTTPRequestHandler):
                 s.update(sound_state())
                 s["mqtt"] = MQTT.status
                 s["update_available"] = UPD.available()
+                s["update_can"] = UPD.can_update()
                 s["update_running"] = UPD.running()
                 s["cpu"] = cpu["pct"]
                 s["now"] = now_info()
@@ -1217,7 +1218,10 @@ button.b:disabled{opacity:.45}
 .utog .chev{display:inline-block;transition:transform .15s;margin-right:6px}.utog .chev.shut{transform:rotate(-90deg)}
 .ulast{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:10px;font-size:14px;user-select:none}
 .ulast.bad{border-color:#6b2420}.ulast .ic{color:var(--ok)}.ulast.bad .ic{color:var(--bad)}.ulast .more{margin-left:auto;color:var(--mut);font-size:12px;white-space:nowrap}
-.dotn{position:relative}.dotn.dot::after{content:"";position:absolute;top:8px;right:calc(50% - 38px);width:8px;height:8px;border-radius:50%;background:var(--acc)}
+.chip.upd{display:inline-flex;align-items:center;cursor:pointer}
+.chip .uico{display:inline-flex;align-items:center;max-width:0;overflow:hidden;opacity:0;margin:0;padding:0;border:0;background:var(--ok);color:#06210f;border-radius:99px;font-size:12px;line-height:1;height:18px;cursor:pointer;transition:max-width .2s,opacity .2s,margin .2s,padding .2s}
+.chip.upd:hover .uico,.chip.upd:focus-within .uico{max-width:28px;opacity:1;margin-left:7px;padding:0 6px}
+@media(hover:none){.chip .uico{max-width:28px;opacity:1;margin-left:7px;padding:0 6px}}
 .set{display:block}
 .menu{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin:0 -4px 6px;scrollbar-width:none}
 .menu::-webkit-scrollbar{display:none}
@@ -1269,7 +1273,7 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 <nav id="nav">
   <button data-t="home" class="on" onclick="go('home')">Pilotage</button>
   <button data-t="cfg" onclick="go('cfg')">Réglages</button>
-  <button data-t="upd" class="dotn" id="navUpd" onclick="go('upd')">Mises à jour</button>
+  <button data-t="upd" id="navUpd" onclick="go('upd')">Mises à jour</button>
   <button data-t="log" onclick="go('log')">Logs</button>
 </nav>
 <main>
@@ -1511,13 +1515,17 @@ function ringTile(label, pct, cls, text, detail, tip) {
 async function pollStatus() {
   try {
     const s = await api('/api/status'); lastSt = s;
-    const c = $('#chips'); c.innerHTML = '';
+    const c = el('div');
     if (s.muted) c.append(chip('son coupé', 'warn'));
     if (s.build_running) c.append(chip('carte en construction', 'warn'));
-    if (s.update_running) c.append(chip('mise à jour en cours', 'warn')); else if (s.update_available) c.append(chip('mise à jour disponible', 'ok'));
-    $('#navUpd').classList.toggle('dot', !!s.update_available && !s.update_running);
+    if (s.update_running) c.append(chip(UPD && UPD.running && UPD.pct ? _t('mise à jour en cours · {0} %', UPD.pct) : 'mise à jour en cours', 'warn'));
+    else if (s.update_available) {
+      const ch = chip('mise à jour disponible', 'ok'); ch.classList.add('upd'); ch.title = 'Voir les mises à jour'; ch.onclick = () => go('upd');
+      if (s.update_can) { const b = el('button', 'uico'); b.innerHTML = '<svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>'; b.title = 'Mettre à jour maintenant'; b.onclick = e => { e.stopPropagation(); quickUpdate(); }; ch.append(b); }
+      c.append(ch);
+    }
     if (s.disk && s.disk.level !== 'ok') { const ch = chip(_t('disque rempli à {0} %', fmtPct(s.disk.pct)), s.disk.level === 'critical' ? 'bad' : 'warn'); ch.style.cursor = 'pointer'; ch.onclick = () => { go('cfg'); curCat = 'storage'; renderMenu(); renderCat(); }; c.append(ch); }
-
+    { const box = $('#chips'); if (box.dataset.h !== c.innerHTML) { box.dataset.h = c.innerHTML; box.replaceChildren(...c.childNodes); } }
 
     const aw = $('#authWarn'); if (aw) aw.style.display = s.auth ? 'none' : 'block';
     lastStAt = performance.now();
@@ -2015,13 +2023,17 @@ async function pollUpd() {
   try {
     const u = await api('/api/update'); UPD = u;
     const busy = u.running || u.restarting;
-    if (updWasRunning && !busy && u.ok === true && u.to_label) { updWasRunning = false; renderUpd(); setTimeout(() => { location.hash = '#upd'; location.reload(); }, 2500); return; }
+    if (updWasRunning && !busy && u.ok === true && u.to_label) { updWasRunning = false; renderUpd(); setTimeout(() => { if (!updQuick) location.hash = '#upd'; location.reload(); }, 2500); return; }
+    if (updWasRunning && !busy && u.ok === false) { toast(_t('Dernière tentative en échec : {0}', u.error), true); updQuick = false; }
     updWasRunning = busy;
     renderUpd();
     if (!u.check && !busy && !updAuto && !updBusy) { updAuto = true; checkUpd(); }
   } catch (e) {
     if (updWasRunning) { UPD = Object.assign({}, UPD, {restarting: true, running: false}); renderUpd(true); }
   }
+}
+async function quickUpdate() {
+  try { await api('/api/update/start', {}); updWasRunning = true; updQuick = true; await pollUpd(); pollStatus(); } catch (e) { toast(e.message, true); }
 }
 async function checkUpd() {
   updBusy = true; renderUpd();
@@ -2031,7 +2043,7 @@ async function checkUpd() {
 async function startUpd() {
   try { await api('/api/update/start', {}); updWasRunning = true; await pollUpd(); } catch (e) { toast(e.message, true); }
 }
-let updDetailsOpen = null, updLogOpen = false;
+let updDetailsOpen = null, updLogOpen = false, updQuick = false;
 function renderUpd(lost) {
   if (!UPD) return;
   const u = UPD, c = u.check, busy = u.running || u.restarting;

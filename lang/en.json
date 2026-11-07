@@ -558,6 +558,9 @@
   "Vitesse {0}": "Speed {0}",
   "aucun texte": "no text",
   "Contenu du texte": "Text content",
-  "Taille et angles": "Size and corners"
+  "Taille et angles": "Size and corners",
+  "mise à jour en cours · {0} %": "update in progress · {0} %",
+  "Voir les mises à jour": "View updates",
+  "Mettre à jour maintenant": "Update now"
  }
 }

@@ -70,7 +70,7 @@ The full guide (manual installation, reference of all settings, webadmin, MQTT, 
 
 ## Updating
 
-The easiest way: web interface, **Updates** tab. "Check for updates" queries GitHub, "Update" downloads and installs the new version while showing the progress step by step (if anything goes wrong, the previous version is restored automatically). A dot on the tab shows that a new version is available.
+The easiest way: web interface, **Updates** tab. "Check for updates" queries GitHub, "Update" downloads and installs the new version while showing the progress step by step (if anything goes wrong, the previous version is restored automatically). An "update available" chip appears at the top of the page: hover it and an icon lets you start the update directly.
 
 Or on the command line:
 
