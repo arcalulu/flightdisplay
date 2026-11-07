@@ -318,6 +318,30 @@ def label_lines(s, d):
     return lines
 
 
+def fit_line(pieces, maxw):
+    """Garde une ligne (liste de (texte, police, couleur)) dans maxw pixels : le texte qui depasse est coupe et termine par « … »."""
+    out, used = [], 0
+    for txt, fnt, col in pieces:
+        w = fnt.size(txt)[0]
+        if used + w <= maxw:
+            out.append((txt, fnt, col))
+            used += w
+            continue
+        ell, room = "\u2026", maxw - used
+        if room > fnt.size(ell)[0]:
+            lo, hi = 0, len(txt)
+            while lo < hi:
+                mid = (lo + hi + 1) // 2
+                if fnt.size(txt[:mid].rstrip() + ell)[0] <= room:
+                    lo = mid
+                else:
+                    hi = mid - 1
+            if lo > 0:
+                out.append((txt[:lo].rstrip() + ell, fnt, col))
+        break
+    return out
+
+
 def panel_lines(s, d):
     """Texte du panneau photo : liste de lignes, chaque ligne = liste de (texte, champ) (section [panel_content])."""
     reg = (d["reg"] if d else "") or s.get("reg") or ""
@@ -663,6 +687,14 @@ def main():
             pfont_cache[key] = f
         return pfont_cache[key]
 
+    def panel_pieces(ln):
+        out = []
+        for i, (txt, k) in enumerate(ln):
+            if i:
+                out.append(("  \u00b7  ", pfont_for(ln[i - 1][1]), (220, 225, 230)))
+            out.append((txt, pfont_for(k), PCOL[k]))
+        return out
+
     def label_surface(lines, hl=False):
         key = (tuple(tuple(l) for l in lines), hl)
         if key not in label_cache:
@@ -832,10 +864,11 @@ def main():
                     redownload_photo(d)
             if ph is None:
                 ph = placeholder(tr("Photo indisponible") if d else tr("Chargement des détails..."))
-            lines = [[(txt, pfont_for(k), PCOL[k]) for txt, k in ln] for ln in panel_lines(s, d)]
+            lines = [panel_pieces(ln) for ln in panel_lines(s, d)]
             if cur_key in zone_ids:
                 lines.insert(0, [(tr("ALERTE  \u00b7  à {0} km de la maison", f"{dist_of.get(cur_key, 0):.1f}"), f_small, (255, 110, 110))])
-            lines = [(ln, max(f.get_height() for _, f, _ in ln)) for ln in lines]
+            lines = [fit_line(ln, PANEL_W) for ln in lines]  # jamais plus large que le panneau
+            lines = [(ln, max(f.get_height() for _, f, _ in ln)) for ln in lines if ln]
             text_h = sum(h + 2 for _, h in lines)
             M = S(30)
             pw, phh = PANEL_W + S(20), ph.get_height() + text_h + S(26)

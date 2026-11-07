@@ -707,7 +707,7 @@ Toute l'interface est dessinée à la résolution de la carte. Sous Windows et s
 | `rotate_seconds` | 12 | 3 à 120 | Durée d'affichage de chaque avion quand plusieurs sont éligibles. |
 | `corner_top_left`, `corner_top_right`, `corner_bottom_left`, `corner_bottom_right` | true | true / false | Angles où le panneau peut s'afficher. Un angle décoché n'est jamais utilisé, même si des avions passent derrière les autres angles (le panneau choisit alors le moins gênant parmi les angles autorisés). Si les quatre sont décochés, aucune restriction. |
 
-Le texte affiché sous la photo (modèle, compagnie, trajet, altitude, vitesse, crédit) se règle dans la catégorie « Contenu du panneau photo » (voir plus bas, `[panel_content]`). La ligne rouge d'alerte de proximité n'est pas modifiable.
+Le texte affiché sous la photo (modèle, compagnie, trajet, altitude, vitesse, crédit) se règle dans la catégorie « Contenu du panneau photo » (voir plus bas, `[panel_content]`). La ligne rouge d'alerte de proximité n'est pas modifiable. Le texte ne dépasse jamais du panneau : une ligne trop longue est coupée et terminée par « … » (réduire la taille, retirer un élément de la ligne ou élargir le panneau, `[panel] width`, pour tout afficher).
 
 **`[panel_content]` — catégorie « Contenu du panneau photo »**
 

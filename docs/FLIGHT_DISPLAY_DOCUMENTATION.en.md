@@ -707,7 +707,7 @@ The whole interface is drawn at the resolution of the map. On Windows and on the
 | `rotate_seconds` | 12 | 3 to 120 | Display time of each aircraft when several are eligible. |
 | `corner_top_left`, `corner_top_right`, `corner_bottom_left`, `corner_bottom_right` | true | true / false | Corners where the panel may be shown. An unticked corner is never used, even if aircraft pass behind the other corners (the panel then picks the least obstructive among the allowed corners). If all four are unticked, there is no restriction. |
 
-The text shown below the photo (model, airline, route, altitude, speed, credit) is set in the "Photo panel content" category (see below, `[panel_content]`). The red proximity alert line cannot be changed.
+The text shown below the photo (model, airline, route, altitude, speed, credit) is set in the "Photo panel content" category (see below, `[panel_content]`). The red proximity alert line cannot be changed. The text never goes beyond the panel: a line that is too long is cut and ends with "…" (reduce the size, remove an item from the line or widen the panel, `[panel] width`, to show everything).
 
 **`[panel_content]` — category "Photo panel content"**
 
