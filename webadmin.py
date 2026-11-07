@@ -1535,7 +1535,7 @@ async function pollStatus() {
     const ml = {connecte: ['connecté', 'ok'], deconnecte: ['déconnecté', 'bad'], off: ['désactivé', ''], 'paho manquant': ['paho manquant', 'bad'], 'host manquant': ['serveur manquant', 'warn']};
     const mq = ml[s.mqtt] || [String(s.mqtt).startsWith('refuse') ? 'refusé' : s.mqtt, 'bad'];
     t.append(tile('MQTT', mq[0], mq[1]));
-    { const c = tile('Heure du Pi', '--:--:--', '', ''); c.querySelector('b').id = 'clk'; const i = el('i'); i.id = 'clkd'; const u = el('i', null, _t('Allumé depuis {0}', fmtUp(s.uptime)) + (s.host ? ' · ' + s.host : '')); c.append(i, u); t.append(c); tickClock(); }
+    { const c = tile('Temps', '--:--:--', '', ''); c.querySelector('b').id = 'clk'; const i = el('i'); i.id = 'clkd'; const u = el('i', null, _t('Allumé depuis {0}', fmtUp(s.uptime)) + (s.host ? ' · ' + s.host : '')); c.append(i, u); t.append(c); tickClock(); }
     {
       const L = s.temp_limits || {soft: 80, hard: 85, model: ''}, tp = s.temp, tcls = tp === null ? '' : (tp >= L.soft ? 'bad' : (tp >= L.soft - 10 ? 'warn' : ''));
       t.append(ringTile('Température', tp === null ? 0 : tp / L.hard * 100, tcls, tp === null ? '-' : Math.round(tp) + ' °C', _t('Ralentit dès {0} °C', L.soft),

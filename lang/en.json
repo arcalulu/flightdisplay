@@ -460,7 +460,6 @@
   "pygame (LGPL), requests (Apache 2.0), Pillow (MIT-CMU), paho-mqtt (EPL 2.0 ou BSD 3-Clause), polices DejaVu.": "pygame (LGPL), requests (Apache 2.0), Pillow (MIT-CMU), paho-mqtt (EPL 2.0 or BSD 3-Clause), DejaVu fonts.",
   "Conditions et licences en détail": "Full terms and licenses",
   "Retour": "Back",
-  "Heure du Pi": "Pi time",
   "Planning de l'écran": "Screen schedule",
   "Modifier": "Edit",
   "Allume et éteint l'écran tout seul selon un calendrier hebdomadaire : faites glisser sur le calendrier pour tracer les plages d'allumage. Appliqué immédiatement.": "Turns the screen on and off by itself following a weekly calendar: drag on the calendar to draw the on ranges. Applied immediately.",
@@ -561,6 +560,7 @@
   "Taille et angles": "Size and corners",
   "mise à jour en cours · {0} %": "update in progress · {0} %",
   "Voir les mises à jour": "View updates",
-  "Mettre à jour maintenant": "Update now"
+  "Mettre à jour maintenant": "Update now",
+  "Temps": "Time"
  }
 }
