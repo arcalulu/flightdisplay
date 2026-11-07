@@ -470,6 +470,24 @@ def details_loop():
         time.sleep(DETAILS_PAUSE)
 
 
+_redl = {}  # url de photo -> heure de la derniere tentative de retelechargement
+
+
+def redownload_photo(d):
+    """La photo en cache a ete effacee (webadmin, Stockage) : on la retelecharge discretement."""
+    url = d.get("photo_url")
+    if not url or time.time() - _redl.get(url, 0) < 600:
+        return
+    _redl[url] = time.time()
+
+    def work():
+        try:
+            d["photo_path"] = download_photo(url)
+        except Exception:
+            pass
+    threading.Thread(target=work, daemon=True).start()
+
+
 def clean_cache(days=3):
     lim = time.time() - days * 86400
     for n in os.listdir(CACHE):
@@ -761,6 +779,7 @@ def main():
                 ph = get_photo(d["photo_path"])
                 if ph is None:
                     d["photo_path"] = None
+                    redownload_photo(d)
             if ph is None:
                 ph = placeholder(tr("Photo indisponible") if d else tr("Chargement des détails..."))
             av = tr("Altitude {0}   \u00b7   Vitesse {1}", fmt_alt(s["alt"]), fmt_speed(s["speed"]))

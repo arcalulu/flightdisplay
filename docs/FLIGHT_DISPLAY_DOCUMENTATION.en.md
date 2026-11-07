@@ -896,7 +896,7 @@ The `M` key of the keyboard connected to the Pi also mutes or unmutes the sound.
 |---|---|---|
 | `background.png`, `map_meta.json` | Map and its dimensions, produced by `build_map_vector.py`. | Until the next rebuild. |
 | `cache/details.json` | Aircraft details (model, airline, route). | 3 hours. |
-| `cache/*.jpg` | Downloaded photos. | Cleaned after 3 days at startup. |
+| `cache/*.jpg` | Downloaded photos. | Cleaned after 3 days at startup; can be deleted from webadmin (Settings, Storage and photos). |
 | `cache/runtime.json` | Sound state (muted, volume, test). | Persistent. |
 | `/dev/shm/flightdisplay-fps.json` | Frames per second really displayed, published every 2 seconds for webadmin. In memory: no write to the SD card (`cache/fps.json` if `/dev/shm` does not exist). | Lost at reboot. |
 | `cache/update.json` | State and log of the last update from webadmin. | Persistent. |
@@ -936,11 +936,11 @@ Valid categories: `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `bizje
   - Screen: on or asleep.
   - Pi temperature.
   - CPU usage: percentage of processor occupation, measured every 2 seconds (orange above 85%, red above 95%), with the system load average over 1 and 5 minutes in small print. The load average is not a percentage: on the Pi Zero, which has a single core, 1.00 already means a saturated processor.
-  - Memory: percentage used, with the MB.
+  - Memory: percentage used, with the MB. Under the memory, the free disk space (for example "Disk: 8.2 GB free of 29.7 GB (45 %)"). The tile turns orange then red when the disk approaches the alert threshold (see "Storage and photos").
   - Up for: uptime and hostname.
   - Pi time: local time of the Raspberry Pi (to the second), date and time zone. This is the time used by the screen schedule: if it is wrong, see 3.4.
   - MQTT: connected (green), disconnected or refused (red), disabled (neutral), with the server address.
-  Refreshed every 4 seconds. The page header only shows status dots: "sound muted", "map building", "update in progress" or "update available".
+  Refreshed every 4 seconds. The page header only shows status dots: "sound muted", "map building", "update in progress", "update available" or "disk X % full" (orange 10 points before the threshold, red at the threshold; a click opens "Storage and photos").
 - Toggle commands, like in iOS Settings or Home Assistant:
   - Flight Display program: starts or stops the service (if the screen is asleep, the switch turns the screen back on).
   - Screen: sleep and wake-up (sleep also stops the program, see 6.2).
@@ -970,6 +970,7 @@ On a computer, a menu on the left lists the categories; on a phone, it becomes a
 | | Application and system | config.ini | Folder, files, service, map Python, sudo, commands, sleep script and marker, stopping the display during the map build. |
 | | Updates | config.ini | Automatic check every 12 hours (`auto_check`). |
 | | Screen schedule | config.ini | Schedule switch and weekly calendar of the on ranges (see below). |
+| | Storage and photos | config.ini | Disk usage, cached photos, "Clear the photo cache" button, alert threshold (see below). |
 | Integrations | MQTT / Home Assistant | config.ini | Connection, topics and discovery, with state and a "Reconnect" button. |
 
 Input controls: toggle switches for yes/no values, segmented buttons for choices of two or three values (label size, language), sliders for the volume and the red intensity, text fields with limits for the rest. Passwords and the CARTO key are hidden: the field stays empty to keep the current value, typing a value replaces it, the "Clear" button deletes it.
@@ -995,6 +996,14 @@ When a change takes effect:
 | Web server: username and password | Immediate (the browser asks for the credentials again). |
 | Application and system, Updates, Screen schedule | Immediate. |
 | MQTT | Immediate: webadmin reconnects to the server. |
+
+**Storage and photos** (Settings, Storage and photos)
+
+- **Disk**: a usage bar of the disk that contains the application (the SD card, same calculation as `df`): percentage used, space used, total and free. The bar is green, orange 10 points before the threshold, red at the threshold; a white line marks the alert threshold and a blue part shows the room taken by the photos.
+- **JetPhotos photos in cache**: number of image files (`cache/*.jpg`), the volume they occupy, the share this represents as a percentage of the disk and of the used space, age of the oldest photo, and volume of the other cache files (aircraft details, sound state).
+- **Clear the photo cache**: deletes all the photos of the cache after confirmation. Only the photos are deleted (not the aircraft details, to avoid multiplying requests to Flightradar24). The display program downloads a deleted photo again when it is needed once more; until then, the panel shows "Photo unavailable" for that aircraft.
+- **Monitoring**: the "Disk alert threshold (%)" setting (90 by default, from 50 to 99) triggers the alert: "disk X % full" chip in the header (all pages), colored Memory tile, banner in this page. The orange alert comes 10 points before the threshold.
+- The program deletes photos older than 3 days at each start anyway (9.7).
 
 **Screen schedule** (Settings, Screen schedule)
 
@@ -1072,6 +1081,9 @@ fri =
 sat =
 sun =
 
+[storage]
+warn_percent = 90
+
 [mqtt]
 enabled = false
 host =
@@ -1105,6 +1117,7 @@ interval = 30
 | `[update]` | `auto_check` | true | Checks every 12 hours whether a new version exists on GitHub (shown by a dot). Installs nothing by itself. |
 | `[schedule]` | `enabled` | false | Enables the screen on/off schedule. |
 | | `mon` to `sun` | empty | On ranges of the day (`HH:MM-HH:MM`, separated by commas). Empty: screen off all day while the schedule is active. |
+| `[storage]` | `warn_percent` | 90 | Disk usage alert threshold, in % (50 to 99). Orange alert 10 points earlier. |
 | `[mqtt]` | | | See section 11. |
 
 Can only be changed from the command line: the systemd services, the sudoers file, the content of the sleep and guard scripts (virtual terminal numbers) and the environment variables.
@@ -1116,7 +1129,7 @@ All routes require authentication if a password is set. `POST` requests addition
 | Route | Method | Body | Role |
 |---|---|---|---|
 | `/` | GET | | Web interface. |
-| `/api/status` | GET | | State: service, screen, CPU usage as a percentage (`cpu`), load average (`load`), temperature, memory, uptime, sound (muted, volume, enabled), build in progress, MQTT (`mqtt`), real frames per second and target (`fps`, `fps_target`), update available or in progress (`update_available`, `update_running`). |
+| `/api/status` | GET | | State: service, screen, CPU usage as a percentage (`cpu`), load average (`load`), temperature, memory, uptime, sound (muted, volume, enabled), build in progress, MQTT (`mqtt`), real frames per second and target (`fps`, `fps_target`), disk (`disk`: total, free, percentage, level), update available or in progress (`update_available`, `update_running`). |
 | `/api/settings` | GET | | Categories, groups, parameters, values and available backups, texts in the active language. |
 | `/api/settings` | POST | `{"changes": {"config:alert.volume": "0.5", "web:mqtt.host": "10.0.0.2"}}` | Saves the values (key = `file:section.option`, file `config` or `web`). Returns what needs to be applied. |
 | `/api/settings/restore` | POST | `{"file": "config"}` | Swaps the file (`config` or `web`) with its `.bak` backup. |
@@ -1128,6 +1141,8 @@ All routes require authentication if a password is set. `POST` requests addition
 | `/api/power` | POST | `{"action": "reboot\|poweroff"}` | Restarts or shuts down the Pi. |
 | `/api/build` | GET / POST | `{"stop_display": true}` | State and output of the build / start. |
 | `/api/build/cancel` | POST | `{}` | Cancels the build. |
+| `/api/storage` | GET | | Disk usage (total, used, free, percentage, alert level) and cache usage (number and volume of photos, other files). |
+| `/api/storage/clear` | POST | `{}` | Deletes the photos of the cache; returns the number and volume deleted. |
 | `/api/update` | GET | | State of the updates: last check (versions, changes), progress, steps and log of the current or last update, version history. |
 | `/api/update/check` | POST | `{}` | Queries GitHub (`git fetch`) and returns the updated state. |
 | `/api/update/start` | POST | `{}` | Starts the update in the background (followed through `GET /api/update`). |
@@ -1344,6 +1359,7 @@ sudo reboot
 | No label appears next to the aircraft | All the items are hidden in Settings, Aircraft labels (8.7). |
 | The photo panel never appears in a corner | That corner is unticked in Settings, Photo panel (8.6). If all four corners are unticked, there is no restriction. |
 | The Program tile shows fewer frames per second than the target | The Pi Zero cannot keep the pace: lower `fps`, switch the map to 1280×720, or limit the number of aircraft (maximum tracked altitude). |
+| "disk X % full" alert | The SD card is approaching saturation. Open Settings, Storage and photos: clear the photo cache, then look for big files (`du -h --max-depth=1 ~ \| sort -h`, logs, old backups). See also 6.3. |
 | Unstable Wi-Fi | Disable power saving (6.4). |
 
 ---

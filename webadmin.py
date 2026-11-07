@@ -13,7 +13,7 @@ from i18n import tr
 HERE = os.path.dirname(os.path.abspath(__file__))
 INI_PATH = os.environ.get("WEBADMIN_INI") or os.path.join(HERE, "config.ini")
 # Sections de config.ini gérées par webadmin ; toutes les autres appartiennent au programme d'affichage.
-WEB_SECS = ("server", "app", "screen", "build", "mqtt", "update", "schedule")
+WEB_SECS = ("server", "app", "screen", "build", "mqtt", "update", "schedule", "storage")
 
 
 SLOT_RE = re.compile(r"^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$")
@@ -90,6 +90,10 @@ class Settings:
         self.UPDATE_AUTO = gb("update", "auto_check", True)
         self.LANG = i18n.set_language(gs("general", "language", "fr"))
         self.SCHEDULE_ENABLED = gb("schedule", "enabled", False)
+        try:
+            self.STORAGE_WARN = max(50, min(99, ini.getint("storage", "warn_percent", fallback=90)))
+        except ValueError:
+            self.STORAGE_WARN = 90
         week = [False] * 10080  # une case par minute de la semaine (lundi 00:00 = 0)
         for i, (k, _) in enumerate(SCHED_DAYS):
             try:
@@ -129,6 +133,7 @@ CATS = [
     ("paths", "Application et système", "Webadmin"),
     ("update", "Mises à jour", "Webadmin"),
     ("schedule", "Planning de l'écran", "Webadmin"),
+    ("storage", "Stockage et photos", "Webadmin"),
     ("mqtt", "MQTT / Home Assistant", "Intégrations"),
 ]
 CAT_NOTES = {
@@ -137,6 +142,7 @@ CAT_NOTES = {
     "position": "Modifier ces valeurs oblige à reconstruire la carte (section Reconstruction de la carte, en bas de cette page).",
     "server": "Le port et l'adresse d'écoute demandent un redémarrage de webadmin. L'identifiant et le mot de passe s'appliquent immédiatement.",
     "paths": "Réglages avancés. Une valeur vide utilise le comportement par défaut.",
+    "storage": "Espace disque du Raspberry Pi et photos de JetPhotos conservées dans le cache. Le programme supprime lui-même les photos de plus de 3 jours et retélécharge une photo effacée quand elle est de nouveau nécessaire.",
     "schedule": "Allume et éteint l'écran tout seul selon un calendrier hebdomadaire : faites glisser sur le calendrier pour tracer les plages d'allumage. Appliqué immédiatement.",
     "update": "La mise à jour elle-même se lance depuis l'onglet « Mises à jour ».",
     "mqtt": "Les changements sont appliqués immédiatement : webadmin se reconnecte au serveur MQTT.",
@@ -244,6 +250,7 @@ PARAMS = [
     W("update", "update", "auto_check", "bool", True, "Vérifier automatiquement", "Interroge GitHub toutes les 12 heures pour signaler une nouvelle version. Rien n'est installé sans votre accord.", "Vérification", apply="live"),
     W("schedule", "schedule", "enabled", "bool", False, "Activer le planning", "Hors des plages d'allumage, l'écran est éteint.", "Planning", apply="live"),
     *[W("schedule", "schedule", k, "text", "", name, "Plages d'allumage, au format 07:00-09:30,18:00-24:00.", "Plages", apply="live", slots=True) for k, name in SCHED_DAYS],
+    W("storage", "storage", "warn_percent", "int", 90, "Seuil d'alerte du disque (%)", "Une alerte s'affiche dans webadmin quand l'utilisation du disque atteint ce pourcentage (alerte orange 10 points avant).", "Surveillance", apply="live", min=50, max=99),
     W("mqtt", "mqtt", "enabled", "bool", False, "Activer MQTT", "Publie l'état et accepte les commandes de Home Assistant.", "Connexion", apply="mqtt"),
     W("mqtt", "mqtt", "host", "text", "", "Serveur", "Adresse du serveur MQTT.", "Connexion", apply="mqtt"),
     W("mqtt", "mqtt", "port", "int", 1883, "Port", "", "Connexion", apply="mqtt", min=1, max=65535),
@@ -320,6 +327,7 @@ def get_settings():
     cats["types"].update(kind="types", groups=[], file=None)
     cats["label"]["kind"] = "labels"
     cats["schedule"]["kind"] = "schedule"
+    cats["storage"]["kind"] = "storage"
     menu = []
     for gname in ("Général", "Programme", "Webadmin", "Intégrations"):
         items = []
@@ -569,6 +577,65 @@ def fps_target():
         return int(parse(read_lines(S.CONFIG))[0][("display", "fps")]["value"])
     except Exception:
         return 10
+
+
+def disk_info():
+    """Occupation du disque qui contient l'application (meme calcul que df)."""
+    try:
+        u = shutil.disk_usage(S.APP_DIR)
+    except OSError:
+        return None
+    base = u.used + u.free
+    pct = round(100.0 * u.used / base, 1) if base else 0.0
+    level = "critical" if pct >= S.STORAGE_WARN else ("warn" if pct >= S.STORAGE_WARN - 10 else "ok")
+    return dict(total=u.total, used=u.used, free=u.free, pct=pct, level=level, warn=S.STORAGE_WARN)
+
+
+PHOTO_EXT = (".jpg", ".jpeg")
+
+
+def cache_stats():
+    d = os.path.join(S.APP_DIR, "cache")
+    photos = dict(count=0, bytes=0, oldest=None)
+    other = 0
+    try:
+        for e in os.scandir(d):
+            if not e.is_file():
+                continue
+            try:
+                st = e.stat()
+            except OSError:
+                continue
+            if e.name.lower().endswith(PHOTO_EXT):
+                photos["count"] += 1
+                photos["bytes"] += st.st_size
+                photos["oldest"] = st.st_mtime if photos["oldest"] is None else min(photos["oldest"], st.st_mtime)
+            else:
+                other += st.st_size
+    except OSError:
+        pass
+    return dict(photos=photos, other=other, now=time.time())
+
+
+def storage_info():
+    return dict(disk=disk_info(), cache=cache_stats())
+
+
+def clear_photo_cache():
+    d = os.path.join(S.APP_DIR, "cache")
+    n = b = 0
+    try:
+        for e in os.scandir(d):
+            if e.is_file() and e.name.lower().endswith(PHOTO_EXT):
+                try:
+                    size = e.stat().st_size
+                    os.remove(e.path)
+                    n, b = n + 1, b + size
+                except OSError:
+                    pass
+    except OSError:
+        pass
+    return n, b
 
 
 def sound_update(body):
@@ -863,6 +930,7 @@ class Handler(BaseHTTPRequestHandler):
                 s["update_running"] = UPD.running()
                 s["cpu"] = cpu["pct"]
                 s["now"] = now_info()
+                s["disk"] = disk_info()
                 s["schedule"] = sched_status()
                 s["fps"] = fps_info() if s["service"] == "active" else None
                 s["fps_target"] = fps_target()
@@ -876,6 +944,8 @@ class Handler(BaseHTTPRequestHandler):
             elif u.path == "/api/logs":
                 n = int(parse_qs(u.query).get("lines", ["300"])[0])
                 self.send_json({"text": journal(max(10, min(n, 2000)))})
+            elif u.path == "/api/storage":
+                self.send_json(storage_info())
             elif u.path == "/api/update":
                 self.send_json(UPD.state())
             elif u.path == "/api/build":
@@ -936,6 +1006,9 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/build/cancel":
                 cancel_build()
                 return self.send_json(dict(ok=True))
+            if path == "/api/storage/clear":
+                n, b = clear_photo_cache()
+                return self.send_json(dict(ok=True, count=n, bytes=b))
             if path == "/api/update/check":
                 UPD.check()
                 return self.send_json(UPD.state())
@@ -985,7 +1058,7 @@ h2.t{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.04
 .tile small{display:block;color:var(--mut);font-size:12px;margin-bottom:2px}
 .tile b{font-size:20px;font-weight:600}
 .tile.ok b{color:var(--ok)}.tile.bad b{color:var(--bad)}.tile.warn b{color:var(--warn)}
-.tile i{display:block;font-style:normal;color:var(--mut);font-size:12px;margin-top:1px}
+.tile i{white-space:pre-line;display:block;font-style:normal;color:var(--mut);font-size:12px;margin-top:1px}
 .tile:last-child:nth-child(odd){grid-column:1/-1}
 .list{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:0 0 12px}
 .li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 14px;border-top:1px solid var(--line);min-height:54px}
@@ -1058,6 +1131,15 @@ button.b:disabled{opacity:.45}
 .bx{position:absolute;right:1px;top:1px;border:0;background:#0004;color:#fff;border-radius:4px;font-size:10px;line-height:1;padding:2px 4px;cursor:pointer}
 .nowl{position:absolute;left:0;right:0;height:0;border-top:2px solid var(--bad);z-index:5;pointer-events:none}
 .nowl::before{content:"";position:absolute;left:-4px;top:-5px;width:8px;height:8px;border-radius:50%;background:var(--bad)}
+.sbar{position:relative;height:22px;border-radius:99px;background:#0e141b;border:1px solid var(--line);overflow:hidden;margin:6px 0 4px}
+.sbar i{position:absolute;top:0;bottom:0;left:0}
+.sbar .su{background:var(--ok)}.sbar.warn .su{background:var(--warn)}.sbar.critical .su{background:var(--bad)}
+.sbar .sp{background:#5b9cf0;z-index:1}
+.sbar .sw{width:2px;background:#fff;opacity:.85;z-index:2}
+.sleg{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:12px;color:var(--mut);margin-bottom:6px}
+.sleg span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px;background:var(--ok)}
+.sleg .l-p::before{background:#5b9cf0}.sleg .l-w::before{background:#fff;width:3px;border-radius:0}
+.sleg.warn .l-u::before{background:var(--warn)}.sleg.critical .l-u::before{background:var(--bad)}
 .dotn{position:relative}.dotn.dot::after{content:"";position:absolute;top:8px;right:calc(50% - 38px);width:8px;height:8px;border-radius:50%;background:var(--acc)}
 .set{display:block}
 .menu{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin:0 -4px 6px;scrollbar-width:none}
@@ -1343,6 +1425,7 @@ async function pollStatus() {
     if (s.build_running) c.append(chip('carte en construction', 'warn'));
     if (s.update_running) c.append(chip('mise à jour en cours', 'warn')); else if (s.update_available) c.append(chip('mise à jour disponible', 'ok'));
     $('#navUpd').classList.toggle('dot', !!s.update_available && !s.update_running);
+    if (s.disk && s.disk.level !== 'ok') { const ch = chip(_t('disque rempli à {0} %', fmtPct(s.disk.pct)), s.disk.level === 'critical' ? 'bad' : 'warn'); ch.style.cursor = 'pointer'; ch.onclick = () => { go('cfg'); curCat = 'storage'; renderMenu(); renderCat(); }; c.append(ch); }
 
 
     const aw = $('#authWarn'); if (aw) aw.style.display = s.auth ? 'none' : 'block';
@@ -1352,10 +1435,18 @@ async function pollStatus() {
     t.append(tile('Écran', s.screen_off ? 'en veille' : 'allumé', s.screen_off ? 'warn' : ''));
     t.append(tile('Température', s.temp !== null ? s.temp.toFixed(0) + ' °C' : '-', s.temp > 75 ? 'bad' : (s.temp > 65 ? 'warn' : '')));
     t.append(tile('Utilisation CPU', s.cpu !== null ? Math.round(s.cpu) + ' %' : '-', s.cpu > 95 ? 'bad' : (s.cpu > 85 ? 'warn' : ''), 'charge moyenne : ' + s.load[0].toFixed(2) + ' / ' + s.load[1].toFixed(2)));
-    if (s.mem_total) {
-      const used = Math.round((s.mem_total - s.mem_avail) / 1024), tot = Math.round(s.mem_total / 1024), pct = Math.round(used * 100 / tot);
-      t.append(tile('Mémoire', pct + ' %', pct > 90 ? 'bad' : (pct > 80 ? 'warn' : ''), used + ' / ' + tot + ' Mo'));
-    } else t.append(tile('Mémoire', '-'));
+    {
+      let mem = '-', mcls = '', sub = '';
+      if (s.mem_total) {
+        const used = Math.round((s.mem_total - s.mem_avail) / 1024), tot = Math.round(s.mem_total / 1024), pct = Math.round(used * 100 / tot);
+        mem = pct + ' %'; mcls = pct > 90 ? 'bad' : (pct > 80 ? 'warn' : ''); sub = _t('{0} / {1} Mo', used, tot);
+      }
+      if (s.disk) {
+        sub += (sub ? '\n' : '') + _t('Disque : {0} libres sur {1} ({2} %)', fmtBytes(s.disk.free), fmtBytes(s.disk.total), fmtPct(s.disk.pct));
+        if (s.disk.level === 'critical') mcls = 'bad'; else if (s.disk.level === 'warn' && mcls !== 'bad') mcls = 'warn';
+      }
+      t.append(tile('Mémoire', mem, mcls, sub));
+    }
     t.append(tile('Allumé depuis', fmtUp(s.uptime), '', s.host));
     { const c = tile('Heure du Pi', '--:--:--', '', ''); c.querySelector('b').id = 'clk'; const i = el('i'); i.id = 'clkd'; c.append(i); t.append(c); tickClock(); }
     const ml = {connecte: ['connecté', 'ok'], deconnecte: ['déconnecté', 'bad'], off: ['désactivé', ''], 'paho manquant': ['paho manquant', 'bad'], 'host manquant': ['serveur manquant', 'warn']};
@@ -1457,6 +1548,7 @@ function renderCatBase() {
   const cat = SET.cats[curCat]; if (!cat) return;
   const head = el('div', 'catt'); head.append(el('h3', null, cat.title)); box.append(head);
   if (cat.kind === 'types') return renderTypes(box);
+  if (cat.kind === 'storage') renderStorage(box);
   if (cat.kind === 'schedule') { if (cat.note) box.append(el('p', 'note', cat.note)); return renderSchedule(box); }
   if (cat.kind === 'labels') { if (cat.note) box.append(el('p', 'note', cat.note)); return renderLabels(box); }
   if (cat.id === 'mqtt') {
@@ -1552,8 +1644,57 @@ async function renderTypes(box) {
   save.onclick = () => doSave(false); save2.onclick = () => doSave(true); bt.append(save, save2); box.append(bt);
 }
 
+/* ---------- Stockage et photos ---------- */
+async function renderStorage(box) {
+  const wrap = el('div'); box.append(wrap);
+  async function load() {
+    let d; try { d = await api('/api/storage'); } catch (e) { wrap.textContent = e.message; return; }
+    if (!wrap.isConnected) return;
+    wrap.innerHTML = '';
+    const k = d.disk, ph = d.cache.photos;
+    if (k) {
+      const photoPct = ph.bytes / k.total * 100, photoOfUsed = k.used ? ph.bytes / k.used * 100 : 0;
+      wrap.append(el('h2', 't', 'Disque'));
+      const card = el('div', 'list'), row = el('div', 'li stack'), lt = el('div', 'lt');
+      lt.append(el('b', null, _t('{0} % utilisés', fmtPct(k.pct))), el('small', null, _t('{0} utilisés sur {1} ({2} libres)', fmtBytes(k.used), fmtBytes(k.total), fmtBytes(k.free))));
+      const bar = el('div', 'sbar ' + k.level), su = el('i', 'su'), sp = el('i', 'sp'), sw = el('i', 'sw');
+      su.style.width = k.pct + '%'; sp.style.width = Math.max(photoPct, ph.bytes ? 0.4 : 0) + '%'; sw.style.left = k.warn + '%';
+      bar.append(su, sp, sw);
+      const leg = el('div', 'sleg ' + k.level);
+      leg.append(el('span', 'l-u', 'Espace utilisé'), el('span', 'l-p', 'Photos en cache'), el('span', 'l-w', _t('Seuil d\'alerte : {0} %', k.warn)));
+      lt.append(bar, leg); row.append(lt); card.append(row);
+      if (k.level !== 'ok') {
+        const w = el('div', 'li stack'); w.style.borderLeft = '3px solid var(--' + (k.level === 'critical' ? 'bad' : 'warn') + ')';
+        const wt = el('div', 'lt'); wt.append(el('b', null, k.level === 'critical' ? _t('Disque presque plein') : _t('Le disque se remplit')), el('small', null, k.level === 'critical' ? 'Libérez de l\'espace : videz le cache des photos ci-dessous, puis supprimez les fichiers inutiles (journaux, anciennes sauvegardes).' : 'Pensez à vider le cache des photos ou à libérer de l\'espace avant que le disque ne soit plein.'));
+        w.append(wt); card.append(w);
+      }
+      wrap.append(card);
+      wrap.append(el('h2', 't', 'Photos JetPhotos en cache'));
+      const c2 = el('div', 'list');
+      const line = (title, sub) => { const r = el('div', 'li'), t = el('div', 'lt'); t.append(el('b', null, title)); if (sub) t.append(el('small', null, sub)); r.append(t); return r; };
+      c2.append(line(_t('{0} photo(s)', ph.count), ph.oldest ? _t('La plus ancienne date d\'il y a {0}', fmtIn(d.cache.now - ph.oldest)) : 'Aucune photo en cache'));
+      c2.append(line(_t('Volume des photos : {0}', fmtBytes(ph.bytes)), _t('{0} % du disque, {1} % de l\'espace utilisé', fmtPct(photoPct), fmtPct(photoOfUsed))));
+      c2.append(line(_t('Autres fichiers du cache : {0}', fmtBytes(d.cache.other)), 'Détails des avions, état du son, mise à jour.'));
+      const br = el('div', 'li stack'), bb = el('button', 'b d', 'Vider le cache des photos'); bb.disabled = !ph.count;
+      bb.onclick = async () => {
+        if (!confirm(_t('Supprimer les {0} photo(s) en cache ({1}) ? Elles seront retéléchargées au besoin.', ph.count, fmtBytes(ph.bytes)))) return;
+        try { const r = await api('/api/storage/clear', {}); toast(_t('{0} photo(s) supprimée(s) ({1} libérés)', r.count, fmtBytes(r.bytes))); pollStatus(); load(); } catch (e) { toast(e.message, true); }
+      };
+      br.append(bb); c2.append(br); wrap.append(c2);
+    }
+  }
+  await load();
+  const iv = setInterval(() => { if (!wrap.isConnected) clearInterval(iv); else if (cur === 'cfg' && curCat === 'storage') load(); }, 10000);
+}
+
 /* ---------- Heure du Pi et prochaine action du planning ---------- */
 const p2 = n => String(n).padStart(2, '0');
+function fmtBytes(n) {
+  const u = [[1e9, 'Go'], [1e6, 'Mo'], [1e3, 'Ko']];
+  for (const [d, name] of u) if (n >= d) { const v = n / d; return (v >= 100 ? v.toFixed(0) : v.toFixed(1)).replace('.', I18N.lang === 'fr' ? ',' : '.') + ' ' + _t(name); }
+  return n + ' ' + _t('o');
+}
+const fmtPct = p => { const sep = I18N.lang === 'fr' ? ',' : '.'; return p > 0 && p < 0.1 ? '< 0' + sep + '1' : String(Math.round(p * 10) / 10).replace('.', sep); };
 function piNow() { return lastSt && lastSt.now ? lastSt.now.epoch + (performance.now() - lastStAt) / 1000 : null; }
 function piDate(epoch) { return new Date(epoch * 1000 + lastSt.now.offset * 60000); }  // lire avec les getUTC*
 function fmtIn(sec) { sec = Math.max(0, Math.round(sec)); const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60); return h ? h + ' h ' + p2(m) + ' min' : (m ? m + ' min' : sec + ' s'); }

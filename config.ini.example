@@ -112,6 +112,10 @@ auto_check = true
 ; Une ligne par jour, plages HH:MM-HH:MM séparées par des virgules, ex. mon = 07:00-09:30,18:00-24:00
 enabled = false
 
+[storage]
+; Seuil d'alerte d'occupation du disque, en % (alerte orange 10 points avant)
+warn_percent = 90
+
 [mqtt]
 enabled = false
 host =

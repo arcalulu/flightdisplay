@@ -896,7 +896,7 @@ La touche `M` du clavier connecté au Pi coupe ou réactive aussi le son. L'éta
 |---|---|---|
 | `background.png`, `map_meta.json` | Carte et ses dimensions, produites par `build_map_vector.py`. | Jusqu'à la prochaine reconstruction. |
 | `cache/details.json` | Détails d'avions (modèle, compagnie, trajet). | 3 heures. |
-| `cache/*.jpg` | Photos téléchargées. | Nettoyées après 3 jours au démarrage. |
+| `cache/*.jpg` | Photos téléchargées. | Nettoyées après 3 jours au démarrage ; effaçables depuis webadmin (Réglages, Stockage et photos). |
 | `cache/runtime.json` | État du son (coupé, volume, test). | Persistant. |
 | `/dev/shm/flightdisplay-fps.json` | Images par seconde réellement affichées, publiées toutes les 2 secondes pour webadmin. En mémoire : aucune écriture sur la carte SD (`cache/fps.json` si `/dev/shm` n'existe pas). | Perdu au redémarrage. |
 | `cache/update.json` | État et journal de la dernière mise à jour depuis webadmin. | Persistant. |
@@ -936,11 +936,11 @@ Catégories valides : `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `b
   - Écran : allumé ou en veille.
   - Température du Pi.
   - Utilisation CPU : pourcentage d'occupation du processeur, mesuré toutes les 2 secondes (orange au-dessus de 85 %, rouge au-dessus de 95 %), avec en petit la charge moyenne du système sur 1 et 5 minutes. La charge moyenne n'est pas un pourcentage : sur le Pi Zero, qui n'a qu'un seul cœur, 1.00 correspond déjà à un processeur saturé.
-  - Mémoire : pourcentage utilisé, avec les Mo.
+  - Mémoire : pourcentage utilisé, avec les Mo. Sous la mémoire, l'espace disque libre (par exemple « Disque : 8,2 Go libres sur 29,7 Go (45 %) »). La tuile passe en orange puis en rouge quand le disque approche du seuil d'alerte (voir « Stockage et photos »).
   - Allumé depuis : durée de fonctionnement et nom d'hôte.
   - Heure du Pi : heure locale du Raspberry Pi (à la seconde), date et fuseau horaire. C'est l'heure utilisée par le planning de l'écran : si elle est fausse, voir 3.4.
   - MQTT : connecté (vert), déconnecté ou refusé (rouge), désactivé (neutre), avec l'adresse du serveur.
-  Rafraîchies toutes les 4 secondes. L'en-tête de la page n'affiche que des pastilles d'état : « son coupé », « carte en construction », « mise à jour en cours » ou « mise à jour disponible ».
+  Rafraîchies toutes les 4 secondes. L'en-tête de la page n'affiche que des pastilles d'état : « son coupé », « carte en construction », « mise à jour en cours », « mise à jour disponible » ou « disque rempli à X % » (orange 10 points avant le seuil, rouge au seuil ; un clic ouvre « Stockage et photos »).
 - Commandes à bascule, comme dans Réglages d'iOS ou Home Assistant :
   - Programme Flight Display : démarre ou arrête le service (si l'écran est en veille, l'interrupteur rallume l'écran).
   - Écran : veille et réveil (la veille arrête aussi le programme, voir 6.2).
@@ -970,6 +970,7 @@ Sur ordinateur, un menu à gauche liste les catégories ; sur téléphone, il de
 | | Application et système | config.ini | Dossier, fichiers, service, Python de la carte, sudo, commandes, script et témoin de veille, arrêt de l'affichage pendant la carte. |
 | | Mises à jour | config.ini | Vérification automatique toutes les 12 heures (`auto_check`). |
 | | Planning de l'écran | config.ini | Activation du planning et calendrier hebdomadaire des plages d'allumage (voir plus bas). |
+| | Stockage et photos | config.ini | Occupation du disque, photos en cache, bouton « Vider le cache des photos », seuil d'alerte (voir plus bas). |
 | Intégrations | MQTT / Home Assistant | config.ini | Connexion, sujets et découverte, avec état et bouton « Reconnecter ». |
 
 Commandes de saisie : interrupteurs à bascule pour les valeurs oui/non, boutons segmentés pour les choix à deux ou trois valeurs (taille des étiquettes, langue), curseurs pour le volume et l'intensité du rouge, champs texte avec limites pour le reste. Les mots de passe et la clé CARTO sont masqués : le champ reste vide pour conserver la valeur actuelle, saisir une valeur la remplace, le bouton « Effacer » la supprime.
@@ -995,6 +996,14 @@ Quand une modification est prise en compte :
 | Serveur web : identifiant et mot de passe | Immédiate (le navigateur redemande les identifiants). |
 | Application et système, Mises à jour, Planning de l'écran | Immédiate. |
 | MQTT | Immédiate : webadmin se reconnecte au serveur. |
+
+**Stockage et photos** (Réglages, Stockage et photos)
+
+- **Disque** : une barre d'utilisation du disque qui contient l'application (la carte SD, même calcul que `df`) : pourcentage utilisé, espace utilisé, total et libre. La barre est verte, orange 10 points avant le seuil, rouge au seuil ; un trait blanc marque le seuil d'alerte et une partie bleue montre la place prise par les photos.
+- **Photos JetPhotos en cache** : nombre de fichiers image (`cache/*.jpg`), volume qu'ils occupent, part que cela représente en pourcentage du disque et de l'espace utilisé, ancienneté de la plus ancienne photo, et volume des autres fichiers du cache (détails d'avions, état du son).
+- **Vider le cache des photos** : supprime toutes les photos du cache après confirmation. Seules les photos sont effacées (pas les détails d'avions, pour ne pas multiplier les requêtes vers Flightradar24). Le programme d'affichage retélécharge une photo effacée quand elle est de nouveau nécessaire ; en attendant, le panneau affiche « Photo indisponible » pour cet avion.
+- **Surveillance** : le réglage « Seuil d'alerte du disque (%) » (90 par défaut, de 50 à 99) déclenche l'alerte : pastille « disque rempli à X % » en en-tête (toutes les pages), tuile Mémoire colorée, bandeau dans cette page. L'alerte orange précède le seuil de 10 points.
+- Le programme supprime de toute façon les photos de plus de 3 jours à chaque démarrage (9.7).
 
 **Planning de l'écran** (Réglages, Planning de l'écran)
 
@@ -1072,6 +1081,9 @@ fri =
 sat =
 sun =
 
+[storage]
+warn_percent = 90
+
 [mqtt]
 enabled = false
 host =
@@ -1105,6 +1117,7 @@ interval = 30
 | `[update]` | `auto_check` | true | Vérifie toutes les 12 heures si une nouvelle version existe sur GitHub (signalée par une pastille). N'installe rien tout seul. |
 | `[schedule]` | `enabled` | false | Active le planning d'allumage et d'extinction de l'écran. |
 | | `mon` à `sun` | vide | Plages d'allumage du jour (`HH:MM-HH:MM`, séparées par des virgules). Vide : écran éteint toute la journée quand le planning est actif. |
+| `[storage]` | `warn_percent` | 90 | Seuil d'alerte d'occupation du disque, en % (50 à 99). Alerte orange 10 points avant. |
 | `[mqtt]` | | | Voir la section 11. |
 
 Ne sont modifiables que par la ligne de commande : les services systemd, le fichier sudoers, le contenu des scripts de veille et de garde (numéros de terminaux virtuels) et les variables d'environnement.
@@ -1116,7 +1129,7 @@ Toutes les routes exigent l'authentification si un mot de passe est défini. Les
 | Route | Méthode | Corps | Rôle |
 |---|---|---|---|
 | `/` | GET | | Interface web. |
-| `/api/status` | GET | | État : service, écran, utilisation CPU en pourcentage (`cpu`), charge moyenne (`load`), température, mémoire, durée de fonctionnement, son (coupé, volume, activé), construction en cours, MQTT (`mqtt`), images par seconde réelles et cible (`fps`, `fps_target`), mise à jour disponible ou en cours (`update_available`, `update_running`). |
+| `/api/status` | GET | | État : service, écran, utilisation CPU en pourcentage (`cpu`), charge moyenne (`load`), température, mémoire, durée de fonctionnement, son (coupé, volume, activé), construction en cours, MQTT (`mqtt`), images par seconde réelles et cible (`fps`, `fps_target`), disque (`disk` : total, libre, pourcentage, niveau), mise à jour disponible ou en cours (`update_available`, `update_running`). |
 | `/api/settings` | GET | | Catégories, groupes, paramètres, valeurs et sauvegardes disponibles, textes dans la langue active. |
 | `/api/settings` | POST | `{"changes": {"config:alert.volume": "0.5", "web:mqtt.host": "10.0.0.2"}}` | Enregistre les valeurs (clé = `fichier:section.option`, fichier `config` ou `web`). Renvoie ce qu'il faut appliquer. |
 | `/api/settings/restore` | POST | `{"file": "config"}` | Échange le fichier (`config` ou `web`) avec sa sauvegarde `.bak`. |
@@ -1128,6 +1141,8 @@ Toutes les routes exigent l'authentification si un mot de passe est défini. Les
 | `/api/power` | POST | `{"action": "reboot\|poweroff"}` | Redémarre ou éteint le Pi. |
 | `/api/build` | GET / POST | `{"stop_display": true}` | État et sortie de la construction / lancement. |
 | `/api/build/cancel` | POST | `{}` | Annule la construction. |
+| `/api/storage` | GET | | Occupation du disque (total, utilisé, libre, pourcentage, niveau d'alerte) et du cache (nombre et volume des photos, autres fichiers). |
+| `/api/storage/clear` | POST | `{}` | Supprime les photos du cache ; renvoie le nombre et le volume supprimés. |
 | `/api/update` | GET | | État des mises à jour : dernière vérification (versions, nouveautés), progression, étapes et journal de la mise à jour en cours ou de la dernière. |
 | `/api/update/check` | POST | `{}` | Interroge GitHub (`git fetch`) et renvoie l'état à jour. |
 | `/api/update/start` | POST | `{}` | Lance la mise à jour en arrière-plan (suivi par `GET /api/update`). |
@@ -1344,6 +1359,7 @@ sudo reboot
 | Aucune étiquette n'apparaît à côté des avions | Tous les éléments sont masqués dans Réglages, Étiquettes des avions (8.7). |
 | Le panneau photo n'apparaît jamais dans un angle | Cet angle est décoché dans Réglages, Panneau photo (8.6). Si les quatre angles sont décochés, il n'y a aucune restriction. |
 | La tuile Programme affiche moins d'images par seconde que la cible | Le Pi Zero ne tient pas la cadence : baisser `fps`, passer la carte en 1280×720, ou limiter le nombre d'avions (altitude maximale suivie). |
+| Alerte « disque rempli à X % » | La carte SD approche de la saturation. Ouvrir Réglages, Stockage et photos : vider le cache des photos, puis chercher les gros fichiers (`du -h --max-depth=1 ~ \| sort -h`, journaux, anciennes sauvegardes). Voir aussi 6.3. |
 | Wi-Fi instable | Désactiver l'économie d'énergie (6.4). |
 
 ---
