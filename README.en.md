@@ -58,7 +58,7 @@ This project is not affiliated with Flightradar24 or with any airline. Flight da
 bash <(curl -fsSL https://raw.githubusercontent.com/arcalulu/flightdisplay/main/install.sh)
 ```
 
-The installer asks all its questions up front, `sudo` password included (address or coordinates, CARTO API key, web interface password, optional MQTT, screen fix, final reboot). What you type stays visible, passwords included. It then installs everything needed while showing its progress on a single line, builds the map and starts the display and the web interface. At the end, a summary gives the interface address (`http://<pi-name>.local:8080`), the username and the password. The installer's prompts are currently in French only; once installed, the language can be switched to English in webadmin.
+The installer asks all its questions up front, `sudo` password included (address or coordinates, CARTO API key, web interface password, optional MQTT, screen fix, final reboot). What you type stays visible, passwords included. It then installs everything needed while showing its progress on a single line, builds the map and starts the display and the web interface. At the end, a summary gives the interface address (`http://<pi-name>.local:8080`), the username and the password. The installer's prompts are currently in French only; once installed, the language can be switched to English in webadmin (Settings, Language).
 
 Without `curl`: `sudo apt update && sudo apt install -y git && git clone https://github.com/arcalulu/flightdisplay.git ~/flightdisplay && bash ~/flightdisplay/install.sh`.
 
@@ -66,7 +66,7 @@ Running the same command again later updates the software and keeps your configu
 
 ## Documentation
 
-The full guide (manual installation, reference of all settings, webadmin, MQTT, troubleshooting) is in [docs/FLIGHT_DISPLAY_DOCUMENTATION.md](docs/FLIGHT_DISPLAY_DOCUMENTATION.md). It is currently written in French only.
+The full guide (manual installation, reference of all settings, webadmin, MQTT, troubleshooting) is in [docs/FLIGHT_DISPLAY_DOCUMENTATION.en.md](docs/FLIGHT_DISPLAY_DOCUMENTATION.en.md). It is also available in French: [documentation française](docs/FLIGHT_DISPLAY_DOCUMENTATION.md).
 
 ## Updating
 

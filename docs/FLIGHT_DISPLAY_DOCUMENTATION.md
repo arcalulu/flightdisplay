@@ -1,6 +1,8 @@
 # Flight display — documentation unifiée
 
-Affichage temps réel des avions autour de chez vous sur un Raspberry Pi Zero : carte vectorielle, fiches photo, alerte de proximité (son, teinte rouge), liste des avions au sol, et une interface web d'administration (webadmin) qui permet de tout régler depuis un téléphone ou un ordinateur : réglages, carte, logs, son, veille d'écran, MQTT et Home Assistant.
+🇫🇷 **Français** · [🇬🇧 English](FLIGHT_DISPLAY_DOCUMENTATION.en.md)
+
+Affichage temps réel des avions autour de chez vous sur un Raspberry Pi Zero : carte vectorielle, fiches photo, alerte de proximité (son, teinte rouge), liste des avions au sol, et une interface web d'administration (webadmin) qui permet de tout régler depuis un téléphone ou un ordinateur : réglages, carte, logs, son, veille d'écran, mises à jour du logiciel, langue, MQTT et Home Assistant. L'interface et l'écran existent en français et en anglais.
 
 Cette documentation couvre l'installation automatique en une commande, l'installation manuelle complète depuis une carte SD vierge, toutes les modifications système nécessaires, puis la référence de chaque option du logiciel (`config.ini`), de webadmin (réglages de l'interface, API) et de MQTT.
 
@@ -90,7 +92,7 @@ L'écran montre pour chaque étape un indicateur animé, le temps écoulé, la d
 ### 0.5 Si quelque chose échoue
 
 - Une étape essentielle qui échoue arrête l'installeur avec un message clair, les dernières lignes du journal et le chemin du fichier. Corrigez la cause (réseau, espace disque), puis relancez la même commande : l'installeur reprend et conserve ce qui est déjà fait.
-- Si seule la carte ne peut pas être construite (clé absente ou refusée, erreur du script), tout le reste est installé. webadmin fonctionne, et la carte se construit depuis l'onglet Carte après correction. Le programme d'affichage démarre automatiquement dès qu'une carte existe, ou avec « Programme d'affichage » dans Pilotage.
+- Si seule la carte ne peut pas être construite (clé absente ou refusée, erreur du script), tout le reste est installé. webadmin fonctionne, et la carte se construit depuis webadmin (Réglages, Carte et position, « Reconstruire la carte ») après correction. Le programme d'affichage démarre automatiquement dès qu'une carte existe, ou avec l'interrupteur « Programme Flight Display » dans Pilotage.
 - Les avertissements non bloquants (horloge, espace disque, matériel non reconnu) sont rappelés dans le résumé final.
 
 ### 0.6 Relancer l'installeur
@@ -112,7 +114,7 @@ Si `config.ini` existe déjà, l'installeur propose de le conserver : il met alo
 
 Le résumé donne l'adresse de webadmin (`http://<nom-du-pi>.local:8080` et par adresse IP), l'identifiant, le mot de passe (s'il a été généré, il n'est plus affiché ensuite) et les commandes utiles. Si le correctif de veille a été appliqué, l'installeur redémarre le Pi (ou vous indique `sudo reboot`) selon votre réponse à la question sur le redémarrage automatique.
 
-Le mot de passe de webadmin, la clé CARTO et les identifiants MQTT sont stockés dans `config.ini`, avec des droits 600. Tous les réglages se modifient ensuite depuis webadmin.
+Le mot de passe de webadmin, la clé CARTO et les identifiants MQTT sont stockés dans `config.ini`, avec des droits 600. Tous les réglages se modifient ensuite depuis webadmin. L'installeur est en français ; la langue de webadmin et de l'écran se change ensuite dans Réglages, Langue (8.1).
 
 ---
 
@@ -124,7 +126,7 @@ Le mot de passe de webadmin, la clé CARTO et les identifiants MQTT sont stocké
 |---|---|
 | `main.py` | Programme d'affichage (pygame, sortie directe KMS/DRM, sans bureau graphique). |
 | `build_map_vector.py` | Génère la carte `background.png` et `map_meta.json` à partir de `config.ini` (position, rayon, taille, clé CARTO). |
-| `config.ini` | Tous les réglages : programme, plus les sections `[server]`, `[app]`, `[screen]`, `[build]` et `[mqtt]` de l'interface web. Modèle : `config.ini.example`. |
+| `config.ini` | Tous les réglages : programme (dont `[general]` pour la langue et `[label]` pour les étiquettes), plus les sections `[server]`, `[app]`, `[screen]`, `[build]`, `[update]` et `[mqtt]` de l'interface web. Modèle : `config.ini.example`. |
 | `types_extra.txt` | Optionnel : associe des types d'avion inconnus à une forme d'icône. |
 | `webadmin.py` | Serveur web d'administration (bibliothèque standard Python). |
 | `webadmin_mqtt.py` | Pont MQTT / Home Assistant, chargé par webadmin. |
@@ -134,7 +136,7 @@ Le mot de passe de webadmin, la clé CARTO et les identifiants MQTT sont stocké
 | `/usr/local/bin/flight-screen` | Script root de veille et réveil de l'écran (créé par l'étape 9 de `install.sh`). |
 | `/usr/local/bin/flight-screen-guard` | Garde qui remet l'écran en veille s'il se rallume tout seul pendant une veille (créée par l'étape 9 de `install.sh`). |
 | `/usr/local/bin/fd` | Raccourci : `fd logs`, `fd restart`... |
-| `cache/` | Détails d'avions, photos, état du son (`runtime.json`). |
+| `cache/` | Détails d'avions, photos, état du son (`runtime.json`), état de la dernière mise à jour (`update.json`). |
 
 ### Services
 
@@ -162,7 +164,10 @@ Adaptez ces valeurs si vous en choisissez d'autres.
 | Tous les réglages du programme, de webadmin et de MQTT, la clé CARTO | webadmin, onglet Réglages (section 10) |
 | Types d'avion inconnus | webadmin, Réglages, Types d'avion |
 | Son (coupure, volume), veille de l'écran, relance, alimentation | webadmin, onglet Pilotage |
-| Reconstruction de la carte | webadmin, onglet Carte |
+| Reconstruction de la carte | webadmin, Réglages, Carte et position (section « Reconstruction de la carte », en bas de la page) |
+| Langue de l'interface et de l'écran | webadmin, Réglages, Langue (8.1) |
+| Contenu, ordre et style des étiquettes d'avions | webadmin, Réglages, Étiquettes des avions (8.7) |
+| Mise à jour du logiciel, historique des versions | webadmin, onglet Mises à jour (12.1) |
 | Éléments d'installation du système (services, sudoers, scripts de veille, `cmdline.txt`) | Installeur automatique, ou ligne de commande (sections 3 à 7) |
 
 ---
@@ -178,7 +183,7 @@ Adaptez ces valeurs si vous en choisissez d'autres.
 - Un ordinateur avec Raspberry Pi Imager et un client SSH.
 - Une clé API CARTO, nécessaire pour construire la carte (le script télécharge le fond de carte vectoriel CARTO avec cette clé). Elle est gratuite pour un usage personnel et se demande sur `https://carto.com/basemaps/apikey/` : voir le README pour le pas à pas.
 - Si vous utilisez Home Assistant : un serveur MQTT (par exemple Mosquitto) et ses identifiants.
-- Pour l'installation manuelle : les fichiers du projet (`main.py`, `build_map_vector.py`, `config.ini.example`, `webadmin.py`, `webadmin_mqtt.py`, `requirements.txt`), soit par `git clone https://github.com/arcalulu/flightdisplay.git`, soit copiés depuis un ordinateur.
+- Pour l'installation manuelle : les fichiers du projet (`main.py`, `build_map_vector.py`, `config.ini.example`, `webadmin.py`, `webadmin_mqtt.py`, `webadmin_update.py`, `i18n.py`, le dossier `lang`, `requirements.txt`), soit par `git clone https://github.com/arcalulu/flightdisplay.git`, soit copiés depuis un ordinateur.
 
 ---
 
@@ -286,10 +291,10 @@ Au lieu du `git clone`, créez le dossier et copiez les fichiers depuis votre or
 
 ```
 mkdir -p ~/flightdisplay
-scp main.py build_map_vector.py config.ini.example webadmin.py webadmin_mqtt.py requirements.txt flightdisplay@flightradarpi.local:~/flightdisplay/
+scp -r main.py build_map_vector.py config.ini.example webadmin.py webadmin_mqtt.py webadmin_update.py i18n.py lang requirements.txt flightdisplay@flightradarpi.local:~/flightdisplay/
 ```
 
-Puis créez l'environnement Python comme en 4.1. Le fichier `types_extra.txt` est optionnel : il se crée depuis webadmin (section 9.8).
+Puis créez l'environnement Python comme en 4.1. Cette méthode désactive les mises à jour depuis webadmin (le dossier n'est pas un dépôt Git). Le fichier `types_extra.txt` est optionnel : il se crée depuis webadmin (section 9.8).
 
 ### 4.3 Dépendances de build_map_vector.py
 
@@ -339,7 +344,7 @@ cd ~/flightdisplay
 
 Le script télécharge le fond de carte CARTO avec la clé de `[map] carto_key`, puis produit `background.png` et `map_meta.json` dans le dossier. Il demande un accès Internet et peut durer plusieurs minutes sur un Zero. Il lit la position et le rayon dans `[position]`, la taille de l'image dans `[display] width` et `height`. Sans la clé `carto_key` dans `config.ini`, il s'arrête avec une erreur `NoOptionError`.
 
-La carte est à refaire chaque fois que l'un de ces réglages change : latitude, longitude, rayon, largeur, hauteur, clé (depuis webadmin, onglet Carte).
+La carte est à refaire chaque fois que l'un de ces réglages change : latitude, longitude, rayon, largeur, hauteur, clé (depuis webadmin, Réglages, Carte et position).
 
 ### 4.6 Premier lancement manuel
 
@@ -629,7 +634,8 @@ journalctl -u flightadmin -n 50 --no-pager
 ### 7.3 Redémarrer ou mettre à jour webadmin
 
 - Depuis l'interface : un changement de port ou d'adresse d'écoute propose « Enregistrer et appliquer », qui redémarre webadmin et rouvre la page (sur le nouveau port si besoin).
-- En ligne de commande, après avoir remplacé `webadmin.py` ou `webadmin_mqtt.py` : `sudo systemctl restart flightadmin`.
+- En ligne de commande, après avoir remplacé `webadmin.py`, `webadmin_mqtt.py`, `webadmin_update.py`, `i18n.py` ou un fichier de `lang/` : `sudo systemctl restart flightadmin`.
+- Depuis l'onglet Mises à jour (12.1), webadmin se redémarre tout seul à la fin de la mise à jour.
 
 ---
 
@@ -637,9 +643,17 @@ journalctl -u flightadmin -n 50 --no-pager
 
 Les options manquantes prennent la valeur par défaut indiquée. Chacune se règle dans webadmin, onglet Réglages, dans la catégorie indiquée par le titre de section. Les changements sont lus par le programme au démarrage : il faut le relancer (« Enregistrer et appliquer », ou `fd restart`). Les réglages marqués « carte » demandent en plus de reconstruire la carte. Les largeurs (panneau, liste) sont exprimées pour un écran de 1080 pixels de haut et s'adaptent à la hauteur réelle de la carte. Si vous modifiez le fichier à la main, mettez les commentaires sur leur propre ligne, jamais à la suite d'une valeur.
 
-Le modèle `config.ini.example` contient toutes les sections avec des valeurs d'exemple. Les sections de l'interface web (`[server]`, `[app]`, `[screen]`, `[build]`, `[mqtt]`) sont décrites en 10.2.
+Le modèle `config.ini.example` contient toutes les sections avec des valeurs d'exemple. Les sections de l'interface web (`[server]`, `[app]`, `[screen]`, `[build]`, `[update]`, `[mqtt]`) sont décrites en 10.2.
 
-### 8.1 `[position]` — catégorie « Carte et position »
+### 8.1 `[general]` — catégorie « Langue »
+
+| Option | Défaut | Description |
+|---|---|---|
+| `language` | `fr` | Code de la langue : `fr` (français) ou `en` (anglais), ou toute langue ajoutée dans `lang/`. Change d'un coup l'interface webadmin (immédiatement) et le texte affiché à l'écran par le programme d'affichage (après sa relance). Un code inconnu revient au français. |
+
+Se règle dans webadmin : Réglages, Langue. L'ajout d'une langue est décrit en 12.3.
+
+### 8.2 `[position]` — catégorie « Carte et position »
 
 | Option | Défaut | Plage | Description |
 |---|---|---|---|
@@ -649,7 +663,7 @@ Le modèle `config.ini.example` contient toutes les sections avec des valeurs d'
 
 Modifier l'une de ces trois valeurs oblige à reconstruire la carte (webadmin l'indique). Le programme affiche un avertissement au démarrage si la carte a été construite pour d'autres coordonnées.
 
-### 8.2 `[map]` — catégorie « Carte et position », groupe « Fond de carte »
+### 8.3 `[map]` — catégorie « Carte et position », groupe « Fond de carte »
 
 | Option | Défaut | Description |
 |---|---|---|
@@ -657,7 +671,7 @@ Modifier l'une de ces trois valeurs oblige à reconstruire la carte (webadmin l'
 
 La clé n'est lue que par `build_map_vector.py`, pas par `main.py`. Elle est stockée en clair dans `config.ini` : gardez le fichier en droits 600 et ne le publiez jamais.
 
-### 8.3 `[api]` — catégorie « Flightradar24 »
+### 8.4 `[api]` — catégorie « Flightradar24 »
 
 | Option | Défaut | Plage | Description |
 |---|---|---|---|
@@ -667,7 +681,7 @@ La clé n'est lue que par `build_map_vector.py`, pas par `main.py`. Elle est sto
 
 Protection automatique : après une erreur 429, l'intervalle est multiplié par 1,5 (maximum 120 s), les requêtes sont suspendues 60 s, puis l'intervalle redescend peu à peu vers `poll_seconds`. Pour les détails, une erreur 429 suspend les requêtes 120 s et la demande est rejouée. Une autre erreur réseau déclenche un délai croissant (maximum 5 minutes).
 
-### 8.4 `[display]` — catégorie « Affichage »
+### 8.5 `[display]` — catégories « Affichage » et « Carte et position »
 
 | Option | Défaut | Valeurs | Description |
 |---|---|---|---|
@@ -680,11 +694,11 @@ Protection automatique : après une erreur 429, l'intervalle est multiplié par 
 | `width` | obligatoire | 320 à 7680 | Largeur de la carte en pixels (carte). |
 | `height` | obligatoire | 240 à 4320 | Hauteur de la carte en pixels (carte). |
 
-`width` et `height` sont lues par `build_map_vector.py`, qui s'en sert pour fixer la taille de l'image de fond. `main.py` ne les lit pas : il prend la taille réelle dans `map_meta.json`, produit à la construction. Changer ces valeurs n'a donc d'effet qu'après avoir reconstruit la carte.
+`width` et `height` sont lues par `build_map_vector.py`, qui s'en sert pour fixer la taille de l'image de fond. `main.py` ne les lit pas : il prend la taille réelle dans `map_meta.json`, produit à la construction. Changer ces valeurs n'a donc d'effet qu'après avoir reconstruit la carte. Dans webadmin, ces deux réglages se trouvent dans la catégorie « Carte et position » (groupe « Taille de la carte »), avec ceux de la position.
 
 Toute l'interface est dessinée à la résolution de la carte. Sous Windows et sur le Pi, la fenêtre ou l'écran affiche cette image mise à l'échelle en conservant les proportions : redimensionner la fenêtre ne change que le zoom. Pour une autre résolution de travail, changez `width` et `height`, puis reconstruisez la carte. Les tailles de texte et d'icônes s'adaptent à la hauteur de la carte. Sur Pi Zero, 1280×720 réduit nettement le nombre de pixels dessinés par rapport à 1920×1080, donc la charge du processeur.
 
-### 8.5 `[panel]` — catégorie « Panneau photo »
+### 8.6 `[panel]` — catégorie « Panneau photo »
 
 | Option | Défaut | Plage | Description |
 |---|---|---|---|
@@ -692,15 +706,7 @@ Toute l'interface est dessinée à la résolution de la carte. Sous Windows et s
 | `rotate_seconds` | 12 | 3 à 120 | Durée d'affichage de chaque avion quand plusieurs sont éligibles. |
 | `corner_top_left`, `corner_top_right`, `corner_bottom_left`, `corner_bottom_right` | true | true / false | Angles où le panneau peut s'afficher. Un angle décoché n'est jamais utilisé, même si des avions passent derrière les autres angles (le panneau choisit alors le moins gênant parmi les angles autorisés). Si les quatre sont décochés, aucune restriction. |
 
-### 8.4 bis `[general]` — catégorie « Langue »
-
-| Option | Défaut | Description |
-|---|---|---|
-| `language` | `fr` | Code de la langue : `fr` (français) ou `en` (anglais), ou toute langue ajoutée dans `lang/`. Change d'un coup l'interface webadmin (immédiatement) et le texte affiché à l'écran par le programme d'affichage (après sa relance). Un code inconnu revient au français. |
-
-Se règle dans webadmin : Réglages, Langue.
-
-### 8.5 bis `[label]` — catégorie « Étiquettes des avions »
+### 8.7 `[label]` — catégorie « Étiquettes des avions »
 
 Petits panneaux affichés à côté de chaque avion sur la carte (le grand panneau photo n'est pas concerné). Dans webadmin, la catégorie propose un éditeur : un aperçu en direct, puis une ligne par élément avec les flèches ▲ ▼ (ordre), l'interrupteur (afficher ou non), la taille (Petit, Moyen, Grand), les boutons G (gras) et I (italique), et « Même ligne » (place l'élément sur la ligne de l'élément précédent, séparé par un point médian). Si tout est masqué, aucun panneau n'est affiché. Pris en compte après relance du programme.
 
@@ -715,7 +721,7 @@ Petits panneaux affichés à côté de chaque avion sur la carte (le grand panne
 | `<élément>_italic` | false | Italique (synthétique : la police du Pi n'a pas de variante italique). |
 | `<élément>_same_line` | registration, callsign, speed : true ; les autres : false | Sur la même ligne que l'élément visible précédent. |
 
-### 8.6 `[ground]` — catégorie « Avions au sol »
+### 8.8 `[ground]` — catégorie « Avions au sol »
 
 | Option | Défaut | Plage | Description |
 |---|---|---|---|
@@ -727,7 +733,7 @@ Petits panneaux affichés à côté de chaque avion sur la carte (le grand panne
 | `landed_alt_ft` | 2000 | 0 à 10000 | Un avion qui disparaît des données sous cette altitude est considéré comme posé et passe dans la liste au sol. |
 | `landed_keep_minutes` | 10 | 0 à 240 | Durée pendant laquelle un avion posé reste affiché dans la liste. |
 
-### 8.7 `[alert]` — catégorie « Alerte de proximité »
+### 8.9 `[alert]` — catégorie « Alerte de proximité »
 
 Les options sont regroupées dans webadmin en cinq groupes : Zone, Son, Teinte rouge, Plage d'altitude, Au démarrage.
 
@@ -756,13 +762,16 @@ Combinaisons au démarrage :
 
 La coupure du son (icône de haut-parleur barré, interrupteur de Pilotage, touche `M`) et l'interrupteur général `sound` restent prioritaires sur ces deux options.
 
-### 8.8 Autres sections
+### 8.10 Autres sections
 
 Toute autre clé ou section présente dans `config.ini` apparaît dans webadmin sous « Autres réglages », en champs texte, et reste modifiable.
 
-### 8.9 Exemple complet
+### 8.11 Exemple complet
 
 ```ini
+[general]
+language = fr
+
 [position]
 latitude = 48.8566
 longitude = 2.3522
@@ -789,6 +798,16 @@ height = 720
 [panel]
 width = 480
 rotate_seconds = 12
+corner_top_left = true
+corner_top_right = true
+corner_bottom_left = true
+corner_bottom_right = false
+
+[label]
+order = model,registration,callsign,airline,route,altitude,speed
+show_registration = true
+model_bold = true
+model_size = large
 
 [ground]
 show_list = true
@@ -822,7 +841,7 @@ simulate_seconds = 3
 - La carte est une image de fond (`background.png`) centrée sur la maison, accompagnée de `map_meta.json` (taille en pixels et échelle en mètres par pixel). Des cercles de 5, 10, 15 et 20 km sont tracés dans la limite du rayon de la carte.
 - Chaque avion en vol est dessiné avec une icône orientée selon son cap. Huit formes existent : `narrow` (monocouloir), `wide` (gros porteur), `quad` (quadriréacteur), `regional`, `turbo` (turbopropulseur), `light` (avion léger), `bizjet` et `heli`.
 - Les positions sont extrapolées entre deux mises à jour (vitesse et cap) puis lissées, pour un mouvement fluide. Une traînée des dernières positions est tracée derrière chaque avion.
-- Chaque avion a une étiquette : modèle, compagnie, trajet (origine → destination) et altitude · vitesse. Tant que les détails ne sont pas arrivés, elle affiche l'indicatif et le code du type. Le trajet est omis si l'origine et la destination sont inconnues (pas de plan de vol déclaré). Si une seule est connue, l'autre apparaît sous la forme `?`.
+- Chaque avion a une étiquette dont le contenu, l'ordre et la mise en forme (taille, gras, italique) se règlent dans Réglages, Étiquettes des avions (8.7). Par défaut : modèle, compagnie, trajet (origine → destination) et altitude · vitesse ; l'immatriculation et l'indicatif de vol sont disponibles en option. Tant que les détails ne sont pas arrivés, elle affiche le code du type (et l'immatriculation ou l'indicatif s'ils sont activés). Le trajet est omis si l'origine et la destination sont inconnues (pas de plan de vol déclaré). Si une seule est connue, l'autre apparaît sous la forme `?`.
 - Les étiquettes sont placées pour éviter de se recouvrir et de sortir de l'écran.
 - La ligne d'état en bas à gauche indique le nombre d'avions en vol, au-dessus de la limite d'altitude, au sol, les erreurs réseau et la mention « données anciennes » si les mises à jour tardent. Elle contient aussi les crédits (OpenStreetMap, CARTO, Flightradar24) : l'attribution doit rester visible.
 
@@ -830,7 +849,7 @@ simulate_seconds = 3
 
 - Un panneau avec la photo, le modèle, l'immatriculation, la compagnie, le trajet, l'altitude et la vitesse s'affiche pour un avion à la fois, en alternance toutes les `rotate_seconds` entre les avions qui ont une photo.
 - L'avion présenté est surligné en rouge sur la carte.
-- Le panneau se place dans le coin de l'écran qui gêne le moins les avions affichés.
+- Le panneau se place dans le coin de l'écran qui gêne le moins les avions affichés, parmi les angles autorisés dans Réglages, Panneau photo (8.6). Un angle décoché n'est jamais utilisé.
 - Les photos et détails viennent de Flightradar24 (crédit JetPhotos). Si une photo manque ou ne se charge pas, l'avion est ignoré en mode normal.
 
 ### 9.3 Avions au sol
@@ -848,7 +867,7 @@ Quand un avion en vol entre dans le cercle d'alerte (`[alert] radius_km`) et res
 
 La distance est mesurée au sol, avec une marge de sortie de 10 % du rayon pour éviter les alertes à répétition. Un avion déjà en alerte garde une marge de 10 % sur les bornes d'altitude. Le son n'est joué qu'à l'entrée d'un avion, jamais deux fois en parallèle.
 
-**Au lancement du programme** : un avion déjà présent dans la zone déclenche une vraie alerte, comme à tout autre moment. Pour tester le son et la teinte sans avion, deux options indépendantes existent (section 8.7) : « Son au lancement du programme » (un carillon) et « Simuler une alerte au démarrage » (teinte rouge et carillon). Il n'y a jamais deux carillons à la fois.
+**Au lancement du programme** : un avion déjà présent dans la zone déclenche une vraie alerte, comme à tout autre moment. Pour tester le son et la teinte sans avion, deux options indépendantes existent (section 8.9) : « Son au lancement du programme » (un carillon) et « Simuler une alerte au démarrage » (teinte rouge et carillon). Il n'y a jamais deux carillons à la fois.
 
 ### 9.5 Contrôle du son pendant l'exécution
 
@@ -877,6 +896,8 @@ La touche `M` du clavier connecté au Pi coupe ou réactive aussi le son. L'éta
 | `cache/details.json` | Détails d'avions (modèle, compagnie, trajet). | 3 heures. |
 | `cache/*.jpg` | Photos téléchargées. | Nettoyées après 3 jours au démarrage. |
 | `cache/runtime.json` | État du son (coupé, volume, test). | Persistant. |
+| `/dev/shm/flightdisplay-fps.json` | Images par seconde réellement affichées, publiées toutes les 2 secondes pour webadmin. En mémoire : aucune écriture sur la carte SD (`cache/fps.json` si `/dev/shm` n'existe pas). | Perdu au redémarrage. |
+| `cache/update.json` | État et journal de la dernière mise à jour depuis webadmin. | Persistant. |
 
 ### 9.8 Types d'avion inconnus
 
@@ -916,13 +937,13 @@ Catégories valides : `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `b
   - Mémoire : pourcentage utilisé, avec les Mo.
   - Allumé depuis : durée de fonctionnement et nom d'hôte.
   - MQTT : connecté (vert), déconnecté ou refusé (rouge), désactivé (neutre), avec l'adresse du serveur.
-  Rafraîchies toutes les 4 secondes. L'en-tête de la page n'affiche plus que les pastilles « son coupé » et « carte en construction ».
+  Rafraîchies toutes les 4 secondes. L'en-tête de la page n'affiche que des pastilles d'état : « son coupé », « carte en construction », « mise à jour en cours » ou « mise à jour disponible ».
 - Commandes à bascule, comme dans Réglages d'iOS ou Home Assistant :
-  - Programme d'affichage : démarre ou arrête le service (si l'écran est en veille, l'interrupteur rallume l'écran).
+  - Programme Flight Display : démarre ou arrête le service (si l'écran est en veille, l'interrupteur rallume l'écran).
   - Écran : veille et réveil (la veille arrête aussi le programme, voir 6.2).
   - Son des alertes : coupe ou réactive le son (désactivé et grisé si `sound = false` dans `config.ini`).
 - Curseur de volume (0 à 100 %), appliqué en direct à la prochaine alerte.
-- Boutons « Tester le son » (désactivé tant que le son est coupé) et « Relancer le programme ».
+- Bouton « Tester le son » (désactivé tant que le son est coupé). La relance du programme est proposée dans Réglages après un enregistrement (« Enregistrer et appliquer »).
 - Alimentation : redémarrer ou éteindre le Pi, avec confirmation. Après une extinction, il faut débrancher puis rebrancher l'alimentation.
 
 **Réglages**
@@ -931,19 +952,22 @@ Sur ordinateur, un menu à gauche liste les catégories ; sur téléphone, il de
 
 | Menu | Catégorie | Fichier | Contenu |
 |---|---|---|---|
-| Programme | Carte et position | config.ini | Latitude, longitude, rayon de la carte, clé API CARTO (masquée). |
+| Général | Langue | config.ini | Langue de l'interface et de l'écran (8.1). |
+| Programme | Carte et position | config.ini | Latitude, longitude, rayon, taille de la carte (largeur et hauteur), clé API CARTO (masquée), puis la section « Reconstruction de la carte » (voir plus bas). |
 | | Flightradar24 | config.ini | Fréquence des requêtes, validité des positions. |
-| | Affichage | config.ini | Plein écran, images par seconde, unités, filtre d'altitude, taille des icônes, taille de la carte (largeur et hauteur). |
-| | Panneau photo | config.ini | Largeur, rotation. |
+| | Affichage | config.ini | Plein écran, images par seconde, unités, filtre d'altitude, taille des icônes. |
+| | Étiquettes des avions | config.ini | Éditeur : aperçu, ordre, affichage, taille, gras, italique, « même ligne » (8.7). |
+| | Panneau photo | config.ini | Largeur, rotation, angles autorisés. |
 | | Avions au sol | config.ini | Liste, filtres, atterrissage. |
 | | Alerte de proximité | config.ini | Zone, son et volume, teinte rouge, plage d'altitude, démarrage (son au lancement, simulation). |
 | | Types d'avion | types_extra.txt | Éditeur des règles, types inconnus détectés. |
-| | Autres réglages | config.ini | Toute clé hors schéma (affichée seulement s'il y en a), sections du programme et sections de l'interface web séparées. |
+| | Autres réglages | config.ini | Toute clé hors schéma (affichée seulement s'il y en a), dans le groupe « Hors schéma (config.ini) ». |
 | Webadmin | Serveur web | config.ini | Adresse, port, identifiant, mot de passe. L'avertissement « aucun mot de passe » s'affiche ici (et seulement ici) tant qu'aucun mot de passe n'est défini. |
 | | Application et système | config.ini | Dossier, fichiers, service, Python de la carte, sudo, commandes, script et témoin de veille, arrêt de l'affichage pendant la carte. |
+| | Mises à jour | config.ini | Vérification automatique toutes les 12 heures (`auto_check`). |
 | Intégrations | MQTT / Home Assistant | config.ini | Connexion, sujets et découverte, avec état et bouton « Reconnecter ». |
 
-Commandes de saisie : interrupteurs à bascule pour les valeurs oui/non, boutons segmentés pour les choix à deux ou trois valeurs, curseurs pour le volume et l'intensité du rouge, champs texte avec limites pour le reste. Les mots de passe et la clé CARTO sont masqués : le champ reste vide pour conserver la valeur actuelle, saisir une valeur la remplace, le bouton « Effacer » la supprime.
+Commandes de saisie : interrupteurs à bascule pour les valeurs oui/non, boutons segmentés pour les choix à deux ou trois valeurs (taille des étiquettes, langue), curseurs pour le volume et l'intensité du rouge, champs texte avec limites pour le reste. Les mots de passe et la clé CARTO sont masqués : le champ reste vide pour conserver la valeur actuelle, saisir une valeur la remplace, le bouton « Effacer » la supprime.
 
 Enregistrement :
 
@@ -953,6 +977,7 @@ Enregistrement :
 - Les réglages de carte (position, rayon, taille, clé) déclenchent un bandeau qui propose de reconstruire la carte.
 - Seules les lignes modifiées sont réécrites : les commentaires des fichiers sont conservés. Une sauvegarde `config.ini.bak` est créée à chaque enregistrement, même quand la modification touche à la fois des réglages du programme et de l'interface web (une seule écriture, une seule sauvegarde). Le bouton « Revenir à la version précédente », en bas des catégories Webadmin et Intégrations, restaure tout `config.ini` (un second clic annule l'opération) : il remet donc aussi les réglages du programme dans l'état de la sauvegarde.
 - Les valeurs hors limites ou mal formées sont refusées avec un message, sans rien écrire.
+- Un changement de langue recharge la page : webadmin passe tout de suite dans la nouvelle langue, le programme d'affichage la prend après sa relance.
 
 Quand une modification est prise en compte :
 
@@ -960,20 +985,21 @@ Quand une modification est prise en compte :
 |---|---|
 | `config.ini` (toutes les catégories du menu Programme) | Au prochain lancement du programme (relance proposée). La carte doit en plus être reconstruite pour les réglages de carte. |
 | Types d'avion | Au prochain lancement du programme. |
+| Langue | Immédiate pour webadmin (la page se recharge) ; au prochain lancement du programme pour le texte affiché à l'écran. |
 | Serveur web : adresse et port | Au redémarrage de webadmin (proposé : la page se rouvre toute seule, sur le nouveau port si besoin). |
 | Serveur web : identifiant et mot de passe | Immédiate (le navigateur redemande les identifiants). |
-| Application et système | Immédiate. |
+| Application et système, Mises à jour | Immédiate. |
 | MQTT | Immédiate : webadmin se reconnecte au serveur. |
 
-**Carte**
+**Reconstruction de la carte** (Réglages, Carte et position, en bas de la page ; un bandeau y renvoie quand un réglage de carte a changé)
 
 - Bouton « Reconstruire la carte » : lance `build_map_vector.py` avec les réglages actuels, affiche sa sortie en direct, et propose « Annuler ».
 - Interrupteur « Arrêter l'affichage pendant la construction » : libère la mémoire du Pi Zero pendant le calcul. À la fin, l'affichage est relancé pour charger la nouvelle carte (sauf si l'écran est en veille). Si la construction échoue, l'affichage reprend avec l'ancienne carte.
-- Une seule construction à la fois.
+- Une seule construction à la fois (et pas pendant une mise à jour du logiciel).
 
 **Mises à jour**
 
-- Tuiles « Version installée », « Dernière version » et « État » (nombre de nouveautés, date de la dernière vérification).
+- Tuiles « Version installée » (toujours affichée), « Dernière version » et « État » (nombre de nouveautés, date de la dernière vérification). Une vérification se lance seule à l'ouverture de l'onglet quand il n'y en a pas encore.
 - « Vérifier les mises à jour » interroge GitHub ; « Mettre à jour » lance la mise à jour immédiatement, sans confirmation. Pendant l'opération : barre de progression globale, liste des sept étapes (vérifications, téléchargement, application, bibliothèques, contrôle du code, relance de l'affichage, redémarrage de webadmin) avec le temps écoulé, et journal détaillé en direct. La page se recharge seule à la fin.
 - « Historique des versions » : changelog groupé par version. Chaque version (étiquette git `vX.Y.Z`) est un séparateur repliable, avec ses commits dessous du plus récent au plus ancien (numéro, commit, date, description). Les commits postérieurs à la dernière version sont regroupés sous « En développement (non publiée) ». La version la plus récente est dépliée, les autres repliées. Repères : « nouveau » (pas encore installé) et « installé ». Des avertissements signalent un fichier modifié localement, des commits locaux absents de GitHub ou un `install.sh` modifié. La procédure complète est décrite en 12.1.
 - Une pastille sur l'onglet et une puce dans l'en-tête signalent une version disponible.
@@ -1043,7 +1069,7 @@ interval = 30
 | | `systemctl`, `journalctl` | détectés | Chemins des commandes. `systemctl` doit correspondre à celui du fichier sudoers (`/usr/bin/systemctl`). |
 | `[screen]` | `helper` | `/usr/local/bin/flight-screen` | Script de veille et de réveil. |
 | | `flag` | `/run/flight-screen-off` | Fichier témoin de la veille (supprimé au redémarrage du Pi). |
-| `[build]` | `stop_display` | true | Valeur par défaut de l'interrupteur de l'onglet Carte. |
+| `[build]` | `stop_display` | true | Valeur par défaut de l'interrupteur « Arrêter l'affichage pendant la construction » (reconstruction de la carte). |
 | `[update]` | `auto_check` | true | Vérifie toutes les 12 heures si une nouvelle version existe sur GitHub (signalée par une pastille). N'installe rien tout seul. |
 | `[mqtt]` | | | Voir la section 11. |
 
@@ -1056,8 +1082,8 @@ Toutes les routes exigent l'authentification si un mot de passe est défini. Les
 | Route | Méthode | Corps | Rôle |
 |---|---|---|---|
 | `/` | GET | | Interface web. |
-| `/api/status` | GET | | État : service, écran, utilisation CPU en pourcentage (`cpu`), charge moyenne (`load`), température, mémoire, durée de fonctionnement, son (coupé, volume, activé), construction en cours, MQTT (`mqtt`, `mqtt_host`). |
-| `/api/settings` | GET | | Catégories, groupes, paramètres, valeurs et sauvegardes disponibles. |
+| `/api/status` | GET | | État : service, écran, utilisation CPU en pourcentage (`cpu`), charge moyenne (`load`), température, mémoire, durée de fonctionnement, son (coupé, volume, activé), construction en cours, MQTT (`mqtt`), images par seconde réelles et cible (`fps`, `fps_target`), mise à jour disponible ou en cours (`update_available`, `update_running`). |
+| `/api/settings` | GET | | Catégories, groupes, paramètres, valeurs et sauvegardes disponibles, textes dans la langue active. |
 | `/api/settings` | POST | `{"changes": {"config:alert.volume": "0.5", "web:mqtt.host": "10.0.0.2"}}` | Enregistre les valeurs (clé = `fichier:section.option`, fichier `config` ou `web`). Renvoie ce qu'il faut appliquer. |
 | `/api/settings/restore` | POST | `{"file": "config"}` | Échange le fichier (`config` ou `web`) avec sa sauvegarde `.bak`. |
 | `/api/types` | GET / POST | `{"text": "WT9 light\n"}` | Lit et écrit `types_extra.txt` (GET : aussi les types inconnus des logs). |
@@ -1124,6 +1150,8 @@ Les mêmes réglages existent dans `config.ini`, section `[mqtt]`.
 | Volume des alertes | nombre 0-100 % (pas de 5) | `base/volume/state`, `base/volume/set` | Règle le volume en direct. |
 | Température | capteur °C | `base/temperature/state` | Température du Pi, arrondie à 0,5 °C. |
 
+Les noms des entités suivent la langue choisie dans webadmin (par exemple « Screen », « Alert sound », « Alert volume », « Temperature » en anglais), publiés à chaque (re)connexion.
+
 Autres sujets : `base/availability` (`online` / `offline`, avec testament pour que les entités passent en « indisponible » si webadmin s'arrête) et `homeassistant/status` (écouté : à chaque redémarrage de Home Assistant, la découverte est republiée). Les états et la découverte sont conservés (retain) par le serveur. Les commandes ne doivent jamais être publiées avec le drapeau « retain » : un message conservé serait renvoyé à chaque reconnexion.
 
 L'appareil est identifié par `flightdisplay_<nom d'hôte>`. Les entités apparaissent sous Paramètres, Appareils, MQTT. Exemple d'automatisation pour éteindre l'écran à 23 h (adaptez le nom de l'entité) :
@@ -1167,9 +1195,11 @@ sudo systemctl restart flightadmin
 
 Vos réglages (`config.ini`) ne sont pas versionnés et restent intacts. Si la mise à jour modifie les scripts de veille ou les services, relancez l'installeur en conservant la configuration (section 0.6) : l'étape 9 les réinstalle, et il met aussi à jour les paquets.
 
-Avec une installation par copie de fichiers : recopier `main.py` (et `webadmin.py`, `webadmin_mqtt.py`) depuis l'ordinateur, puis `fd restart` et `sudo systemctl restart flightadmin`.
+Si `git pull` refuse de s'exécuter parce que des fichiers ont été modifiés à la main, voir ce qui diffère avec `git status`, puis écarter les modifications (`git checkout <fichier>`) ou les mettre de côté (`git stash`). `config.ini` n'est jamais concerné : il n'est pas suivi par Git.
 
-### 12.1 bis Publier une version (mainteneur)
+Avec une installation par copie de fichiers : recopier tous les fichiers du projet (`main.py`, `webadmin.py`, `webadmin_mqtt.py`, `webadmin_update.py`, `i18n.py`, le dossier `lang`...) depuis l'ordinateur, puis `fd restart` et `sudo systemctl restart flightadmin`.
+
+### 12.2 Publier une version (mainteneur)
 
 Une version est une étiquette git annotée `vX.Y.Z` posée sur un commit, puis envoyée sur GitHub. L'historique de webadmin range les commits sous la version correspondante (celle du commit et des commits précédents, jusqu'à l'étiquette antérieure).
 
@@ -1180,7 +1210,7 @@ git push origin v1.1.0
 
 Les installations récupèrent les étiquettes à chaque vérification. Les mises à jour installent toujours le dernier commit de la branche, qu'il soit publié ou non.
 
-### 12.1 ter Ajouter une langue
+### 12.3 Ajouter une langue
 
 Le français est la langue de référence : les textes du code en français servent de clés. Chaque langue est un fichier `lang/<code>.json` :
 
@@ -1198,13 +1228,13 @@ Le français est la langue de référence : les textes du code en français serv
 - Un texte absent ou vide reste en français : une traduction partielle fonctionne.
 - Pour créer le fichier avec tous les textes à traduire : `python3 lang/check_lang.py --new de "Deutsch"`. Pour voir ce qu'il reste à traduire et vérifier les emplacements : `python3 lang/check_lang.py de`.
 - Redémarrer webadmin (`sudo systemctl restart flightadmin`, ou une mise à jour) : la langue apparaît dans Réglages, Langue. Elle s'applique à webadmin tout de suite et au programme d'affichage après sa relance.
-- Ne sont pas traduits : l'installeur (`install.sh`), la documentation, les messages techniques du journal et les descriptions des commits.
+- Ne sont pas traduits : l'installeur (`install.sh`), les messages techniques du journal et les descriptions des commits. La documentation existe en français et en anglais (`docs/FLIGHT_DISPLAY_DOCUMENTATION.md` et `.en.md`).
 
 Quand une nouvelle version du logiciel ajoute un texte, il apparaît en français tant que `lang/en.json` (et les autres fichiers) n'a pas la clé correspondante.
 
-### 12.2 Sauvegarde
+### 12.4 Sauvegarde
 
-À conserver : `config.ini` (clé CARTO, mot de passe webadmin, MQTT), `types_extra.txt`, et `cache/runtime.json`. `background.png` et `map_meta.json` se régénèrent depuis `config.ini`.
+À conserver : `config.ini` (clé CARTO, mot de passe webadmin, MQTT), `types_extra.txt`, `cache/runtime.json`, et vos fichiers de langue personnels s'il y en a (`lang/<code>.json` non fournis par le projet). `background.png` et `map_meta.json` se régénèrent depuis `config.ini`.
 
 ```
 cd ~/flightdisplay
@@ -1213,14 +1243,14 @@ tar czf ~/flightdisplay-backup.tgz config.ini types_extra.txt cache/runtime.json
 
 Cette sauvegarde contient des secrets : ne la partagez pas.
 
-### 12.3 Mises à jour du système
+### 12.5 Mises à jour du système
 
 ```
 sudo apt update && sudo apt full-upgrade -y
 sudo reboot
 ```
 
-### 12.4 Consulter les logs
+### 12.6 Consulter les logs
 
 | Besoin | Commande |
 |---|---|
@@ -1245,14 +1275,14 @@ sudo reboot
 | « premiere image apres » jamais affiché | Le programme n'a pas pu ouvrir l'écran : relancer à la main (`./venv/bin/python main.py`) et lire l'erreur. |
 | La carte ne se construit pas : erreur `NoOptionError` | La clé `carto_key` manque dans `config.ini`, section `[map]` : la renseigner (Réglages, Carte et position). |
 | La carte ne se construit pas : erreur HTTP 401 ou 403 | Clé CARTO probablement invalide, expirée ou mal copiée : la ressaisir dans Réglages, Carte et position, puis reconstruire. |
-| La carte ne se construit pas pour une autre raison | Lire la sortie dans l'onglet Carte. Vérifier le chemin Python (Réglages, Application et système) et les dépendances du script (4.3). |
-| « ATTENTION : la carte a ete generee pour d'autres coordonnees » | Reconstruire la carte (onglet Carte). |
+| La carte ne se construit pas pour une autre raison | Lire la sortie dans la section « Reconstruction de la carte » (Réglages, Carte et position). Vérifier le chemin Python (Réglages, Application et système) et les dépendances du script (4.3). |
+| « ATTENTION : la carte a ete generee pour d'autres coordonnees » | Reconstruire la carte (Réglages, Carte et position, « Reconstruire la carte »). |
 | Erreur 429 dans les logs | Trop de requêtes : augmenter l'intervalle de requête et la pause entre les détails (Réglages, Flightradar24). La limitation est automatique mais temporaire. |
 | « ATTENTION : horloge du systeme decalee par rapport a FR24 » | Horloge du Pi fausse : vérifier `timedatectl status` et la connexion Internet. |
 | `type inconnu (icone par defaut) : XXXX` | Ajouter le type dans Réglages, Types d'avion. |
 | Aucun avion affiché | Vérifier la latitude, la longitude, le rayon et l'altitude maximale suivie. La ligne d'état en bas à gauche donne le nombre d'avions suivis. |
 | Utilisation CPU proche de 90 % | Normal par moments sur un Pi Zero. Baisser les images par seconde (Réglages, Affichage) ou reconstruire la carte en 1280×720 réduit directement la charge. |
-| La fenêtre Windows ne change pas de mise en page quand on la redimensionne | Normal : l'image de la carte est mise à l'échelle. Pour une autre taille de travail, changer `width` et `height` et reconstruire la carte (8.4). |
+| La fenêtre Windows ne change pas de mise en page quand on la redimensionne | Normal : l'image de la carte est mise à l'échelle. Pour une autre taille de travail, changer `width` et `height` et reconstruire la carte (8.5). |
 | Pas de son | `aplay -l` doit lister une sortie. Vérifier que `SDL_AUDIODRIVER=dummy` n'est pas dans le service, que « Son » est activé dans Réglages et dans Pilotage (icône de haut-parleur barré à l'écran sinon), et lire `fd logs` pour `son indisponible`. |
 | Un son retentit au lancement alors que « Son au lancement » et « Simuler une alerte » sont décochés | Le compteur de test de `cache/runtime.json` n'est pas mémorisé au chargement de `main.py` : il faut une ligne `rt_refresh(True)` au niveau du module (sans indentation, après la définition de `rt_refresh`). Sinon, un avion se trouvait déjà dans la zone d'alerte. |
 | Le son ne se coupe pas à distance | Le programme et webadmin doivent tourner avec le même utilisateur, et `cache/runtime.json` doit être modifiable par lui. |
@@ -1271,6 +1301,14 @@ sudo reboot
 | MQTT : « paho manquant » | `sudo apt install python3-paho-mqtt` puis `sudo systemctl restart flightadmin`. |
 | MQTT : « refuse » | Identifiants ou droits (ACL) du serveur MQTT. |
 | Entités absentes dans Home Assistant | Vérifier l'intégration MQTT, `discovery_prefix`, le même serveur, puis « Reconnecter / republier ». |
+| Mises à jour : « vérification impossible » | webadmin ne joint pas GitHub (Internet, DNS) ou l'installation n'est pas un dépôt Git : lire le message affiché dans l'onglet Mises à jour. |
+| Mises à jour : « fichiers du logiciel modifiés localement » | Des fichiers suivis par Git diffèrent de GitHub (copie faite à la main, par exemple). Voir lesquels avec `git status`, puis `git checkout <fichier>` ou `git stash` (12.1). `config.ini` n'est jamais concerné. |
+| Mises à jour : « retour à la version précédente » | La nouvelle version n'a pas passé le contrôle du code ou ne démarre pas. L'ancienne version fonctionne toujours ; le journal de la mise à jour donne la cause. |
+| Après un changement de langue, l'écran reste dans l'ancienne langue | Le programme d'affichage lit la langue au démarrage : « Enregistrer et appliquer », ou `fd restart`. |
+| Une langue ajoutée dans `lang/` n'apparaît pas | Le fichier doit s'appeler `<code>.json` (2 ou 3 lettres minuscules) et contenir un JSON valide ; redémarrer webadmin. Contrôle : `python3 lang/check_lang.py <code>` (12.3). |
+| Aucune étiquette n'apparaît à côté des avions | Tous les éléments sont masqués dans Réglages, Étiquettes des avions (8.7). |
+| Le panneau photo n'apparaît jamais dans un angle | Cet angle est décoché dans Réglages, Panneau photo (8.6). Si les quatre angles sont décochés, il n'y a aucune restriction. |
+| La tuile Programme affiche moins d'images par seconde que la cible | Le Pi Zero ne tient pas la cadence : baisser `fps`, passer la carte en 1280×720, ou limiter le nombre d'avions (altitude maximale suivie). |
 | Wi-Fi instable | Désactiver l'économie d'énergie (6.4). |
 
 ---

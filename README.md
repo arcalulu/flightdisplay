@@ -66,7 +66,7 @@ Relancer la même commande plus tard met à jour le logiciel et conserve votre c
 
 ## Documentation
 
-Le guide complet (installation manuelle, référence de tous les réglages, webadmin, MQTT, dépannage) est dans [docs/FLIGHT_DISPLAY_DOCUMENTATION.md](docs/FLIGHT_DISPLAY_DOCUMENTATION.md) (en français uniquement pour l'instant).
+Le guide complet (installation manuelle, référence de tous les réglages, webadmin, MQTT, dépannage) est dans [docs/FLIGHT_DISPLAY_DOCUMENTATION.md](docs/FLIGHT_DISPLAY_DOCUMENTATION.md). Elle existe aussi en anglais : [English documentation](docs/FLIGHT_DISPLAY_DOCUMENTATION.en.md).
 
 ## Mettre à jour
 

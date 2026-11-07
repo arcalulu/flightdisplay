@@ -1,6 +1,10 @@
 ; Copiez ce fichier en config.ini puis adaptez-le (ou réglez tout depuis webadmin).
 ; Toutes les options sont décrites dans docs/FLIGHT_DISPLAY_DOCUMENTATION.md, section 8.
 
+[general]
+; Langue de webadmin et du texte affiché à l'écran : fr (français), en (anglais) ou une langue ajoutée dans lang/
+language = fr
+
 [position]
 ; Coordonnées de votre domicile, en degrés décimaux (exemple : Paris, à remplacer)
 latitude = 48.8566
@@ -32,6 +36,18 @@ height = 1080
 [panel]
 width = 480
 rotate_seconds = 12
+; Angles où le panneau photo peut s'afficher (false = jamais dans cet angle)
+corner_top_left = true
+corner_top_right = true
+corner_bottom_left = true
+corner_bottom_right = true
+
+[label]
+; Étiquettes à côté des avions : ordre, affichage (show_*), taille (small, medium, large), gras, italique, même ligne
+; Réglage conseillé depuis webadmin (Réglages, Étiquettes des avions). Seules les valeurs modifiées sont utiles.
+order = model,registration,callsign,airline,route,altitude,speed
+show_registration = false
+show_callsign = false
 
 [ground]
 show_list = true
@@ -84,6 +100,10 @@ flag = /run/flight-screen-off
 [build]
 ; Arrêter l'affichage pendant la reconstruction de la carte
 stop_display = true
+
+[update]
+; Vérifier toutes les 12 heures si une nouvelle version existe sur GitHub (n'installe rien tout seul)
+auto_check = true
 
 [mqtt]
 enabled = false
