@@ -90,6 +90,18 @@ DETAILS_FILE = os.path.join(CACHE, "details.json")
 lock = threading.Lock()
 
 RUNTIME_FILE = os.path.join(CACHE, "runtime.json")
+# Images par seconde reellement affichees, lues par webadmin. En memoire (/dev/shm) pour ne pas user la carte SD.
+FPS_FILE = "/dev/shm/flightdisplay-fps.json" if os.path.isdir("/dev/shm") else os.path.join(CACHE, "fps.json")
+
+
+def fps_publish(fps):
+    try:
+        tmp = FPS_FILE + f".{os.getpid()}.tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump({"fps": round(fps, 1), "t": time.time(), "pid": os.getpid()}, fh)
+        os.replace(tmp, FPS_FILE)
+    except OSError:
+        pass
 rt = {"muted": False, "volume": ALERT_VOL, "seq": 0, "mtime": 0, "checked": 0.0}
 
 
@@ -532,6 +544,7 @@ def main():
     f_big, f_mid, f_small = mk(S(26), True), mk(S(22)), mk(max(10, S(17)))
     clock = pygame.time.Clock()
     label_cache, photo_cache, box_cache, smooth = {}, {}, {}, {}
+    fps_n, fps_t0 = 0, time.time()
     cur_key, cur_t, corner = None, 0, 0
     RED = (255, 70, 70)
     lw = max(1, S(2))
@@ -792,6 +805,10 @@ def main():
             tx += S(32)
         screen.blit(f_small.render(f"{msg}", True, (110, 120, 130)), (tx, H - S(24)))
         pygame.display.flip()
+        fps_n += 1
+        t_fps = time.time()
+        if t_fps - fps_t0 >= 2.0:
+            fps_publish(fps_n / (t_fps - fps_t0)); fps_n, fps_t0 = 0, t_fps
         if first:
             print("premiere image apres", round(time.time() - T0, 1), "s"); first = False
         clock.tick(FPS)

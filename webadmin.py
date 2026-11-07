@@ -467,6 +467,28 @@ def sound_state():
     return dict(muted=bool(d.get("muted", False)), volume=round(max(0.0, min(1.0, vol)), 2), sound_enabled=enabled)
 
 
+FPS_FILE = "/dev/shm/flightdisplay-fps.json" if os.path.isdir("/dev/shm") else os.path.join(S.APP_DIR, "cache", "fps.json")
+
+
+def fps_info():
+    """Images par seconde reellement affichees (publiees par main.py), None si le programme ne tourne pas."""
+    try:
+        with open(FPS_FILE, encoding="utf-8") as fh:
+            d = json.load(fh)
+        if time.time() - float(d["t"]) > 8:
+            return None
+        return round(float(d["fps"]), 1)
+    except Exception:
+        return None
+
+
+def fps_target():
+    try:
+        return int(parse(read_lines(S.CONFIG))[0][("display", "fps")]["value"])
+    except Exception:
+        return 10
+
+
 def sound_update(body):
     with rt_lock:
         d = runtime_read()
@@ -684,6 +706,8 @@ class Handler(BaseHTTPRequestHandler):
                 s["update_available"] = UPD.available()
                 s["update_running"] = UPD.running()
                 s["cpu"] = cpu["pct"]
+                s["fps"] = fps_info() if s["service"] == "active" else None
+                s["fps_target"] = fps_target()
                 self.send_json(s)
             elif u.path == "/api/settings":
                 self.send_json(get_settings())
@@ -1076,7 +1100,7 @@ async function pollStatus() {
 
     const aw = $('#authWarn'); if (aw) aw.style.display = s.auth ? 'none' : 'block';
     const t = $('#tiles'); t.innerHTML = '';
-    t.append(tile('Programme', s.service === 'active' ? 'actif' : s.service, s.service === 'active' ? 'ok' : 'bad'));
+    t.append(tile('Programme', s.service === 'active' ? 'actif' : s.service, s.service === 'active' ? 'ok' : 'bad', s.fps !== null && s.fps !== undefined ? s.fps.toFixed(1) + ' images/s (cible : ' + s.fps_target + ')' : ''));
     t.append(tile('Écran', s.screen_off ? 'en veille' : 'allumé', s.screen_off ? 'warn' : ''));
     t.append(tile('Température', s.temp !== null ? s.temp.toFixed(0) + ' °C' : '-', s.temp > 75 ? 'bad' : (s.temp > 65 ? 'warn' : '')));
     t.append(tile('Utilisation CPU', s.cpu !== null ? Math.round(s.cpu) + ' %' : '-', s.cpu > 95 ? 'bad' : (s.cpu > 85 ? 'warn' : ''), 'charge moyenne : ' + s.load[0].toFixed(2) + ' / ' + s.load[1].toFixed(2)));

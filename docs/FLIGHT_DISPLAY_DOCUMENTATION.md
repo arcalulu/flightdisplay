@@ -899,7 +899,7 @@ Catégories valides : `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `b
 **Pilotage** (page d'accueil)
 
 - Sept tuiles de supervision, alignées sur une seule ligne sur ordinateur et sur deux colonnes sur téléphone (la dernière occupe alors toute la largeur) :
-  - Programme : actif ou arrêté.
+  - Programme : actif ou arrêté. Quand il est actif, le nombre d'images par seconde réellement affichées (moyenne sur 2 secondes) est indiqué sous le statut, avec la cible réglée dans `[display] fps`. Une valeur nettement plus basse que la cible signale un Pi Zero surchargé. Le programme publie cette mesure dans `/dev/shm/flightdisplay-fps.json` (mémoire, pas la carte SD ; `cache/fps.json` si `/dev/shm` n'existe pas).
   - Écran : allumé ou en veille.
   - Température du Pi.
   - Utilisation CPU : pourcentage d'occupation du processeur, mesuré toutes les 2 secondes (orange au-dessus de 85 %, rouge au-dessus de 95 %), avec en petit la charge moyenne du système sur 1 et 5 minutes. La charge moyenne n'est pas un pourcentage : sur le Pi Zero, qui n'a qu'un seul cœur, 1.00 correspond déjà à un processeur saturé.
