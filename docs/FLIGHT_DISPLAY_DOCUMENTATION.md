@@ -966,7 +966,7 @@ Quand une modification est prise en compte :
 
 - Tuiles « Version installée », « Dernière version » et « État » (nombre de nouveautés, date de la dernière vérification).
 - « Vérifier les mises à jour » interroge GitHub ; « Mettre à jour » lance la mise à jour immédiatement, sans confirmation. Pendant l'opération : barre de progression globale, liste des sept étapes (vérifications, téléchargement, application, bibliothèques, contrôle du code, relance de l'affichage, redémarrage de webadmin) avec le temps écoulé, et journal détaillé en direct. La page se recharge seule à la fin.
-- « Historique des versions » : changelog des 30 derniers commits (numéro de version, commit, date, description, étiquette de version éventuelle), les commits pas encore installés étant repérés par « nouveau ». Des avertissements signalent un fichier modifié localement, des commits locaux absents de GitHub ou un `install.sh` modifié. La procédure complète est décrite en 12.1.
+- « Historique des versions » : changelog groupé par version. Chaque version (étiquette git `vX.Y.Z`) est un séparateur repliable, avec ses commits dessous du plus récent au plus ancien (numéro, commit, date, description). Les commits postérieurs à la dernière version sont regroupés sous « En développement (non publiée) ». La version la plus récente est dépliée, les autres repliées. Repères : « nouveau » (pas encore installé) et « installé ». Des avertissements signalent un fichier modifié localement, des commits locaux absents de GitHub ou un `install.sh` modifié. La procédure complète est décrite en 12.1.
 - Une pastille sur l'onglet et une puce dans l'en-tête signalent une version disponible.
 
 **Logs**
@@ -1159,6 +1159,17 @@ sudo systemctl restart flightadmin
 Vos réglages (`config.ini`) ne sont pas versionnés et restent intacts. Si la mise à jour modifie les scripts de veille ou les services, relancez l'installeur en conservant la configuration (section 0.6) : l'étape 9 les réinstalle, et il met aussi à jour les paquets.
 
 Avec une installation par copie de fichiers : recopier `main.py` (et `webadmin.py`, `webadmin_mqtt.py`) depuis l'ordinateur, puis `fd restart` et `sudo systemctl restart flightadmin`.
+
+### 12.1 bis Publier une version (mainteneur)
+
+Une version est une étiquette git annotée `vX.Y.Z` posée sur un commit, puis envoyée sur GitHub. L'historique de webadmin range les commits sous la version correspondante (celle du commit et des commits précédents, jusqu'à l'étiquette antérieure).
+
+```
+git tag -a v1.1.0 -m "Version 1.1.0"
+git push origin v1.1.0
+```
+
+Les installations récupèrent les étiquettes à chaque vérification. Les mises à jour installent toujours le dernier commit de la branche, qu'il soit publié ou non.
 
 ### 12.2 Sauvegarde
 

@@ -136,7 +136,7 @@ class Updater:
             return dict(running=st["running"], ok=st["ok"], error=st["error"], done_msg=st["done_msg"], started=st["started"],
                         finished=st["finished"], from_label=st["from_label"], to_label=st["to_label"], steps=steps,
                         pct=self._pct(), lines=list(st["lines"])[-400:], live=st["live"], check=st["check"],
-                        restarting=st["restarting"], auto=self.S.UPDATE_AUTO, history=self.hist, current=self.current)
+                        restarting=st["restarting"], auto=self.S.UPDATE_AUTO, history=[] if st["running"] or st["restarting"] else self.hist, current=self.current)
 
     def _pct(self):
         total = sum(w for _, _, w in STEPS)
@@ -213,7 +213,7 @@ class Updater:
         return [l[3:] for l in out.splitlines() if l.strip()]
 
     # ------------------------------------------------------------ historique des versions (changelog)
-    def _history(self, ref, new=0, n=30):
+    def _history(self, ref, new=0, n=150):
         """Derniers commits de ref ; les `new` premiers sont ceux qui ne sont pas encore installes."""
         out = self._git_ok("log", "-n", str(n), "--format=%h%x1f%cs%x1f%s%x1f%D", ref)
         total = int(self._git_ok("rev-list", "--count", ref))  # numero de version = rang du commit dans l'historique

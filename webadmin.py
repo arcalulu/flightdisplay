@@ -894,6 +894,10 @@ button.b:disabled{opacity:.45}
 .lrow .top{display:flex;align-items:center;gap:8px}.lrow .top b{flex:1;font-weight:500}
 .lrow .opt{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center}.lrow.off .opt{opacity:.45}
 .lrow button.b.s{padding:6px 12px}.lrow button.b.s.on{background:var(--acc);color:#1a1400;border-color:var(--acc)}
+.vh{display:flex;align-items:center;gap:8px;padding:11px 14px;margin-top:10px;background:var(--card2);border:1px solid var(--line);border-radius:10px 10px 0 0;cursor:pointer;user-select:none}
+.vh.shut{border-radius:10px}.vh b{font-weight:600}.vh small{margin-left:auto;color:var(--mut);font-size:12px;text-align:right}
+.vh .chev{color:var(--mut);transition:transform .15s}.vh.shut .chev{transform:rotate(-90deg)}
+.vb{background:var(--card);border:1px solid var(--line);border-top:0;border-radius:0 0 10px 10px;overflow:hidden}
 .dotn{position:relative}.dotn.dot::after{content:"";position:absolute;top:8px;right:calc(50% - 38px);width:8px;height:8px;border-radius:50%;background:var(--acc)}
 .set{display:block}
 .menu{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin:0 -4px 6px;scrollbar-width:none}
@@ -999,7 +1003,7 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
   </div>
   <div id="updNew" style="display:none">
     <h2 class="t">Historique des versions</h2>
-    <div class="list" id="updCommits"></div>
+    <div class="list" id="updCommits" style="background:none;border:0"></div>
   </div>
 </section>
 
@@ -1022,7 +1026,7 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 
 <script>
 let SET = null, edits = {}, curCat = null, cur = 'home', logText = '', lastSt = null, volDrag = false, volTimer = null;
-let pend = {app: false, web: false}, TYPES = null, rows = {}, UPD = null, updWasRunning = false, updBusy = false, updAuto = false;
+let pend = {app: false, web: false}, TYPES = null, rows = {}, UPD = null, updWasRunning = false, updBusy = false, updAuto = false, updTick = 0, histShut = {};
 const $ = s => document.querySelector(s);
 const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
 
@@ -1052,7 +1056,7 @@ function go(tab) {
   if (tab === 'log') loadLogs();
   if (tab === 'cfg') pollBuild();
   if (tab === 'home') pollStatus();
-  if (tab === 'upd') pollUpd();
+  if (tab === 'upd') { updTick = 0; pollUpd(); }
   window.scrollTo(0, 0);
 }
 
@@ -1459,13 +1463,32 @@ function renderUpd(lost) {
   const nw = $('#updNew'), cl = $('#updCommits'); cl.innerHTML = '';
   if (u.history && u.history.length && !busy) {
     nw.style.display = 'block';
+    // Une version = une étiquette git (vX.Y.Z) : elle regroupe son commit et les commits plus anciens jusqu'à l'étiquette précédente.
+    const groups = [];
     for (const m of u.history) {
-      const d = el('div', 'cm'), t = el('span', null, m.subject);
-      d.append(el('code', null, 'n°' + m.num + ' · ' + m.short + ' · ' + m.date), t);
-      if (m.tag) d.append(el('span', 'chip', m.tag));
-      if (m.new) d.append(el('span', 'chip ok', 'nouveau'));
-      cl.append(d);
+      if (m.tag) groups.push({key: m.tag, title: 'Version ' + m.tag.replace(/^v/, ''), date: m.date, items: []});
+      else if (!groups.length) groups.push({key: '_dev', title: 'En développement', sub: 'non publiée', items: []});
+      groups[groups.length - 1].items.push(m);
     }
+    groups.forEach((g, gi) => {
+      const shut = g.key in histShut ? histShut[g.key] : gi > 0;
+      const head = el('div', 'vh' + (shut ? ' shut' : ''));
+      head.append(el('span', 'chev', '▾'), el('b', null, g.title));
+      if (g.sub) head.append(el('span', 'chip', g.sub));
+      if (g.items.some(m => m.new)) head.append(el('span', 'chip ok', 'nouveau'));
+      if (g.items.some(m => u.current && m.short === u.current.short)) head.append(el('span', 'chip', 'installée'));
+      head.append(el('small', null, (g.date ? g.date + ' · ' : '') + g.items.length + ' commit' + (g.items.length > 1 ? 's' : '')));
+      const body = el('div', 'vb'); body.style.display = shut ? 'none' : 'block';
+      head.onclick = () => { const s = body.style.display !== 'none'; body.style.display = s ? 'none' : 'block'; head.classList.toggle('shut', s); histShut[g.key] = s; };
+      for (const m of g.items) {
+        const d = el('div', 'cm'), t = el('span', null, m.subject);
+        d.append(el('code', null, 'n°' + m.num + ' · ' + m.short + ' · ' + m.date), t);
+        if (m.new) d.append(el('span', 'chip ok', 'nouveau'));
+        if (u.current && m.short === u.current.short) d.append(el('span', 'chip', 'installé'));
+        body.append(d);
+      }
+      cl.append(head, body);
+    });
   } else nw.style.display = 'none';
 }
 
@@ -1504,7 +1527,7 @@ buildHome();
 setInterval(pollStatus, 4000);
 setInterval(() => { if (cur === 'log' && $('#logAuto').checked) loadLogs(); }, 3000);
 setInterval(() => { if (cur === 'cfg' && curCat === 'position') pollBuild(); }, 2000);
-setInterval(() => { if (cur === 'upd' || updWasRunning) pollUpd(); }, 1500);
+setInterval(() => { if (updWasRunning || (cur === 'upd' && ++updTick % 7 === 0)) pollUpd(); }, 1500);
 pollStatus(); pollBuild();
 loadSettings().catch(e => toast(e.message, true));
 if (location.hash === '#upd') { history.replaceState(null, '', location.pathname); go('upd'); }
