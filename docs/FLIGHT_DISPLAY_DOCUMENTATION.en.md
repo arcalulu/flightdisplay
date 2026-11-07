@@ -931,16 +931,15 @@ Valid categories: `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `bizje
 
 **Control** (home page)
 
-- Nine monitoring tiles, in three rows on a computer (four columns) and in two columns on a phone:
+- Eight monitoring tiles, in two rows of four on a computer (four columns) and in two columns on a phone. The first row gives the state, the second the measurements as progress rings:
   - Program: active or stopped. When it is active, the number of frames per second really displayed (average over 2 seconds) is shown under the status, with the target set in `[display] fps`. A value clearly lower than the target signals an overloaded Pi Zero. The program publishes this measurement in `/dev/shm/flightdisplay-fps.json` (memory, not the SD card; `cache/fps.json` if `/dev/shm` does not exist).
   - Screen: on or asleep.
-  - Pi temperature.
-  - CPU usage: percentage of processor occupation, measured every 2 seconds (orange above 85%, red above 95%), with the system load average over 1 and 5 minutes in small print. The load average is not a percentage: on the Pi Zero, which has a single core, 1.00 already means a saturated processor.
-  - Memory: progress ring with the percentage used and the MB (orange above 80%, red above 90%).
-  - Disk: progress ring with the percentage used and the free space (hover for the total). The ring turns orange 10 points before the alert threshold and red at the threshold, with a colored frame (see "Storage and photos").
-  - Up for: uptime and hostname.
-  - Pi time: local time of the Raspberry Pi (to the second), date and time zone. This is the time used by the screen schedule: if it is wrong, see 3.4.
-  - MQTT: connected (green), disconnected or refused (red), disabled (neutral), with the server address.
+  - MQTT: connected (green), disconnected or refused (red), disabled (neutral).
+  - Pi time: local time of the Raspberry Pi (to the second), date and time zone, uptime and hostname. This is the time used by the screen schedule: if it is wrong, see 3.4.
+  - Temperature: ring graduated from 0 to 85 °C (the SoC limit set by Raspberry Pi for all models). Orange 10 °C before the throttling threshold, red from the threshold. The threshold depends on the model, detected automatically (`/proc/device-tree/model`), according to Raspberry Pi's documentation: **80 °C** for the Pi Zero, Zero 2 W, Pi 4, Pi 5 and the other models (the firmware throttles the Arm cores between 80 and 85 °C, then the GPU too above 85 °C); **60 °C** for the Pi 3 B+, 3 A+ and Compute Module 3+ (default soft limit, with frequency reduction). Raspberry Pi does not publish a Pi Zero specific value: the general 80 °C value applies. Hovering the tile gives the model and the limits.
+  - CPU usage: ring from 0 to 100% measured every 2 seconds (orange above 85%, red above 95%), with the system load average over 1 and 5 minutes next to it. The load average is not a percentage: on the Pi Zero, which has a single core, 1.00 already means a saturated processor.
+  - Memory: ring with the percentage used and the MB (orange above 80%, red above 90%).
+  - Disk: ring with the percentage used and the free space (hover for the total). The ring turns orange 10 points before the alert threshold and red at the threshold, with a colored frame (see "Storage and photos").
   Refreshed every 4 seconds. The page header only shows status dots: "sound muted", "map building", "update in progress", "update available" or "disk X % full" (orange 10 points before the threshold, red at the threshold; a click opens "Storage and photos").
 - Toggle commands, like in iOS Settings or Home Assistant:
   - Flight Display program: starts or stops the service (if the screen is asleep, the switch turns the screen back on).

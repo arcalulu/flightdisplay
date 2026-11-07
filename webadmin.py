@@ -703,6 +703,31 @@ def cpu_sampler():
             cpu["pct"] = round(100.0 * (dt - di) / dt, 1)
         prev = cur
 
+_pi_model = []
+
+
+def pi_model():
+    if not _pi_model:
+        name = ""
+        for f in ("/proc/device-tree/model", "/sys/firmware/devicetree/base/model"):
+            try:
+                with open(f, "rb") as fh:
+                    name = fh.read().replace(b"\0", b"").decode("utf-8", "replace").strip()
+                break
+            except OSError:
+                continue
+        _pi_model.append(name)
+    return _pi_model[0]
+
+
+def temp_limits():
+    """Limites thermiques du SoC d'apres la documentation Raspberry Pi : le micrologiciel ralentit les coeurs Arm des 80 °C
+    (60 °C sur les Pi 3 B+ / 3 A+ / CM3+, limite douce par defaut) et plafonne le SoC a 85 °C sur tous les modeles."""
+    model = pi_model()
+    soft = 60 if re.search(r"(Pi 3 Model [AB] Plus|Compute Module 3 Plus)", model) else 80
+    return dict(model=model, soft=soft, hard=85)
+
+
 def sysinfo():
     info = dict(host=socket.gethostname(), temp=None, load=list(os.getloadavg()) if hasattr(os, "getloadavg") else [0, 0, 0],
                 uptime=0, mem_total=None, mem_avail=None)
@@ -930,6 +955,7 @@ class Handler(BaseHTTPRequestHandler):
                 s["update_running"] = UPD.running()
                 s["cpu"] = cpu["pct"]
                 s["now"] = now_info()
+                s["temp_limits"] = temp_limits()
                 s["disk"] = disk_info()
                 s["schedule"] = sched_status()
                 s["fps"] = fps_info() if s["service"] == "active" else None
@@ -1422,7 +1448,7 @@ function tile(label, value, cls, sub) {
   const d = el('div', 'tile ' + (cls || '')); d.append(el('small', null, label), el('b', null, value));
   if (sub) d.append(el('i', null, sub)); return d;
 }
-function fmtUp(s) { const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60); return d ? d + ' j ' + h + ' h' : (h ? h + ' h ' + m + ' min' : m + ' min'); }
+function fmtUp(s) { const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60); return d ? _t('{0} j {1} h', d, h) : (h ? h + ' h ' + m + ' min' : m + ' min'); }
 function ringTile(label, pct, cls, text, detail, tip) {
   const NS = 'http://www.w3.org/2000/svg', C = 2 * Math.PI * 22, d = el('div', 'tile ring ' + (cls || ''));
   const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('width', '54'); svg.setAttribute('height', '54'); svg.setAttribute('viewBox', '0 0 54 54');
@@ -1449,9 +1475,15 @@ async function pollStatus() {
     const t = $('#tiles'); t.innerHTML = '';
     t.append(tile('Programme', s.service === 'active' ? 'actif' : s.service, s.service === 'active' ? 'ok' : 'bad', s.fps !== null && s.fps !== undefined ? s.fps.toFixed(1) + ' / ' + s.fps_target + ' fps' : ''));
     t.append(tile('Écran', s.screen_off ? 'en veille' : 'allumé', s.screen_off ? 'warn' : ''));
-    t.append(tile('Température', s.temp !== null ? s.temp.toFixed(0) + ' °C' : '-', s.temp > 75 ? 'bad' : (s.temp > 65 ? 'warn' : '')));
-    t.append(tile('Utilisation CPU', s.cpu !== null ? Math.round(s.cpu) + ' %' : '-', s.cpu > 95 ? 'bad' : (s.cpu > 85 ? 'warn' : ''), 'charge moyenne : ' + s.load[0].toFixed(2) + ' / ' + s.load[1].toFixed(2)));
+    const ml = {connecte: ['connecté', 'ok'], deconnecte: ['déconnecté', 'bad'], off: ['désactivé', ''], 'paho manquant': ['paho manquant', 'bad'], 'host manquant': ['serveur manquant', 'warn']};
+    const mq = ml[s.mqtt] || [String(s.mqtt).startsWith('refuse') ? 'refusé' : s.mqtt, 'bad'];
+    t.append(tile('MQTT', mq[0], mq[1]));
+    { const c = tile('Heure du Pi', '--:--:--', '', ''); c.querySelector('b').id = 'clk'; const i = el('i'); i.id = 'clkd'; const u = el('i', null, _t('Allumé depuis {0}', fmtUp(s.uptime)) + (s.host ? ' · ' + s.host : '')); c.append(i, u); t.append(c); tickClock(); }
     {
+      const L = s.temp_limits || {soft: 80, hard: 85, model: ''}, tp = s.temp, tcls = tp === null ? '' : (tp >= L.soft ? 'bad' : (tp >= L.soft - 10 ? 'warn' : ''));
+      t.append(ringTile('Température', tp === null ? 0 : tp / L.hard * 100, tcls, tp === null ? '-' : Math.round(tp) + ' °C', _t('Ralentit dès {0} °C', L.soft),
+        (L.model ? L.model + ' : ' : '') + _t('ralentissement dès {0} °C, limite {1} °C', L.soft, L.hard)));
+      t.append(ringTile('Utilisation CPU', s.cpu || 0, s.cpu > 95 ? 'bad' : (s.cpu > 85 ? 'warn' : ''), s.cpu !== null ? Math.round(s.cpu) + ' %' : '-', _t('Charge : {0} / {1}', s.load[0].toFixed(2), s.load[1].toFixed(2))));
       let mp = 0, mt = '-', mcls = '', md = '';
       if (s.mem_total) {
         const used = Math.round((s.mem_total - s.mem_avail) / 1024), tot = Math.round(s.mem_total / 1024);
@@ -1461,11 +1493,6 @@ async function pollStatus() {
       if (s.disk) t.append(ringTile('Disque', s.disk.pct, s.disk.level === 'critical' ? 'bad' : (s.disk.level === 'warn' ? 'warn' : ''), Math.round(s.disk.pct) + ' %', _t('Libre : {0}', fmtBytes(s.disk.free)),
         _t('Disque : {0} libres sur {1} ({2} %)', fmtBytes(s.disk.free), fmtBytes(s.disk.total), fmtPct(s.disk.pct))));
     }
-    t.append(tile('Allumé depuis', fmtUp(s.uptime), '', s.host));
-    { const c = tile('Heure du Pi', '--:--:--', '', ''); c.querySelector('b').id = 'clk'; const i = el('i'); i.id = 'clkd'; c.append(i); t.append(c); tickClock(); }
-    const ml = {connecte: ['connecté', 'ok'], deconnecte: ['déconnecté', 'bad'], off: ['désactivé', ''], 'paho manquant': ['paho manquant', 'bad'], 'host manquant': ['serveur manquant', 'warn']};
-    const mq = ml[s.mqtt] || [String(s.mqtt).startsWith('refuse') ? 'refusé' : s.mqtt, 'bad'];
-    t.append(tile('MQTT', mq[0], mq[1]));
     if (rows.prog) {
       const run = s.service === 'active';
       if (!rows.prog.t.input.disabled) rows.prog.t.input.checked = run;

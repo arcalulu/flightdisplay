@@ -539,6 +539,10 @@
   "Vider le cache des photos": "Clear the photo cache",
   "Supprimer les {0} photo(s) en cache ({1}) ? Elles seront retéléchargées au besoin.": "Delete the {0} cached photo(s) ({1})? They will be downloaded again if needed.",
   "{0} photo(s) supprimée(s) ({1} libérés)": "{0} photo(s) deleted ({1} freed)",
-  "Libre : {0}": "Free: {0}"
+  "Libre : {0}": "Free: {0}",
+  "Allumé depuis {0}": "Up for {0}",
+  "Ralentit dès {0} °C": "Throttles at {0} °C",
+  "ralentissement dès {0} °C, limite {1} °C": "throttling from {0} °C, limit {1} °C",
+  "Charge : {0} / {1}": "Load: {0} / {1}"
  }
 }

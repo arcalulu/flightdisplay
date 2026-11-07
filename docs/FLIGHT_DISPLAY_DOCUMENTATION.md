@@ -931,16 +931,15 @@ Catégories valides : `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `b
 
 **Pilotage** (page d'accueil)
 
-- Neuf tuiles de supervision, sur trois rangées sur ordinateur (quatre colonnes) et sur deux colonnes sur téléphone :
+- Huit tuiles de supervision, sur deux rangées de quatre sur ordinateur (quatre colonnes) et sur deux colonnes sur téléphone. La première rangée donne l'état, la seconde les mesures sous forme d'anneaux de progression :
   - Programme : actif ou arrêté. Quand il est actif, le nombre d'images par seconde réellement affichées (moyenne sur 2 secondes) est indiqué sous le statut, avec la cible réglée dans `[display] fps`. Une valeur nettement plus basse que la cible signale un Pi Zero surchargé. Le programme publie cette mesure dans `/dev/shm/flightdisplay-fps.json` (mémoire, pas la carte SD ; `cache/fps.json` si `/dev/shm` n'existe pas).
   - Écran : allumé ou en veille.
-  - Température du Pi.
-  - Utilisation CPU : pourcentage d'occupation du processeur, mesuré toutes les 2 secondes (orange au-dessus de 85 %, rouge au-dessus de 95 %), avec en petit la charge moyenne du système sur 1 et 5 minutes. La charge moyenne n'est pas un pourcentage : sur le Pi Zero, qui n'a qu'un seul cœur, 1.00 correspond déjà à un processeur saturé.
-  - Mémoire : anneau de progression avec le pourcentage utilisé et les Mo (orange au-dessus de 80 %, rouge au-dessus de 90 %).
-  - Disque : anneau de progression avec le pourcentage utilisé et l'espace libre (le survol donne le total). L'anneau passe en orange 10 points avant le seuil d'alerte et en rouge au seuil, avec un cadre coloré (voir « Stockage et photos »).
-  - Allumé depuis : durée de fonctionnement et nom d'hôte.
-  - Heure du Pi : heure locale du Raspberry Pi (à la seconde), date et fuseau horaire. C'est l'heure utilisée par le planning de l'écran : si elle est fausse, voir 3.4.
-  - MQTT : connecté (vert), déconnecté ou refusé (rouge), désactivé (neutre), avec l'adresse du serveur.
+  - MQTT : connecté (vert), déconnecté ou refusé (rouge), désactivé (neutre).
+  - Heure du Pi : heure locale du Raspberry Pi (à la seconde), date et fuseau horaire, durée de fonctionnement et nom d'hôte. C'est l'heure utilisée par le planning de l'écran : si elle est fausse, voir 3.4.
+  - Température : anneau gradué de 0 à 85 °C (limite du SoC fixée par Raspberry Pi pour tous les modèles). Orange 10 °C avant le seuil de ralentissement, rouge à partir du seuil. Le seuil dépend du modèle, détecté automatiquement (`/proc/device-tree/model`), d'après la documentation de Raspberry Pi : **80 °C** pour les Pi Zero, Zero 2 W, Pi 4, Pi 5 et les autres modèles (le micrologiciel ralentit les cœurs Arm entre 80 et 85 °C, puis aussi le GPU au-delà de 85 °C) ; **60 °C** pour les Pi 3 B+, 3 A+ et Compute Module 3+ (limite douce par défaut, avec réduction de fréquence). Raspberry Pi ne publie pas de valeur propre au Pi Zero : la valeur générale de 80 °C s'applique. Le survol de la tuile donne le modèle et les limites.
+  - Utilisation CPU : anneau de 0 à 100 % mesuré toutes les 2 secondes (orange au-dessus de 85 %, rouge au-dessus de 95 %), avec à côté la charge moyenne du système sur 1 et 5 minutes. La charge moyenne n'est pas un pourcentage : sur le Pi Zero, qui n'a qu'un seul cœur, 1.00 correspond déjà à un processeur saturé.
+  - Mémoire : anneau avec le pourcentage utilisé et les Mo (orange au-dessus de 80 %, rouge au-dessus de 90 %).
+  - Disque : anneau avec le pourcentage utilisé et l'espace libre (le survol donne le total). L'anneau passe en orange 10 points avant le seuil d'alerte et en rouge au seuil, avec un cadre coloré (voir « Stockage et photos »).
   Rafraîchies toutes les 4 secondes. L'en-tête de la page n'affiche que des pastilles d'état : « son coupé », « carte en construction », « mise à jour en cours », « mise à jour disponible » ou « disque rempli à X % » (orange 10 points avant le seuil, rouge au seuil ; un clic ouvre « Stockage et photos »).
 - Commandes à bascule, comme dans Réglages d'iOS ou Home Assistant :
   - Programme Flight Display : démarre ou arrête le service (si l'écran est en veille, l'interrupteur rallume l'écran).
