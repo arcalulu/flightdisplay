@@ -6,15 +6,16 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 import webadmin_mqtt
+import webadmin_update
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 INI_PATH = os.environ.get("WEBADMIN_INI") or os.path.join(HERE, "config.ini")
 # Sections de config.ini gérées par webadmin ; toutes les autres appartiennent au programme d'affichage.
-WEB_SECS = ("server", "app", "screen", "build", "mqtt")
+WEB_SECS = ("server", "app", "screen", "build", "mqtt", "update")
 
 
 class Settings:
-    """Reglages de webadmin (sections server, app, screen, build, mqtt de config.ini), relus apres chaque modification."""
+    """Reglages de webadmin (sections server, app, screen, build, mqtt, update de config.ini), relus apres chaque modification."""
 
     def reload(self):
         ini = configparser.ConfigParser(interpolation=None, strict=False)
@@ -51,6 +52,7 @@ class Settings:
         self.SCREEN_HELPER = gs("screen", "helper", "/usr/local/bin/flight-screen")
         self.SCREEN_FLAG = gs("screen", "flag", "/run/flight-screen-off")
         self.BUILD_STOP_DISPLAY = gb("build", "stop_display", True)
+        self.UPDATE_AUTO = gb("update", "auto_check", True)
 
 
 S = Settings()
@@ -77,12 +79,14 @@ CATS = [
     ("other", "Autres réglages", "Programme"),
     ("server", "Serveur web", "Webadmin"),
     ("paths", "Application et système", "Webadmin"),
+    ("update", "Mises à jour", "Webadmin"),
     ("mqtt", "MQTT / Home Assistant", "Intégrations"),
 ]
 CAT_NOTES = {
     "position": "Modifier ces valeurs oblige à reconstruire la carte (section Reconstruction de la carte, en bas de cette page).",
     "server": "Le port et l'adresse d'écoute demandent un redémarrage de webadmin. L'identifiant et le mot de passe s'appliquent immédiatement.",
     "paths": "Réglages avancés. Une valeur vide utilise le comportement par défaut.",
+    "update": "La mise à jour elle-même se lance depuis l'onglet « Mises à jour ».",
     "mqtt": "Les changements sont appliqués immédiatement : webadmin se reconnecte au serveur MQTT.",
 }
 
@@ -158,6 +162,7 @@ PARAMS = [
     W("paths", "app", "journalctl", "text", "", "Chemin de journalctl", "", "Système"),
     W("paths", "screen", "helper", "text", "/usr/local/bin/flight-screen", "Script de veille de l'écran", "", "Écran"),
     W("paths", "screen", "flag", "text", "/run/flight-screen-off", "Fichier témoin de la veille", "", "Écran"),
+    W("update", "update", "auto_check", "bool", True, "Vérifier automatiquement", "Interroge GitHub toutes les 12 heures pour signaler une nouvelle version. Rien n'est installé sans votre accord.", "Vérification", apply="live"),
     W("mqtt", "mqtt", "enabled", "bool", False, "Activer MQTT", "Publie l'état et accepte les commandes de Home Assistant.", "Connexion", apply="mqtt"),
     W("mqtt", "mqtt", "host", "text", "", "Serveur", "Adresse du serveur MQTT.", "Connexion", apply="mqtt"),
     W("mqtt", "mqtt", "port", "int", 1883, "Port", "", "Connexion", apply="mqtt", min=1, max=65535),
@@ -572,6 +577,8 @@ def build_worker(stop_display):
 def start_build(stop_display):
     if not os.path.exists(os.path.join(S.APP_DIR, S.BUILD_SCRIPT)):
         raise ValueError(S.BUILD_SCRIPT + " introuvable dans " + S.APP_DIR)
+    if UPD.running():
+        raise ValueError("une mise à jour du logiciel est en cours")
     with build_lock:
         if build["running"]:
             raise ValueError("une construction est déjà en cours")
@@ -603,6 +610,7 @@ def self_restart():
     os.execv(sys.executable, [sys.executable] + sys.argv)
 
 
+UPD = webadmin_update.Updater(S, svc_state, screen_off, lambda: build["running"], self_restart)
 MQTT = webadmin_mqtt.Bridge(dict(sysinfo=sysinfo, sound_state=sound_state, sound_update=sound_update,
                                  screen_off=screen_off, screen=screen_cmd))
 
@@ -660,6 +668,8 @@ class Handler(BaseHTTPRequestHandler):
                 s.update(service=svc_state(), screen_off=screen_off(), build_running=build["running"], auth=bool(S.PASSWORD))
                 s.update(sound_state())
                 s["mqtt"] = MQTT.status
+                s["update_available"] = UPD.available()
+                s["update_running"] = UPD.running()
                 s["cpu"] = cpu["pct"]
                 self.send_json(s)
             elif u.path == "/api/settings":
@@ -671,6 +681,8 @@ class Handler(BaseHTTPRequestHandler):
             elif u.path == "/api/logs":
                 n = int(parse_qs(u.query).get("lines", ["300"])[0])
                 self.send_json({"text": journal(max(10, min(n, 2000)))})
+            elif u.path == "/api/update":
+                self.send_json(UPD.state())
             elif u.path == "/api/build":
                 self.send_json(dict(running=build["running"], rc=build["rc"], default_stop=S.BUILD_STOP_DISPLAY,
                                     text="\n".join(list(build["lines"])[-400:])))
@@ -728,6 +740,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(dict(ok=True))
             if path == "/api/build/cancel":
                 cancel_build()
+                return self.send_json(dict(ok=True))
+            if path == "/api/update/check":
+                UPD.check()
+                return self.send_json(UPD.state())
+            if path == "/api/update/start":
+                UPD.start()
                 return self.send_json(dict(ok=True))
             if path == "/api/mqtt/reconnect":
                 MQTT.restart(S.ini)
@@ -805,6 +823,20 @@ button.b.d{background:#3a1613;border-color:#6b2420;color:#ffb4ae}
 button.b.s{width:auto;padding:8px 14px;font-size:14px}
 button.b:disabled{opacity:.45}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pb{height:10px;border-radius:99px;background:#0e141b;border:1px solid var(--line);overflow:hidden;margin:4px 0 12px}
+.pb i{display:block;height:100%;width:0;background:var(--acc);transition:width .4s}
+.pb.ok i{background:var(--ok)}.pb.bad i{background:var(--bad)}
+.stp{display:flex;align-items:center;gap:10px;padding:9px 14px;border-top:1px solid var(--line);font-size:15px}
+.stp:first-child{border-top:0}
+.stp .ic{width:22px;text-align:center;flex:none;color:var(--mut)}
+.stp.running .ic{color:var(--acc)}.stp.done .ic{color:var(--ok)}.stp.error .ic{color:var(--bad)}
+.stp.running{color:var(--txt)}.stp.pending,.stp.skipped{color:var(--mut)}
+.stp small{color:var(--mut);font-size:12px;margin-left:auto;text-align:right}
+@keyframes spin{to{transform:rotate(360deg)}}
+.stp.running .ic{display:inline-block;animation:spin 1s linear infinite}
+.cm{display:flex;gap:10px;padding:8px 14px;border-top:1px solid var(--line);font-size:14px}
+.cm:first-child{border-top:0}.cm code{color:var(--mut);font:12px ui-monospace,Menlo,Consolas,monospace;flex:none;padding-top:2px}
+.dotn{position:relative}.dotn.dot::after{content:"";position:absolute;top:8px;right:calc(50% - 38px);width:8px;height:8px;border-radius:50%;background:var(--acc)}
 .set{display:block}
 .menu{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin:0 -4px 6px;scrollbar-width:none}
 .menu::-webkit-scrollbar{display:none}
@@ -855,6 +887,7 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 <nav id="nav">
   <button data-t="home" class="on" onclick="go('home')">Pilotage</button>
   <button data-t="cfg" onclick="go('cfg')">Réglages</button>
+  <button data-t="upd" class="dotn" id="navUpd" onclick="go('upd')">Mises à jour</button>
   <button data-t="log" onclick="go('log')">Logs</button>
 </nav>
 <main>
@@ -896,6 +929,22 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
   <pre id="buildOut">Aucune construction lancée.</pre>
 </div></div>
 
+<section class="tab" id="t-upd">
+  <div class="hint" id="updWarn"></div>
+  <div class="tiles" id="updTiles"></div>
+  <div class="list" id="updAct"></div>
+  <div id="updProg" style="display:none">
+    <h2 class="t" id="updProgT">Progression</h2>
+    <div class="pb" id="updBar"><i></i></div>
+    <div class="list" id="updSteps"></div>
+    <pre id="updOut"></pre>
+  </div>
+  <div id="updNew" style="display:none">
+    <h2 class="t">Nouveautés</h2>
+    <div class="list" id="updCommits"></div>
+  </div>
+</section>
+
 <section class="tab" id="t-log">
   <div class="tools">
     <select id="logN" onchange="loadLogs()"><option>100</option><option selected>300</option><option>1000</option></select>
@@ -915,7 +964,7 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 
 <script>
 let SET = null, edits = {}, curCat = null, cur = 'home', logText = '', lastSt = null, volDrag = false, volTimer = null;
-let pend = {app: false, web: false}, TYPES = null, rows = {};
+let pend = {app: false, web: false}, TYPES = null, rows = {}, UPD = null, updWasRunning = false, updBusy = false;
 const $ = s => document.querySelector(s);
 const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
 
@@ -945,6 +994,7 @@ function go(tab) {
   if (tab === 'log') loadLogs();
   if (tab === 'cfg') pollBuild();
   if (tab === 'home') pollStatus();
+  if (tab === 'upd') pollUpd();
   window.scrollTo(0, 0);
 }
 
@@ -1007,6 +1057,8 @@ async function pollStatus() {
     const c = $('#chips'); c.innerHTML = '';
     if (s.muted) c.append(chip('son coupé', 'warn'));
     if (s.build_running) c.append(chip('carte en construction', 'warn'));
+    if (s.update_running) c.append(chip('mise à jour en cours', 'warn')); else if (s.update_available) c.append(chip('mise à jour disponible', 'ok'));
+    $('#navUpd').classList.toggle('dot', !!s.update_available && !s.update_running);
 
 
     const aw = $('#authWarn'); if (aw) aw.style.display = s.auth ? 'none' : 'block';
@@ -1211,6 +1263,83 @@ async function renderTypes(box) {
   save.onclick = () => doSave(false); save2.onclick = () => doSave(true); bt.append(save, save2); box.append(bt);
 }
 
+/* ---------- Mises à jour ---------- */
+function ago(ts) { const d = Math.max(0, Math.round(Date.now() / 1000 - ts)); return d < 90 ? "à l'instant" : (d < 5400 ? 'il y a ' + Math.round(d / 60) + ' min' : (d < 129600 ? 'il y a ' + Math.round(d / 3600) + ' h' : 'il y a ' + Math.round(d / 86400) + ' j')); }
+function fmtEl(s) { return s >= 60 ? Math.floor(s / 60) + ' min ' + (s % 60) + ' s' : s + ' s'; }
+async function pollUpd() {
+  try {
+    const u = await api('/api/update'); UPD = u;
+    const busy = u.running || u.restarting;
+    if (updWasRunning && !busy && u.ok === true && u.to_label) { updWasRunning = false; renderUpd(); setTimeout(() => { location.hash = '#upd'; location.reload(); }, 2500); return; }
+    updWasRunning = busy;
+    renderUpd();
+  } catch (e) {
+    if (updWasRunning) { UPD = Object.assign({}, UPD, {restarting: true, running: false}); renderUpd(true); }
+  }
+}
+async function checkUpd() {
+  updBusy = true; renderUpd();
+  try { UPD = await api('/api/update/check', {}); } catch (e) { toast(e.message, true); }
+  updBusy = false; renderUpd(); pollStatus();
+}
+async function startUpd() {
+  const c = UPD && UPD.check;
+  if (!confirm('Mettre à jour Flight display' + (c && c.latest ? ' vers ' + c.latest.label : '') + " ?\nL'affichage sera relancé, puis webadmin redémarrera (quelques secondes d'indisponibilité).")) return;
+  try { await api('/api/update/start', {}); updWasRunning = true; await pollUpd(); } catch (e) { toast(e.message, true); }
+}
+function renderUpd(lost) {
+  if (!UPD) return;
+  const u = UPD, c = u.check, busy = u.running || u.restarting;
+  const tiles = $('#updTiles'); tiles.innerHTML = '';
+  const cur = c && c.ok ? c.current : null;
+  tiles.append(tile('Version installée', cur ? cur.label : (u.from_label && !busy && u.ok === false ? u.from_label : '-'), '', cur ? cur.date + ' · ' + cur.subject : (c && !c.ok ? '' : 'Cliquez sur « Vérifier »')));
+  if (c && c.ok) {
+    const lat = c.latest;
+    tiles.append(tile('Dernière version', lat.label, c.behind ? 'ok' : '', lat.date + ' · ' + lat.subject));
+    tiles.append(tile('État', c.behind ? c.behind + ' nouveauté' + (c.behind > 1 ? 's' : '') : 'à jour', c.behind ? 'ok' : '', 'vérifié ' + ago(c.checked_at)));
+  } else if (c && !c.ok) tiles.append(tile('État', 'vérification impossible', 'bad'));
+  else tiles.append(tile('État', 'non vérifié', ''));
+  const warn = $('#updWarn'), w = [];
+  if (c && !c.ok) w.push(c.error);
+  if (c && c.ok) {
+    if (c.dirty.length) w.push('Des fichiers du logiciel ont été modifiés localement (' + c.dirty.slice(0, 5).join(', ') + ') : la mise à jour est bloquée pour ne rien écraser.');
+    if (c.ahead) w.push('Cette installation contient ' + c.ahead + ' commit(s) local(aux) absent(s) de GitHub' + (c.behind ? ' : mise à jour impossible sans conflit.' : '.'));
+    if (c.behind && c.installer_changed) w.push("Le programme d'installation (install.sh) a changé dans cette version. Webadmin ne met pas à jour les composants système : si une nouvelle fonction ne marche pas, relancez l'installeur.");
+  }
+  if (u.ok === false && u.error && !busy) w.push('Dernière tentative en échec : ' + u.error);
+  warn.style.display = w.length ? 'block' : 'none'; warn.textContent = w.join('\n'); warn.style.whiteSpace = 'pre-line';
+  const act = $('#updAct'); act.innerHTML = '';
+  const r = el('div', 'li stack'), b = el('div', 'btns');
+  const bc = el('button', 'b' + (c && c.ok && c.behind ? '' : ' p'), updBusy ? 'Vérification...' : 'Vérifier les mises à jour'); bc.disabled = updBusy || busy; bc.onclick = checkUpd;
+  b.append(bc);
+  if (c && c.ok && c.behind) { const bu = el('button', 'b p', 'Mettre à jour'); bu.disabled = busy || updBusy || !c.can_update; bu.onclick = startUpd; b.append(bu); }
+  const t = el('div', 'lt'); t.append(el('b', null, 'Mises à jour du logiciel'), el('small', null, 'Télécharge la dernière version depuis GitHub (dépôt arcalulu/flightdisplay). Vos réglages (config.ini) sont conservés.'));
+  r.append(t, b); act.append(r);
+  const prog = $('#updProg'), show = busy || u.started;
+  prog.style.display = show ? 'block' : 'none';
+  if (show) {
+    $('#updProgT').textContent = busy ? 'Mise à jour en cours' : (u.ok ? 'Dernière mise à jour' : 'Dernière tentative');
+    const pb = $('#updBar'); pb.className = 'pb' + (!busy && u.ok === true ? ' ok' : (!busy && u.ok === false ? ' bad' : ''));
+    pb.firstElementChild.style.width = (busy || u.ok !== null ? u.pct : 0) + '%';
+    const sb = $('#updSteps'); sb.innerHTML = '';
+    const icon = {pending: '○', running: '◐', done: '✓', skipped: '–', error: '✕'};
+    for (const s of u.steps) {
+      const d = el('div', 'stp ' + s.status); d.append(el('span', 'ic', icon[s.status] || '○'), el('span', null, s.label));
+      const info = s.status === 'running' && s.elapsed > 2 ? fmtEl(s.elapsed) : s.detail; if (info) d.append(el('small', null, info));
+      sb.append(d);
+    }
+    if (lost || u.restarting) { const d = el('div', 'stp running'); d.append(el('span', 'ic', '◐'), el('span', null, 'Webadmin redémarre, la page va se recharger...')); sb.append(d); }
+    if (!busy && u.done_msg) { const d = el('div', 'stp done'); d.append(el('span', 'ic', '✓'), el('span', null, u.done_msg)); sb.append(d); }
+    const o = $('#updOut'), atEnd = o.scrollTop + o.clientHeight >= o.scrollHeight - 30;
+    o.textContent = u.lines.join('\n') + (u.live ? '\n' + u.live : ''); if (atEnd) o.scrollTop = o.scrollHeight;
+  }
+  const nw = $('#updNew'), cl = $('#updCommits'); cl.innerHTML = '';
+  if (c && c.ok && c.commits.length && !busy) {
+    nw.style.display = 'block';
+    for (const m of c.commits) { const d = el('div', 'cm'); d.append(el('code', null, m.date.slice(5)), el('span', null, m.subject)); cl.append(d); }
+  } else nw.style.display = 'none';
+}
+
 /* ---------- Logs et carte ---------- */
 function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function renderLogs() {
@@ -1246,8 +1375,10 @@ buildHome();
 setInterval(pollStatus, 4000);
 setInterval(() => { if (cur === 'log' && $('#logAuto').checked) loadLogs(); }, 3000);
 setInterval(() => { if (cur === 'cfg' && curCat === 'position') pollBuild(); }, 2000);
+setInterval(() => { if (cur === 'upd' || updWasRunning) pollUpd(); }, 1500);
 pollStatus(); pollBuild();
 loadSettings().catch(e => toast(e.message, true));
+if (location.hash === '#upd') { history.replaceState(null, '', location.pathname); go('upd'); }
 </script>
 </body>
 </html>
@@ -1263,6 +1394,7 @@ if __name__ == "__main__":
     if not S.PASSWORD:
         print("ATTENTION : aucun mot de passe défini dans config.ini (section [server])", flush=True)
     threading.Thread(target=cpu_sampler, daemon=True).start()
+    threading.Thread(target=UPD.auto_loop, daemon=True).start()
     MQTT.configure(S.ini)
     MQTT.start()
     print(f"Administration sur http://{S.HOST}:{S.PORT}  (app : {S.APP_DIR})", flush=True)

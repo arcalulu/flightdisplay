@@ -67,6 +67,10 @@ Le guide complet (installation manuelle, référence de tous les réglages, weba
 
 ## Mettre à jour
 
+Le plus simple : interface web, onglet **Mises à jour**. « Vérifier les mises à jour » interroge GitHub, « Mettre à jour » télécharge et installe la nouvelle version en affichant la progression étape par étape (en cas de problème, la version précédente est restaurée automatiquement).
+
+Ou en ligne de commande :
+
 ```
 cd ~/flightdisplay
 git pull

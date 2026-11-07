@@ -128,6 +128,7 @@ Le mot de passe de webadmin, la clé CARTO et les identifiants MQTT sont stocké
 | `types_extra.txt` | Optionnel : associe des types d'avion inconnus à une forme d'icône. |
 | `webadmin.py` | Serveur web d'administration (bibliothèque standard Python). |
 | `webadmin_mqtt.py` | Pont MQTT / Home Assistant, chargé par webadmin. |
+| `webadmin_update.py` | Mises à jour depuis GitHub (onglet « Mises à jour »), chargé par webadmin. |
 | `install.sh` | Installeur automatique en une commande. |
 | `/usr/local/bin/flight-screen` | Script root de veille et réveil de l'écran (créé par l'étape 9 de `install.sh`). |
 | `/usr/local/bin/flight-screen-guard` | Garde qui remet l'écran en veille s'il se rallume tout seul pendant une veille (créée par l'étape 9 de `install.sh`). |
@@ -945,13 +946,20 @@ Quand une modification est prise en compte :
 - Interrupteur « Arrêter l'affichage pendant la construction » : libère la mémoire du Pi Zero pendant le calcul. À la fin, l'affichage est relancé pour charger la nouvelle carte (sauf si l'écran est en veille). Si la construction échoue, l'affichage reprend avec l'ancienne carte.
 - Une seule construction à la fois.
 
+**Mises à jour**
+
+- Tuiles « Version installée », « Dernière version » et « État » (nombre de nouveautés, date de la dernière vérification).
+- « Vérifier les mises à jour » interroge GitHub ; « Mettre à jour » lance la mise à jour (confirmation demandée). Pendant l'opération : barre de progression globale, liste des sept étapes (vérifications, téléchargement, application, bibliothèques, contrôle du code, relance de l'affichage, redémarrage de webadmin) avec le temps écoulé, et journal détaillé en direct. La page se recharge seule à la fin.
+- « Nouveautés » liste les commits à installer. Des avertissements signalent un fichier modifié localement, des commits locaux absents de GitHub ou un `install.sh` modifié. La procédure complète est décrite en 12.1.
+- Une pastille sur l'onglet et une puce dans l'en-tête signalent une version disponible.
+
 **Logs**
 
 - Journal du service d'affichage : 100, 300 ou 1000 lignes, filtre texte, actualisation automatique (interrupteur) toutes les 3 secondes. Les erreurs sont en rouge, les avertissements en jaune.
 
 ### 10.2 Réglages de l'interface web
 
-Ces options vivent dans `config.ini`, aux sections `[server]`, `[app]`, `[screen]`, `[build]` et `[mqtt]`, et se modifient dans Réglages, catégories « Serveur web », « Application et système » et « MQTT / Home Assistant ». Le fichier peut aussi s'éditer à la main (puis `sudo systemctl restart flightadmin`). L'installeur écrit ces sections avec les valeurs par défaut ci-dessous quand elles manquent.
+Ces options vivent dans `config.ini`, aux sections `[server]`, `[app]`, `[screen]`, `[build]`, `[update]` et `[mqtt]`, et se modifient dans Réglages, catégories « Serveur web », « Application et système » et « MQTT / Home Assistant ». Le fichier peut aussi s'éditer à la main (puis `sudo systemctl restart flightadmin`). L'installeur écrit ces sections avec les valeurs par défaut ci-dessous quand elles manquent.
 
 ```ini
 [server]
@@ -977,6 +985,9 @@ flag = /run/flight-screen-off
 
 [build]
 stop_display = true
+
+[update]
+auto_check = true
 
 [mqtt]
 enabled = false
@@ -1008,6 +1019,7 @@ interval = 30
 | `[screen]` | `helper` | `/usr/local/bin/flight-screen` | Script de veille et de réveil. |
 | | `flag` | `/run/flight-screen-off` | Fichier témoin de la veille (supprimé au redémarrage du Pi). |
 | `[build]` | `stop_display` | true | Valeur par défaut de l'interrupteur de l'onglet Carte. |
+| `[update]` | `auto_check` | true | Vérifie toutes les 12 heures si une nouvelle version existe sur GitHub (signalée par une pastille). N'installe rien tout seul. |
 | `[mqtt]` | | | Voir la section 11. |
 
 Ne sont modifiables que par la ligne de commande : les services systemd, le fichier sudoers, le contenu des scripts de veille et de garde (numéros de terminaux virtuels) et les variables d'environnement.
@@ -1031,6 +1043,9 @@ Toutes les routes exigent l'authentification si un mot de passe est défini. Les
 | `/api/power` | POST | `{"action": "reboot\|poweroff"}` | Redémarre ou éteint le Pi. |
 | `/api/build` | GET / POST | `{"stop_display": true}` | État et sortie de la construction / lancement. |
 | `/api/build/cancel` | POST | `{}` | Annule la construction. |
+| `/api/update` | GET | | État des mises à jour : dernière vérification (versions, nouveautés), progression, étapes et journal de la mise à jour en cours ou de la dernière. |
+| `/api/update/check` | POST | `{}` | Interroge GitHub (`git fetch`) et renvoie l'état à jour. |
+| `/api/update/start` | POST | `{}` | Lance la mise à jour en arrière-plan (suivi par `GET /api/update`). |
 | `/api/mqtt/reconnect` | POST | `{}` | Reconnecte MQTT et republie la découverte. |
 | `/api/webadmin/restart` | POST | `{}` | Redémarre webadmin. |
 
@@ -1108,7 +1123,15 @@ Le volume et le son restent réglables pendant la veille de l'écran : les valeu
 
 ### 12.1 Mettre à jour
 
-Avec une installation par Git ou par l'installeur automatique :
+**Depuis webadmin (recommandé).** Onglet **Mises à jour** :
+
+1. « Vérifier les mises à jour » compare votre version à celle de GitHub (branche suivie par l'installation, `main` par défaut) et liste les nouveautés. Une pastille signale une version disponible ; par défaut, webadmin vérifie seul toutes les 12 heures (Réglages, « Mises à jour », option `auto_check`, section `[update]` de `config.ini`). Rien n'est installé sans clic sur « Mettre à jour ».
+2. « Mettre à jour » enchaîne : vérifications (dépôt Git, espace disque, aucun fichier modifié localement), téléchargement, application (fast-forward uniquement), bibliothèques Python (seulement si `requirements.txt` ou les dépendances de `build_map_vector.py` ont changé), contrôle du code, relance de l'affichage, redémarrage de webadmin. La progression et le journal s'affichent en direct ; la page se recharge à la fin.
+3. Si le code de la nouvelle version contient une erreur ou si l'affichage ne reste pas actif après la relance, la version précédente est restaurée automatiquement.
+
+Limites : webadmin n'a pas les droits pour modifier les composants système (services systemd, droits sudo, script de veille, correctif HDMI). Si une version en change, un avertissement s'affiche (lorsque `install.sh` est modifié) : relancez alors l'installeur en conservant la configuration. La mise à jour est refusée si des fichiers suivis par Git ont été modifiés à la main, ou si l'installation n'est pas un dépôt Git.
+
+**En ligne de commande**, avec une installation par Git ou par l'installeur automatique :
 
 ```
 cd ~/flightdisplay
