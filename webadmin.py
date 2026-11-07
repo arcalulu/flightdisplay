@@ -5,8 +5,10 @@ import subprocess, sys, threading, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
+import i18n
 import webadmin_mqtt
 import webadmin_update
+from i18n import tr
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 INI_PATH = os.environ.get("WEBADMIN_INI") or os.path.join(HERE, "config.ini")
@@ -53,6 +55,7 @@ class Settings:
         self.SCREEN_FLAG = gs("screen", "flag", "/run/flight-screen-off")
         self.BUILD_STOP_DISPLAY = gb("build", "stop_display", True)
         self.UPDATE_AUTO = gb("update", "auto_check", True)
+        self.LANG = i18n.set_language(gs("general", "language", "fr"))
 
 
 S = Settings()
@@ -69,6 +72,7 @@ def path_of(f):
 
 # ---------------------------------------------------------------- schema
 CATS = [
+    ("language", "Langue", "Général"),
     ("position", "Carte et position", "Programme"),
     ("api", "Flightradar24", "Programme"),
     ("display", "Affichage", "Programme"),
@@ -84,6 +88,7 @@ CATS = [
     ("mqtt", "MQTT / Home Assistant", "Intégrations"),
 ]
 CAT_NOTES = {
+    "language": "Langue de webadmin (immédiat) et du texte affiché à l'écran par le programme (après sa relance : « Enregistrer et appliquer »). Pour ajouter une langue, déposez un fichier dans le dossier lang (voir la documentation).",
     "label": "Petits panneaux affichés à côté de chaque avion sur la carte. Réordonnez les éléments avec les flèches, choisissez ceux à afficher, leur taille, gras et italique, et s'ils partagent la ligne de l'élément précédent. Si tout est masqué, aucun panneau n'est affiché. Pris en compte après relance du programme.",
     "position": "Modifier ces valeurs oblige à reconstruire la carte (section Reconstruction de la carte, en bas de cette page).",
     "server": "Le port et l'adresse d'écoute demandent un redémarrage de webadmin. L'identifiant et le mot de passe s'appliquent immédiatement.",
@@ -124,7 +129,11 @@ for _id, _name, _show, _size, _same in LABEL_FIELDS:
         C("label", "label", _id + "_same_line", "bool", _same, _name + " : sur la ligne précédente", "", "Style"),
     ]
 
+LANGS = i18n.languages()
+
 PARAMS = [
+    C("language", "general", "language", "choice", "fr", "Langue", "", "Langue", options=[l["code"] for l in LANGS],
+      labels={l["code"]: l["name"] for l in LANGS}),
     C("position", "position", "latitude", "float", "", "Latitude", "Degrés décimaux (ex. 44.8378).", "Maison", min=-90, max=90, needs_map=True),
     C("position", "position", "longitude", "float", "", "Longitude", "Degrés décimaux (ex. -0.5792).", "Maison", min=-180, max=180, needs_map=True),
     C("position", "position", "radius_km", "float", 20, "Rayon de la carte (km)", "Distance couverte par la carte.", "Carte", min=1, max=200, needs_map=True),
@@ -238,13 +247,13 @@ def fmt_default(v):
 
 def get_settings():
     state = {f: parse(read_lines(path_of(f)))[0] for f in ("config", "web")}
-    cats = {cid: dict(id=cid, title=t, menu=m, groups=collections.OrderedDict(), note=CAT_NOTES.get(cid, ""))
+    cats = {cid: dict(id=cid, title=tr(t), menu=m, groups=collections.OrderedDict(), note=tr(CAT_NOTES.get(cid, "")))
             for cid, t, m in CATS}
     for p in PARAMS:
         cur = state[p["file"]].get((p["sec"], p["key"]))
         raw = cur["value"] if cur else fmt_default(p["default"])
-        out = dict(id=f'{p["file"]}:{p["sec"]}.{p["key"]}', cat=p["cat"], key=p["key"], type=p["type"], label=p["label"],
-                   help=p["help"], options=p.get("options"), needs_map=bool(p.get("needs_map")), apply=p["apply"],
+        out = dict(id=f'{p["file"]}:{p["sec"]}.{p["key"]}', cat=p["cat"], key=p["key"], type=p["type"], label=tr(p["label"]),
+                   help=tr(p["help"]), options=p.get("options"), labels=p.get("labels"), needs_map=bool(p.get("needs_map")), apply=p["apply"],
                    present=cur is not None, min=p.get("min"), max=p.get("max"), step=p.get("step"), ui=p.get("ui"),
                    secret=p["type"] == "secret", set=bool(cur and cur["value"]), value="" if p["type"] == "secret" else raw)
         cats[p["cat"]]["groups"].setdefault(p["group"], []).append(out)
@@ -262,17 +271,17 @@ def get_settings():
     cats["types"].update(kind="types", groups=[], file=None)
     cats["label"]["kind"] = "labels"
     menu = []
-    for gname in ("Programme", "Webadmin", "Intégrations"):
+    for gname in ("Général", "Programme", "Webadmin", "Intégrations"):
         items = []
         for cid, title, m in CATS:
             c = cats[cid]
             if m == gname and (cid == "types" or c["groups"]):
                 items.append(dict(id=cid, title=title))
         if items:
-            menu.append(dict(group=gname, items=items))
+            menu.append(dict(group=tr(gname), items=items))
     for c in cats.values():
         if c.get("kind") != "types":
-            c["groups"] = [dict(name=n, params=ps) for n, ps in c["groups"].items()]
+            c["groups"] = [dict(name=tr(n), params=ps) for n, ps in c["groups"].items()]
     return dict(label_fields=[dict(id=f[0], name=f[1]) for f in LABEL_FIELDS], menu=menu, cats={k: v for k, v in cats.items() if v.get("kind") == "types" or v["groups"]},
                 has_backup={f: os.path.exists(path_of(f) + ".bak") for f in ("config", "web")})
 
@@ -398,6 +407,9 @@ def apply_settings(changes):
         res["restart_web"] = (S.HOST, S.PORT) != BOUND
         if any(c.startswith("web:mqtt.") for c in changed):
             MQTT.restart(S.ini)
+    if "config:general.language" in changed:
+        S.reload()
+        res["reload_ui"] = True
     res["port"] = S.PORT
     return res
 
@@ -649,7 +661,7 @@ def cancel_build():
 def journal(lines):
     ok, out = run([S.JOURNALCTL, "-u", S.SERVICE, "-n", str(lines), "--no-pager", "-o", "short-iso", "-q"], 15)
     if not ok and not out:
-        out = "journal indisponible"
+        out = tr("journal indisponible")
     return out
 
 
@@ -673,6 +685,10 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
     def send_json(self, obj, code=200):
+        if isinstance(obj, dict):
+            for k in ("error", "message"):
+                if isinstance(obj.get(k), str):
+                    obj[k] = tr(obj[k])
         data = json.dumps(obj).encode()
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -693,7 +709,7 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 pass
             time.sleep(1)
-        body = "Authentification requise".encode()
+        body = tr("Authentification requise").encode()
         self.send_response(401)
         self.send_header("WWW-Authenticate", 'Basic realm="Flight display", charset="UTF-8"')
         self.send_header("Content-Length", str(len(body)))
@@ -707,7 +723,8 @@ class Handler(BaseHTTPRequestHandler):
         u = urlparse(self.path)
         try:
             if u.path == "/":
-                data = PAGE.encode("utf-8")
+                data = PAGE.replace("__I18N__", json.dumps(i18n.js_table(), ensure_ascii=False).replace("</", "<\\/")) \
+                           .replace('<html lang="fr">', '<html lang="%s">' % S.LANG).encode("utf-8")
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Content-Length", str(len(data)))
@@ -738,7 +755,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(UPD.state())
             elif u.path == "/api/build":
                 self.send_json(dict(running=build["running"], rc=build["rc"], default_stop=S.BUILD_STOP_DISPLAY,
-                                    text="\n".join(list(build["lines"])[-400:])))
+                                    text="\n".join(tr(l) for l in list(build["lines"])[-400:])))
             else:
                 self.send_json({"error": "introuvable"}, 404)
         except Exception as e:
@@ -1025,6 +1042,49 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 <div id="toast"></div>
 
 <script>
+/* ---------- Traductions ----------
+   Le français est la langue source : les textes sont les clés. Une clé peut contenir {0}, {1}... (modèle). */
+const I18N = __I18N__;
+const TL_ON = I18N.lang !== 'fr' && Object.keys(I18N.strings).length > 0, TPL = [], tcache = new Map();
+const hasKey = k => Object.prototype.hasOwnProperty.call(I18N.strings, k);
+for (const k in I18N.strings) if (/\{\d+\}/.test(k)) {
+  const parts = k.split(/\{(\d+)\}/);
+  TPL.push([new RegExp('^' + parts.map((p, i) => i % 2 ? '([\\s\\S]+?)' : p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('') + '$'), parts.filter((_, i) => i % 2).map(Number), I18N.strings[k]]);
+}
+function tl(s) {
+  if (!TL_ON || typeof s !== 'string' || !s) return s;
+  if (tcache.has(s)) return tcache.get(s);
+  let r = s;
+  if (hasKey(s)) r = I18N.strings[s];
+  else {
+    for (const [rx, idx, v] of TPL) {
+      const m = rx.exec(s);
+      if (m) { const a = {}; idx.forEach((n, i) => { a[n] = tl(m[i + 1]); }); r = v.replace(/\{(\d+)\}/g, (x, n) => n in a ? a[n] : x); break; }
+    }
+    if (r === s && s.includes(' ; ')) r = s.split(' ; ').map(tl).join(' ; ');
+  }
+  if (tcache.size > 3000) tcache.clear();
+  tcache.set(s, r); return r;
+}
+function _t(s, ...a) {
+  if (!a.length) return tl(s);
+  return (TL_ON && hasKey(s) ? I18N.strings[s] : s).replace(/\{(\d+)\}/g, (x, n) => a[+n] !== undefined ? a[+n] : x);
+}
+function trAttrs(n) { for (const a of ['placeholder', 'title']) { const v = n.getAttribute && n.getAttribute(a); if (v) { const r = tl(v); if (r !== v) n.setAttribute(a, r); } } }
+function trNode(n) {
+  if (n.nodeType === 3) { const v = n.nodeValue, m = v.trim(); if (m && m.length < 400) { const r = tl(m); if (r !== m) n.nodeValue = v.replace(m, () => r); } return; }
+  if (n.nodeType !== 1) return;
+  trAttrs(n);
+  if (n.tagName === 'SCRIPT' || n.tagName === 'STYLE' || n.tagName === 'TEXTAREA') return;
+  for (let c = n.firstChild; c; c = c.nextSibling) trNode(c);
+}
+if (TL_ON) {
+  const _confirm = window.confirm.bind(window); window.confirm = m => _confirm(tl(m));
+  new MutationObserver(ms => { for (const m of ms) { if (m.type === 'childList') m.addedNodes.forEach(trNode); else if (m.type === 'characterData') trNode(m.target); else trAttrs(m.target); } })
+    .observe(document.documentElement, {childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['placeholder', 'title']});
+  trNode(document.body); document.title = tl(document.title);
+}
+
 let SET = null, edits = {}, curCat = null, cur = 'home', logText = '', lastSt = null, volDrag = false, volTimer = null;
 let pend = {app: false, web: false}, TYPES = null, rows = {}, UPD = null, updWasRunning = false, updBusy = false, updAuto = false, updTick = 0, histShut = {};
 const $ = s => document.querySelector(s);
@@ -1171,7 +1231,7 @@ function updateBar() {
   if (n) {
     const a = applyNeeds(), parts = [];
     if (a.app) parts.push('relance du programme'); if (a.web) parts.push('redémarrage de webadmin');
-    $('#barTxt').textContent = n + ' modification' + (n > 1 ? 's' : '') + (parts.length ? ' · à appliquer : ' + parts.join(' et ') : ' · prise en compte immédiate');
+    $('#barTxt').textContent = _t(n > 1 ? '{0} modifications' : '{0} modification', n) + (parts.length ? _t(' · à appliquer : {0}', parts.map(tl).join(_t(' et '))) : _t(' · prise en compte immédiate'));
   }
 }
 function markMenu() {
@@ -1195,11 +1255,11 @@ function control(p) {
   }
   if (p.type === 'choice' && p.options.length <= 3) {
     const s = el('div', 'seg' + (p.id in edits ? ' chg' : ''));
-    for (const o of p.options) { const b = el('button', String(v) === o ? 'on' : '', o); b.onclick = () => { setEdit(p, o); s.classList.toggle('chg', p.id in edits); s.querySelectorAll('button').forEach(x => x.classList.toggle('on', x.textContent === o)); }; s.append(b); }
+    for (const o of p.options) { const b = el('button', String(v) === o ? 'on' : '', (p.labels && p.labels[o]) || o); b.dataset.v = o; b.onclick = () => { setEdit(p, o); s.classList.toggle('chg', p.id in edits); s.querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.v === o)); }; s.append(b); }
     return {c: s, inline: true};
   }
   if (p.type === 'choice') {
-    const s = document.createElement('select'); for (const o of p.options) { const op = el('option', null, o); op.value = o; s.append(op); }
+    const s = document.createElement('select'); for (const o of p.options) { const op = el('option', null, (p.labels && p.labels[o]) || o); op.value = o; s.append(op); }
     s.value = v; s.className = p.id in edits ? 'chg' : ''; s.onchange = () => { setEdit(p, s.value); s.classList.toggle('chg', p.id in edits); }; return {c: s, inline: false};
   }
   if (p.ui === 'slider') {
@@ -1247,7 +1307,7 @@ function renderCatBase() {
     for (const p of g.params) {
       const ctl = control(p), row = el('div', 'li' + (ctl.inline ? '' : ' full')), t = el('div', 'lt'), b = el('b', null, p.label);
       if (p.needs_map) b.append(el('span', 'flag', 'recalcule la carte'));
-      t.append(b); const hp = (p.help || '') + (p.present ? '' : (p.help ? ' ' : '') + '(absent du fichier : valeur par défaut)');
+      t.append(b); const hp = (p.help || '') + (p.present ? '' : (p.help ? ' ' : '') + _t('(absent du fichier : valeur par défaut)'));
       if (hp) t.append(el('small', null, hp));
       row.append(t, ctl.c); list.append(row);
     }
@@ -1269,7 +1329,7 @@ function showPending() {
   if (!pend.app && !pend.web) { box.style.display = 'none'; return; }
   box.style.display = 'block';
   const parts = []; if (pend.app) parts.push('relancer le programme'); if (pend.web) parts.push('redémarrer webadmin');
-  $('#pendTxt').textContent = 'Enregistré. Pour appliquer : ' + parts.join(' et ') + '.';
+  $('#pendTxt').textContent = _t('Enregistré. Pour appliquer : {0}.', parts.map(tl).join(_t(' et ')));
   if (pend.app) { const b = el('button', 'b p s', 'Relancer le programme'); b.onclick = async () => { await svc('restart'); pend.app = false; showPending(); }; btns.append(b); }
   if (pend.web) { const b = el('button', 'b p s', 'Redémarrer webadmin'); b.onclick = () => restartWeb(pend.port); btns.append(b); }
 }
@@ -1281,6 +1341,7 @@ async function saveSettings(apply) {
     toast(r.changed.length + ' réglage(s) enregistré(s)');
     if (r.needs_map) $('#mapHint').style.display = 'block';
     pend.port = r.port;
+    if (r.reload_ui) setTimeout(() => location.reload(), 1500);
     if (apply) {
       if (r.restart_app) await svc('restart');
       if (r.restart_web) { pend = {app: false, web: false}; showPending(); await restartWeb(r.port); return; }
@@ -1423,18 +1484,18 @@ function renderUpd(lost) {
   if (c && c.ok) {
     const lat = c.latest;
     tiles.append(tile('Dernière version', lat.label, c.behind ? 'ok' : '', lat.date + ' · ' + lat.subject));
-    tiles.append(tile('État', c.behind ? c.behind + ' nouveauté' + (c.behind > 1 ? 's' : '') : 'à jour', c.behind ? 'ok' : '', 'vérifié ' + ago(c.checked_at)));
+    tiles.append(tile('État', c.behind ? _t(c.behind > 1 ? '{0} nouveautés' : '{0} nouveauté', c.behind) : 'à jour', c.behind ? 'ok' : '', 'vérifié ' + ago(c.checked_at)));
   } else if (c && !c.ok) tiles.append(tile('État', 'vérification impossible', 'bad'));
   else tiles.append(tile('État', 'non vérifié', ''));
   const warn = $('#updWarn'), w = [];
   if (c && !c.ok) w.push(c.error);
   if (c && c.ok) {
-    if (c.dirty.length) w.push('Des fichiers du logiciel ont été modifiés localement (' + c.dirty.slice(0, 5).join(', ') + ') : la mise à jour est bloquée pour ne rien écraser.');
-    if (c.ahead) w.push('Cette installation contient ' + c.ahead + ' commit(s) local(aux) absent(s) de GitHub' + (c.behind ? ' : mise à jour impossible sans conflit.' : '.'));
+    if (c.dirty.length) w.push(_t('Des fichiers du logiciel ont été modifiés localement ({0}) : la mise à jour est bloquée pour ne rien écraser.', c.dirty.slice(0, 5).join(', ')));
+    if (c.ahead) w.push(c.behind ? _t('Cette installation contient {0} commit(s) local(aux) absent(s) de GitHub : mise à jour impossible sans conflit.', c.ahead) : _t('Cette installation contient {0} commit(s) local(aux) absent(s) de GitHub.', c.ahead));
     if (c.behind && c.installer_changed) w.push("Le programme d'installation (install.sh) a changé dans cette version. Webadmin ne met pas à jour les composants système : si une nouvelle fonction ne marche pas, relancez l'installeur.");
   }
-  if (u.ok === false && u.error && !busy) w.push('Dernière tentative en échec : ' + u.error);
-  warn.style.display = w.length ? 'block' : 'none'; warn.textContent = w.join('\n'); warn.style.whiteSpace = 'pre-line';
+  if (u.ok === false && u.error && !busy) w.push(_t('Dernière tentative en échec : {0}', u.error));
+  warn.style.display = w.length ? 'block' : 'none'; warn.textContent = w.map(tl).join('\n'); warn.style.whiteSpace = 'pre-line';
   const act = $('#updAct'); act.innerHTML = '';
   const r = el('div', 'li stack'), b = el('div', 'btns');
   const bc = el('button', 'b' + (c && c.ok && c.behind ? '' : ' p'), updBusy ? 'Vérification...' : 'Vérifier les mises à jour'); bc.disabled = updBusy || busy; bc.onclick = checkUpd;
@@ -1466,7 +1527,7 @@ function renderUpd(lost) {
     // Une version = une étiquette git (vX.Y.Z) : elle regroupe son commit et les commits plus anciens jusqu'à l'étiquette précédente.
     const groups = [];
     for (const m of u.history) {
-      if (m.tag) groups.push({key: m.tag, title: 'Version ' + m.tag.replace(/^v/, ''), date: m.date, items: []});
+      if (m.tag) groups.push({key: m.tag, title: _t('Version {0}', m.tag.replace(/^v/, '')), date: m.date, items: []});
       else if (!groups.length) groups.push({key: '_dev', title: 'En développement', sub: 'non publiée', items: []});
       groups[groups.length - 1].items.push(m);
     }
@@ -1477,7 +1538,7 @@ function renderUpd(lost) {
       if (g.sub) head.append(el('span', 'chip', g.sub));
       if (g.items.some(m => m.new)) head.append(el('span', 'chip ok', 'nouveau'));
       if (g.items.some(m => u.current && m.short === u.current.short)) head.append(el('span', 'chip', 'installée'));
-      head.append(el('small', null, (g.date ? g.date + ' · ' : '') + g.items.length + ' commit' + (g.items.length > 1 ? 's' : '')));
+      head.append(el('small', null, (g.date ? g.date + ' · ' : '') + _t(g.items.length > 1 ? '{0} commits' : '{0} commit', g.items.length)));
       const body = el('div', 'vb'); body.style.display = shut ? 'none' : 'block';
       head.onclick = () => { const s = body.style.display !== 'none'; body.style.display = s ? 'none' : 'block'; head.classList.toggle('shut', s); histShut[g.key] = s; };
       for (const m of g.items) {

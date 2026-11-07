@@ -499,6 +499,7 @@ write_configs() {
   ini_default config.ini screen flag /run/flight-screen-off
   ini_default config.ini build stop_display true
   ini_default config.ini update auto_check true
+  ini_default config.ini general language fr
   ini_default config.ini mqtt enabled false
   ini_default config.ini mqtt port 1883
   ini_default config.ini mqtt tls false
@@ -571,6 +572,7 @@ install_webadmin() {
   [ -f webadmin.py ] || { echo "webadmin.py introuvable dans $APP_DIR"; return 1; }
   [ -f webadmin_mqtt.py ] || { echo "webadmin_mqtt.py introuvable dans $APP_DIR"; return 1; }
   [ -f webadmin_update.py ] || { echo "webadmin_update.py introuvable dans $APP_DIR"; return 1; }
+  [ -f i18n.py ] || { echo "i18n.py introuvable dans $APP_DIR"; return 1; }
   systemctl_bin=/usr/bin/systemctl
   [ -x "$systemctl_bin" ] || systemctl_bin=$(command -v systemctl)
   tmp=$(mktemp)

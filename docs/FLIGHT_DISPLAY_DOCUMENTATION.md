@@ -129,6 +129,7 @@ Le mot de passe de webadmin, la clé CARTO et les identifiants MQTT sont stocké
 | `webadmin.py` | Serveur web d'administration (bibliothèque standard Python). |
 | `webadmin_mqtt.py` | Pont MQTT / Home Assistant, chargé par webadmin. |
 | `webadmin_update.py` | Mises à jour depuis GitHub (onglet « Mises à jour »), chargé par webadmin. |
+| `i18n.py` et dossier `lang/` | Traductions (français, anglais) partagées par le programme d'affichage et webadmin. |
 | `install.sh` | Installeur automatique en une commande. |
 | `/usr/local/bin/flight-screen` | Script root de veille et réveil de l'écran (créé par l'étape 9 de `install.sh`). |
 | `/usr/local/bin/flight-screen-guard` | Garde qui remet l'écran en veille s'il se rallume tout seul pendant une veille (créée par l'étape 9 de `install.sh`). |
@@ -691,6 +692,14 @@ Toute l'interface est dessinée à la résolution de la carte. Sous Windows et s
 | `rotate_seconds` | 12 | 3 à 120 | Durée d'affichage de chaque avion quand plusieurs sont éligibles. |
 | `corner_top_left`, `corner_top_right`, `corner_bottom_left`, `corner_bottom_right` | true | true / false | Angles où le panneau peut s'afficher. Un angle décoché n'est jamais utilisé, même si des avions passent derrière les autres angles (le panneau choisit alors le moins gênant parmi les angles autorisés). Si les quatre sont décochés, aucune restriction. |
 
+### 8.4 bis `[general]` — catégorie « Langue »
+
+| Option | Défaut | Description |
+|---|---|---|
+| `language` | `fr` | Code de la langue : `fr` (français) ou `en` (anglais), ou toute langue ajoutée dans `lang/`. Change d'un coup l'interface webadmin (immédiatement) et le texte affiché à l'écran par le programme d'affichage (après sa relance). Un code inconnu revient au français. |
+
+Se règle dans webadmin : Réglages, Langue.
+
 ### 8.5 bis `[label]` — catégorie « Étiquettes des avions »
 
 Petits panneaux affichés à côté de chaque avion sur la carte (le grand panneau photo n'est pas concerné). Dans webadmin, la catégorie propose un éditeur : un aperçu en direct, puis une ligne par élément avec les flèches ▲ ▼ (ordre), l'interrupteur (afficher ou non), la taille (Petit, Moyen, Grand), les boutons G (gras) et I (italique), et « Même ligne » (place l'élément sur la ligne de l'élément précédent, séparé par un point médian). Si tout est masqué, aucun panneau n'est affiché. Pris en compte après relance du programme.
@@ -1170,6 +1179,28 @@ git push origin v1.1.0
 ```
 
 Les installations récupèrent les étiquettes à chaque vérification. Les mises à jour installent toujours le dernier commit de la branche, qu'il soit publié ou non.
+
+### 12.1 ter Ajouter une langue
+
+Le français est la langue de référence : les textes du code en français servent de clés. Chaque langue est un fichier `lang/<code>.json` :
+
+```json
+{
+ "_meta": {"name": "Deutsch"},
+ "strings": {
+  "Pilotage": "Steuerung",
+  "{0} avion(s) en vol": "{0} Flugzeug(e) in der Luft"
+ }
+}
+```
+
+- Une clé contenant `{0}`, `{1}`... est un modèle : elle reconnaît les textes composés (« 3 au sol », « Latitude : minimum -90 ») et la traduction réutilise les mêmes emplacements, dans l'ordre voulu.
+- Un texte absent ou vide reste en français : une traduction partielle fonctionne.
+- Pour créer le fichier avec tous les textes à traduire : `python3 lang/check_lang.py --new de "Deutsch"`. Pour voir ce qu'il reste à traduire et vérifier les emplacements : `python3 lang/check_lang.py de`.
+- Redémarrer webadmin (`sudo systemctl restart flightadmin`, ou une mise à jour) : la langue apparaît dans Réglages, Langue. Elle s'applique à webadmin tout de suite et au programme d'affichage après sa relance.
+- Ne sont pas traduits : l'installeur (`install.sh`), la documentation, les messages techniques du journal et les descriptions des commits.
+
+Quand une nouvelle version du logiciel ajoute un texte, il apparaît en français tant que `lang/en.json` (et les autres fichiers) n'a pas la clé correspondante.
 
 ### 12.2 Sauvegarde
 

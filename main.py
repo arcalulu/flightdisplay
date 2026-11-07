@@ -1,8 +1,11 @@
 import configparser, json, math, os, queue, sys, threading, time, hashlib
 from array import array
 import requests
+import i18n
 
 cfg = configparser.ConfigParser(); cfg.read("config.ini")
+i18n.set_language(cfg.get("general", "language", fallback="fr"))  # langue du texte affiche a l'ecran
+tr = i18n.tr
 
 ALERT_KM = cfg.getfloat("alert", "radius_km", fallback=5)
 ALERT_ON = ALERT_KM > 0
@@ -232,7 +235,7 @@ states = {}
 details = load_details()
 last_save = [0]
 queued = set(); q = queue.Queue()
-status = {"msg": "demarrage...", "t": 0, "high": 0}
+status = {"msg": "", "t": 0, "high": 0, "err": False}
 cool = {"until": 0}
 api = FlightRadar24API()
 
@@ -310,9 +313,9 @@ def ground_row(s, d):
     o = "" if o == "?" else o
     t = "" if t == "?" else t
     if AIRPORT and s["d_iata"] == AIRPORT:
-        where = f"de {o}" if o else ""
+        where = tr("de {0}", o) if o else ""
     elif AIRPORT and s["o_iata"] == AIRPORT:
-        where = f"vers {t}" if t else ""
+        where = tr("vers {0}", t) if t else ""
     else:
         where = route(o, t)
     model = d["model"] if d else (s["code"] or "")
@@ -415,7 +418,7 @@ def poll_loop():
                 for k in list(details):
                     if k not in states and now - details[k].get("t", now) > 3600:
                         del details[k]
-            status.update(msg=f"{len(seen)} avion(s)", t=now, high=high)
+            status.update(msg="", t=now, high=high, err=False)
             fails = 0
             rate = False
             interval = max(POLL, interval * 0.98)
@@ -427,7 +430,7 @@ def poll_loop():
                 interval = min(interval * 1.5, 120)
                 cool["until"] = time.time() + 60
                 print("intervalle porte a", round(interval), "s")
-            status.update(msg=f"erreur reseau : {str(e)[:60]}", t=time.time())
+            status.update(msg=tr("erreur réseau : {0}", str(e)[:60]), t=time.time(), err=True)
         time.sleep(interval if (not fails or rate) else min(interval * 2 ** fails, 300))
 
 
@@ -646,7 +649,7 @@ def main():
     def ground_surface(rows, total):
         key = ("g", tuple(rows), total)
         if key not in label_cache:
-            title = f_small.render(f"AU SOL ({total})", True, (140, 150, 160))
+            title = f_small.render(tr("AU SOL ({0})", total), True, (140, 150, 160))
             rh = f_mid.get_height() + S(4)
             h = title.get_height() + rh * len(rows) + S(18)
             surf = pygame.Surface((G_W, h), pygame.SRCALPHA)
@@ -756,8 +759,8 @@ def main():
                 if ph is None:
                     d["photo_path"] = None
             if ph is None:
-                ph = placeholder("Photo indisponible" if d else "Chargement des details...")
-            av = f'Altitude {fmt_alt(s["alt"])}   \u00b7   Vitesse {fmt_speed(s["speed"])}'
+                ph = placeholder(tr("Photo indisponible") if d else tr("Chargement des détails..."))
+            av = tr("Altitude {0}   \u00b7   Vitesse {1}", fmt_alt(s["alt"]), fmt_speed(s["speed"]))
             if d:
                 lines = [
                     (f'{d["model"]}  \u00b7  {d["reg"]}', f_big, (255, 255, 255)),
@@ -774,7 +777,7 @@ def main():
                 ]
             lines = [l for l in lines if l[0]]
             if cur_key in zone_ids:
-                lines.insert(0, (f'ALERTE  \u00b7  \u00e0 {dist_of.get(cur_key, 0):.1f} km de la maison',
+                lines.insert(0, (tr("ALERTE  \u00b7  à {0} km de la maison", f"{dist_of.get(cur_key, 0):.1f}"),
                                  f_small, (255, 110, 110)))
             text_h = sum(f.get_height() + 2 for _, f, _ in lines)
             M = S(30)
@@ -827,15 +830,15 @@ def main():
 
         age = now - status["t"]
         on_screen = sum(1 for v in vis if 0 <= v[3] <= W and 0 <= v[4] <= H)
-        parts = [f"{on_screen} avion(s) en vol"]
+        parts = [tr("{0} avion(s) en vol", on_screen)]
         if MAX_ALT:
-            parts.append(f"{status.get('high', 0)} au-dessus de {fmt_alt(MAX_ALT)}")
+            parts.append(tr("{0} au-dessus de {1}", status.get("high", 0), fmt_alt(MAX_ALT)))
         if gnd:
-            parts.append(f"{len(gnd)} au sol")
+            parts.append(tr("{0} au sol", len(gnd)))
         msg = "  \u00b7  ".join(parts)
         if age > POLL * 4 and status["t"]:
-            msg += "  (donnees anciennes)"
-        if status["msg"].startswith("erreur"):
+            msg += "  " + tr("(données anciennes)")
+        if status["err"]:
             msg += "  |  " + status["msg"]
         tx = S(12)
         if rt["muted"]:

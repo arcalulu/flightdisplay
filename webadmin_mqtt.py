@@ -6,6 +6,8 @@ Necessite paho-mqtt : sudo apt install python3-paho-mqtt
 """
 import json, re, socket, threading, time
 
+import i18n
+
 try:
     import paho.mqtt.client as paho
 except ImportError:
@@ -142,14 +144,14 @@ class Bridge:
         dev = {"identifiers": [self.uid], "name": self.name, "manufacturer": "Raspberry Pi", "model": "Flight display"}
         avail = self.t("availability")
         ents = [
-            ("switch", "screen", {"name": "Écran", "icon": "mdi:monitor",
+            ("switch", "screen", {"name": i18n.tr("Écran"), "icon": "mdi:monitor",
                                   "command_topic": self.t("screen/set"), "state_topic": self.t("screen/state")}),
-            ("switch", "sound", {"name": "Son des alertes", "icon": "mdi:volume-high",
+            ("switch", "sound", {"name": i18n.tr("Son des alertes"), "icon": "mdi:volume-high",
                                  "command_topic": self.t("sound/set"), "state_topic": self.t("sound/state")}),
-            ("number", "volume", {"name": "Volume des alertes", "icon": "mdi:volume-medium", "min": 0, "max": 100,
+            ("number", "volume", {"name": i18n.tr("Volume des alertes"), "icon": "mdi:volume-medium", "min": 0, "max": 100,
                                   "step": 5, "mode": "slider", "unit_of_measurement": "%",
                                   "command_topic": self.t("volume/set"), "state_topic": self.t("volume/state")}),
-            ("sensor", "temperature", {"name": "Température", "device_class": "temperature",
+            ("sensor", "temperature", {"name": i18n.tr("Température"), "device_class": "temperature",
                                        "unit_of_measurement": "°C", "state_class": "measurement",
                                        "state_topic": self.t("temperature/state")}),
         ]

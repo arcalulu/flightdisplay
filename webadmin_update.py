@@ -8,6 +8,8 @@ Bibliotheque standard uniquement.
 """
 import collections, json, os, re, shutil, subprocess, sys, threading, time
 
+from i18n import tr
+
 STEPS = [  # (identifiant, libelle, poids dans la barre de progression)
     ("check", "Vérifications", 5),
     ("fetch", "Téléchargement depuis GitHub", 30),
@@ -133,9 +135,14 @@ class Updater:
             steps = [dict(s) for s in st["steps"]]
             if st["running"] and 0 <= self.cur < len(steps):
                 steps[self.cur]["elapsed"] = int(time.time() - self.t_step)
-            return dict(running=st["running"], ok=st["ok"], error=st["error"], done_msg=st["done_msg"], started=st["started"],
+            for x in steps:
+                x["label"], x["detail"] = tr(x["label"]), tr(x["detail"])
+            check = st["check"]
+            if check and check.get("error"):
+                check = dict(check, error=tr(check["error"]))
+            return dict(running=st["running"], ok=st["ok"], error=tr(st["error"]), done_msg=tr(st["done_msg"]), started=st["started"],
                         finished=st["finished"], from_label=st["from_label"], to_label=st["to_label"], steps=steps,
-                        pct=self._pct(), lines=list(st["lines"])[-400:], live=st["live"], check=st["check"],
+                        pct=self._pct(), lines=[tr(l) for l in list(st["lines"])[-400:]], live=st["live"], check=check,
                         restarting=st["restarting"], auto=self.S.UPDATE_AUTO, history=[] if st["running"] or st["restarting"] else self.hist, current=self.current)
 
     def _pct(self):
