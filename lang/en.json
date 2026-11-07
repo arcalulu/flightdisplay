@@ -543,6 +543,12 @@
   "Allumé depuis {0}": "Up for {0}",
   "Ralentit dès {0} °C": "Throttles at {0} °C",
   "ralentissement dès {0} °C, limite {1} °C": "throttling from {0} °C, limit {1} °C",
-  "Charge : {0} / {1}": "Load: {0} / {1}"
+  "Charge : {0} / {1}": "Load: {0} / {1}",
+  "Mise à jour vers {0}": "Updating to {0}",
+  "{0} · étape {1} sur {2}": "{0} · step {1} of {2}",
+  "Journal détaillé": "Detailed log",
+  "Détails": "Details",
+  "Dernière mise à jour : {0} → {1}, {2}": "Last update: {0} → {1}, {2}",
+  "Vérifier": "Check"
  }
 }

@@ -1172,6 +1172,19 @@ button.b:disabled{opacity:.45}
 .ring.warn .rg{stroke:var(--warn)}.ring.bad .rg{stroke:var(--bad)}
 .ring text{fill:var(--txt);font-size:12px;font-weight:600}
 .ring .ri{min-width:0}.ring .ri i{font-size:13px;color:var(--txt);margin-top:3px}.ring.bad .ri i{color:#ffb4ae}
+.ucard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:10px}
+.ucard.bad{border-color:#6b2420}
+.urow{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.uver{font-size:22px;font-weight:600}.uver.new{color:var(--ok)}.uarr{color:var(--mut);margin:0 8px;font-size:18px}
+.usub{font-size:12px;color:var(--mut);margin-top:4px}
+.ubtns{display:flex;gap:8px}
+.segs{display:flex;gap:4px}.segs i{flex:1;height:5px;border-radius:3px;background:#243040}
+.segs i.done,.segs i.skipped{background:var(--ok)}.segs i.running{background:var(--acc)}.segs i.error{background:var(--bad)}
+.runstep{font-size:14px;margin-top:10px}.runstep.err{color:#ffb4ae}
+.utog{color:var(--mut);font-size:12px;margin-top:10px;cursor:pointer;user-select:none}
+.utog .chev{display:inline-block;transition:transform .15s;margin-right:6px}.utog .chev.shut{transform:rotate(-90deg)}
+.ulast{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:10px;font-size:14px;user-select:none}
+.ulast.bad{border-color:#6b2420}.ulast .ic{color:var(--ok)}.ulast.bad .ic{color:var(--bad)}.ulast .more{margin-left:auto;color:var(--mut);font-size:12px;white-space:nowrap}
 .dotn{position:relative}.dotn.dot::after{content:"";position:absolute;top:8px;right:calc(50% - 38px);width:8px;height:8px;border-radius:50%;background:var(--acc)}
 .set{display:block}
 .menu{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin:0 -4px 6px;scrollbar-width:none}
@@ -1267,14 +1280,17 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 
 <section class="tab" id="t-upd">
   <div class="hint" id="updWarn"></div>
-  <div class="tiles" id="updTiles"></div>
-  <div class="list" id="updAct"></div>
-  <div id="updProg" style="display:none">
-    <h2 class="t" id="updProgT">Progression</h2>
-    <div class="pb" id="updBar"><i></i></div>
-    <div class="list" id="updSteps"></div>
-    <pre id="updOut"></pre>
+  <div class="ucard" id="updSummary"></div>
+  <div class="ucard" id="updRun" style="display:none">
+    <div class="urow"><b id="runT"></b><span class="usub" id="runP"></span></div>
+    <div class="pb" id="updBar" style="margin:10px 0"><i></i></div>
+    <div class="segs" id="updSegs"></div>
+    <div class="runstep" id="runStep"></div>
+    <div class="utog" id="logTog"></div>
   </div>
+  <div class="ulast" id="lastRow" style="display:none"></div>
+  <div class="list" id="updSteps" style="display:none"></div>
+  <pre id="updOut" style="display:none"></pre>
   <div id="updNew" style="display:none">
     <h2 class="t">Historique des versions</h2>
     <div class="list" id="updCommits" style="background:none;border:0"></div>
@@ -1940,7 +1956,7 @@ function renderLabels(box) {
 }
 
 /* ---------- Mises à jour ---------- */
-function ago(ts) { const d = Math.max(0, Math.round(Date.now() / 1000 - ts)); return d < 90 ? "à l'instant" : (d < 5400 ? 'il y a ' + Math.round(d / 60) + ' min' : (d < 129600 ? 'il y a ' + Math.round(d / 3600) + ' h' : 'il y a ' + Math.round(d / 86400) + ' j')); }
+function ago(ts) { const d = Math.max(0, Math.round(Date.now() / 1000 - ts)); return d < 90 ? _t("à l'instant") : (d < 5400 ? _t('il y a {0} min', Math.round(d / 60)) : (d < 129600 ? _t('il y a {0} h', Math.round(d / 3600)) : _t('il y a {0} j', Math.round(d / 86400)))); }
 function fmtEl(s) { return s >= 60 ? Math.floor(s / 60) + ' min ' + (s % 60) + ' s' : s + ' s'; }
 async function pollUpd() {
   try {
@@ -1962,18 +1978,29 @@ async function checkUpd() {
 async function startUpd() {
   try { await api('/api/update/start', {}); updWasRunning = true; await pollUpd(); } catch (e) { toast(e.message, true); }
 }
+let updDetailsOpen = null, updLogOpen = false;
 function renderUpd(lost) {
   if (!UPD) return;
   const u = UPD, c = u.check, busy = u.running || u.restarting;
-  const tiles = $('#updTiles'); tiles.innerHTML = '';
-  const cur = u.current || (c && c.ok ? c.current : null);
-  tiles.append(tile('Version installée', cur ? cur.label : '-', '', cur ? cur.date + ' · ' + cur.subject : ''));
-  if (c && c.ok) {
-    const lat = c.latest;
-    tiles.append(tile('Dernière version', lat.label, c.behind ? 'ok' : '', lat.date + ' · ' + lat.subject));
-    tiles.append(tile('État', c.behind ? _t(c.behind > 1 ? '{0} nouveautés' : '{0} nouveauté', c.behind) : 'à jour', c.behind ? 'ok' : '', 'vérifié ' + ago(c.checked_at)));
-  } else if (c && !c.ok) tiles.append(tile('État', 'vérification impossible', 'bad'));
-  else tiles.append(tile('État', 'non vérifié', ''));
+  const cur = u.current || (c && c.ok ? c.current : null), behind = c && c.ok ? c.behind : 0;
+  // --- carte résumé
+  const sm = $('#updSummary'); sm.innerHTML = '';
+  const row = el('div', 'urow'), left = el('div'), vr = el('div');
+  vr.style.cssText = 'display:flex;align-items:center;flex-wrap:wrap;gap:8px';
+  vr.append(el('span', 'uver', cur ? cur.label : '-'));
+  if (behind) { vr.append(el('span', 'uarr', '→'), el('span', 'uver new', c.latest.label)); }
+  else if (c && c.ok) vr.append(chip('à jour', 'ok'));
+  else if (c && !c.ok) vr.append(chip('vérification impossible', 'bad'));
+  else vr.append(chip('non vérifié'));
+  const sub = el('div', 'usub');
+  sub.textContent = behind ? _t(behind > 1 ? '{0} nouveautés' : '{0} nouveauté', behind) + ' · ' + _t('vérifié {0}', ago(c.checked_at))
+    : (cur ? cur.date + ' · ' + cur.subject : '') + (c && c.ok ? ' · ' + _t('vérifié {0}', ago(c.checked_at)) : '');
+  left.append(vr, sub);
+  const btns = el('div', 'ubtns');
+  const bc = el('button', 'b s', updBusy ? 'Vérification...' : (behind ? 'Vérifier' : 'Vérifier les mises à jour')); bc.disabled = updBusy || busy; bc.onclick = checkUpd; btns.append(bc);
+  if (behind) { const bu = el('button', 'b p s', 'Mettre à jour'); bu.disabled = busy || updBusy || !c.can_update; bu.onclick = startUpd; btns.append(bu); }
+  row.append(left, btns); sm.append(row);
+  // --- avertissements
   const warn = $('#updWarn'), w = [];
   if (c && !c.ok) w.push(c.error);
   if (c && c.ok) {
@@ -1981,33 +2008,41 @@ function renderUpd(lost) {
     if (c.ahead) w.push(c.behind ? _t('Cette installation contient {0} commit(s) local(aux) absent(s) de GitHub : mise à jour impossible sans conflit.', c.ahead) : _t('Cette installation contient {0} commit(s) local(aux) absent(s) de GitHub.', c.ahead));
     if (c.behind && c.installer_changed) w.push("Le programme d'installation (install.sh) a changé dans cette version. Webadmin ne met pas à jour les composants système : si une nouvelle fonction ne marche pas, relancez l'installeur.");
   }
-  if (u.ok === false && u.error && !busy) w.push(_t('Dernière tentative en échec : {0}', u.error));
   warn.style.display = w.length ? 'block' : 'none'; warn.textContent = w.map(tl).join('\n'); warn.style.whiteSpace = 'pre-line';
-  const act = $('#updAct'); act.innerHTML = '';
-  const r = el('div', 'li stack'), b = el('div', 'btns');
-  const bc = el('button', 'b' + (c && c.ok && c.behind ? '' : ' p'), updBusy ? 'Vérification...' : 'Vérifier les mises à jour'); bc.disabled = updBusy || busy; bc.onclick = checkUpd;
-  b.append(bc);
-  if (c && c.ok && c.behind) { const bu = el('button', 'b p', 'Mettre à jour'); bu.disabled = busy || updBusy || !c.can_update; bu.onclick = startUpd; b.append(bu); }
-  const t = el('div', 'lt'); t.append(el('b', null, 'Mises à jour du logiciel'), el('small', null, 'Télécharge la dernière version depuis GitHub (dépôt arcalulu/flightdisplay). Vos réglages (config.ini) sont conservés.'));
-  r.append(t, b); act.append(r);
-  const prog = $('#updProg'), show = busy || u.started;
-  prog.style.display = show ? 'block' : 'none';
-  if (show) {
-    $('#updProgT').textContent = busy ? 'Mise à jour en cours' : (u.ok ? 'Dernière mise à jour' : 'Dernière tentative');
-    const pb = $('#updBar'); pb.className = 'pb' + (!busy && u.ok === true ? ' ok' : (!busy && u.ok === false ? ' bad' : ''));
-    pb.firstElementChild.style.width = (busy || u.ok !== null ? u.pct : 0) + '%';
-    const sb = $('#updSteps'); sb.innerHTML = '';
+  // --- suivi compact pendant la mise à jour
+  const run = $('#updRun'), last = $('#lastRow'), det = $('#updSteps'), out = $('#updOut');
+  const toggle2 = (box, open, label, fn) => { box.innerHTML = ''; box.append(el('span', 'chev' + (open ? '' : ' shut'), '▾'), el('span', null, label)); box.onclick = fn; };
+  run.style.display = busy ? 'block' : 'none';
+  const idleOpen = updDetailsOpen === null ? u.ok === false : updDetailsOpen;
+  let showOut = false;
+  if (busy) {
+    $('#runT').textContent = u.to_label ? _t('Mise à jour vers {0}', u.to_label) : tl('Mise à jour en cours');
+    $('#runP').textContent = (u.pct || 0) + ' %';
+    $('#updBar').firstElementChild.style.width = (u.pct || 0) + '%';
+    const sg = $('#updSegs'); sg.innerHTML = ''; for (const s of u.steps) sg.append(el('i', s.status));
+    const i = u.steps.findIndex(s => s.status === 'running'), rs = $('#runStep'); rs.className = 'runstep';
+    rs.textContent = lost || u.restarting ? tl('Webadmin redémarre, la page va se recharger...') : (i >= 0 ? _t('{0} · étape {1} sur {2}', u.steps[i].label, i + 1, u.steps.length) + (u.steps[i].elapsed > 2 ? ' · ' + fmtEl(u.steps[i].elapsed) : '') : '');
+    toggle2($('#logTog'), updLogOpen, 'Journal détaillé', () => { updLogOpen = !updLogOpen; renderUpd(lost); });
+    showOut = updLogOpen;
+    last.style.display = 'none'; det.style.display = 'none';
+  } else if (u.started) {
+    const bad = u.ok === false, from = u.from_label, to = u.to_label;
+    last.style.display = 'flex'; last.className = 'ulast' + (bad ? ' bad' : ''); last.innerHTML = '';
+    const txt = bad ? _t('Dernière tentative en échec : {0}', u.error) : (from && to && from !== to ? _t('Dernière mise à jour : {0} → {1}, {2}', from, to, ago(u.finished)) : (u.done_msg || ''));
+    last.append(el('span', 'ic', bad ? '✕' : '✓'), el('span', null, txt));
+    const more = el('span', 'more'); more.append(el('span', 'chev' + (idleOpen ? '' : ' shut'), '▾'), el('span', null, 'Détails')); more.firstChild.style.cssText = 'display:inline-block;transition:transform .15s;margin-right:4px' + (idleOpen ? '' : ';transform:rotate(-90deg)');
+    last.append(more); last.onclick = () => { updDetailsOpen = !idleOpen; renderUpd(); };
+    det.style.display = idleOpen ? 'block' : 'none'; showOut = idleOpen;
+    det.innerHTML = '';
     const icon = {pending: '○', running: '◐', done: '✓', skipped: '–', error: '✕'};
     for (const s of u.steps) {
       const d = el('div', 'stp ' + s.status); d.append(el('span', 'ic', icon[s.status] || '○'), el('span', null, s.label));
-      const info = s.status === 'running' && s.elapsed > 2 ? fmtEl(s.elapsed) : s.detail; if (info) d.append(el('small', null, info));
-      sb.append(d);
+      if (s.detail) d.append(el('small', null, s.detail));
+      det.append(d);
     }
-    if (lost || u.restarting) { const d = el('div', 'stp running'); d.append(el('span', 'ic', '◐'), el('span', null, 'Webadmin redémarre, la page va se recharger...')); sb.append(d); }
-    if (!busy && u.done_msg) { const d = el('div', 'stp done'); d.append(el('span', 'ic', '✓'), el('span', null, u.done_msg)); sb.append(d); }
-    const o = $('#updOut'), atEnd = o.scrollTop + o.clientHeight >= o.scrollHeight - 30;
-    o.textContent = u.lines.join('\n') + (u.live ? '\n' + u.live : ''); if (atEnd) o.scrollTop = o.scrollHeight;
-  }
+  } else { last.style.display = 'none'; det.style.display = 'none'; }
+  out.style.display = showOut ? 'block' : 'none';
+  if (showOut) { const atEnd = out.scrollTop + out.clientHeight >= out.scrollHeight - 30; out.textContent = u.lines.join('\n') + (u.live ? '\n' + u.live : ''); if (atEnd) out.scrollTop = out.scrollHeight; }
   const nw = $('#updNew'), cl = $('#updCommits'); cl.innerHTML = '';
   if (u.history && u.history.length && !busy) {
     nw.style.display = 'block';
