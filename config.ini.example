@@ -107,6 +107,11 @@ stop_display = true
 ; Vérifier toutes les 12 heures si une nouvelle version existe sur GitHub (n'installe rien tout seul)
 auto_check = true
 
+[schedule]
+; Planning d'allumage de l'écran : réglé depuis webadmin (Réglages, Planning de l'écran)
+; Une ligne par jour, plages HH:MM-HH:MM séparées par des virgules, ex. mon = 07:00-09:30,18:00-24:00
+enabled = false
+
 [mqtt]
 enabled = false
 host =

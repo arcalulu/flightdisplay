@@ -168,6 +168,7 @@ Adaptez ces valeurs si vous en choisissez d'autres.
 | Langue de l'interface et de l'écran | webadmin, Réglages, Langue (8.1) |
 | Contenu, ordre et style des étiquettes d'avions | webadmin, Réglages, Étiquettes des avions (8.7) |
 | Mise à jour du logiciel, historique des versions | webadmin, onglet Mises à jour (12.1) |
+| Allumage et extinction automatiques de l'écran | webadmin, Réglages, Planning de l'écran (10.1) |
 | Éléments d'installation du système (services, sudoers, scripts de veille, `cmdline.txt`) | Installeur automatique, ou ligne de commande (sections 3 à 7) |
 
 ---
@@ -930,18 +931,20 @@ Catégories valides : `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `b
 
 **Pilotage** (page d'accueil)
 
-- Sept tuiles de supervision, alignées sur une seule ligne sur ordinateur et sur deux colonnes sur téléphone (la dernière occupe alors toute la largeur) :
+- Huit tuiles de supervision, sur deux rangées de quatre sur ordinateur et sur deux colonnes sur téléphone :
   - Programme : actif ou arrêté. Quand il est actif, le nombre d'images par seconde réellement affichées (moyenne sur 2 secondes) est indiqué sous le statut, avec la cible réglée dans `[display] fps`. Une valeur nettement plus basse que la cible signale un Pi Zero surchargé. Le programme publie cette mesure dans `/dev/shm/flightdisplay-fps.json` (mémoire, pas la carte SD ; `cache/fps.json` si `/dev/shm` n'existe pas).
   - Écran : allumé ou en veille.
   - Température du Pi.
   - Utilisation CPU : pourcentage d'occupation du processeur, mesuré toutes les 2 secondes (orange au-dessus de 85 %, rouge au-dessus de 95 %), avec en petit la charge moyenne du système sur 1 et 5 minutes. La charge moyenne n'est pas un pourcentage : sur le Pi Zero, qui n'a qu'un seul cœur, 1.00 correspond déjà à un processeur saturé.
   - Mémoire : pourcentage utilisé, avec les Mo.
   - Allumé depuis : durée de fonctionnement et nom d'hôte.
+  - Heure du Pi : heure locale du Raspberry Pi (à la seconde), date et fuseau horaire. C'est l'heure utilisée par le planning de l'écran : si elle est fausse, voir 3.4.
   - MQTT : connecté (vert), déconnecté ou refusé (rouge), désactivé (neutre), avec l'adresse du serveur.
   Rafraîchies toutes les 4 secondes. L'en-tête de la page n'affiche que des pastilles d'état : « son coupé », « carte en construction », « mise à jour en cours » ou « mise à jour disponible ».
 - Commandes à bascule, comme dans Réglages d'iOS ou Home Assistant :
   - Programme Flight Display : démarre ou arrête le service (si l'écran est en veille, l'interrupteur rallume l'écran).
   - Écran : veille et réveil (la veille arrête aussi le programme, voir 6.2).
+  - Planning de l'écran (affiché seulement quand un planning est actif) : prochaine action programmée, avec l'heure et le temps restant (par exemple « Prochaine action : extinction à 23:00 (dans 4 h 12 min) »). Le bouton « Modifier » ouvre le calendrier.
   - Son des alertes : coupe ou réactive le son (désactivé et grisé si `sound = false` dans `config.ini`).
 - Curseur de volume (0 à 100 %), appliqué en direct à la prochaine alerte.
 - Bouton « Tester le son » (désactivé tant que le son est coupé). La relance du programme est proposée dans Réglages après un enregistrement (« Enregistrer et appliquer »).
@@ -966,6 +969,7 @@ Sur ordinateur, un menu à gauche liste les catégories ; sur téléphone, il de
 | Webadmin | Serveur web | config.ini | Adresse, port, identifiant, mot de passe. L'avertissement « aucun mot de passe » s'affiche ici (et seulement ici) tant qu'aucun mot de passe n'est défini. |
 | | Application et système | config.ini | Dossier, fichiers, service, Python de la carte, sudo, commandes, script et témoin de veille, arrêt de l'affichage pendant la carte. |
 | | Mises à jour | config.ini | Vérification automatique toutes les 12 heures (`auto_check`). |
+| | Planning de l'écran | config.ini | Activation du planning et calendrier hebdomadaire des plages d'allumage (voir plus bas). |
 | Intégrations | MQTT / Home Assistant | config.ini | Connexion, sujets et découverte, avec état et bouton « Reconnecter ». |
 
 Commandes de saisie : interrupteurs à bascule pour les valeurs oui/non, boutons segmentés pour les choix à deux ou trois valeurs (taille des étiquettes, langue), curseurs pour le volume et l'intensité du rouge, champs texte avec limites pour le reste. Les mots de passe et la clé CARTO sont masqués : le champ reste vide pour conserver la valeur actuelle, saisir une valeur la remplace, le bouton « Effacer » la supprime.
@@ -989,8 +993,21 @@ Quand une modification est prise en compte :
 | Langue | Immédiate pour webadmin (la page se recharge) ; au prochain lancement du programme pour le texte affiché à l'écran. |
 | Serveur web : adresse et port | Au redémarrage de webadmin (proposé : la page se rouvre toute seule, sur le nouveau port si besoin). |
 | Serveur web : identifiant et mot de passe | Immédiate (le navigateur redemande les identifiants). |
-| Application et système, Mises à jour | Immédiate. |
+| Application et système, Mises à jour, Planning de l'écran | Immédiate. |
 | MQTT | Immédiate : webadmin se reconnecte au serveur. |
+
+**Planning de l'écran** (Réglages, Planning de l'écran)
+
+Allume et éteint l'écran tout seul selon un calendrier hebdomadaire, comme un agenda.
+
+- L'interrupteur « Activer le planning » met le planning en marche. Le calendrier montre les sept jours (lundi à dimanche) sur 24 heures ; les plages **bleues** sont les heures où l'écran est allumé, tout le reste est éteint. Une barre rouge marque l'heure actuelle dans la colonne du jour.
+- Sur le calendrier : faire glisser sur une journée trace une plage (par pas de 15 minutes) ; un simple clic en crée une d'une heure ; tirer le haut ou le bas d'une plage l'ajuste ; la déplacer avec la souris ou le doigt change son heure, ou son jour si on la glisse sur une autre colonne ; ✕ la supprime ; ⧉ en tête de colonne copie la journée sur toute la semaine. « Tous les jours 07:00-23:00 » et « Tout effacer » sont des raccourcis. Les plages qui se touchent ou se chevauchent sont fusionnées.
+- Comme les autres réglages, les modifications sont enregistrées avec la barre du bas, puis prises en compte immédiatement (pas de relance).
+- L'action s'exécute **aux heures programmées** : à chaque début de plage, webadmin allume l'écran (réveil, comme le bouton Écran de Pilotage) ; à chaque fin de plage, il le met en veille (le programme d'affichage est alors arrêté, voir 6.2). Entre deux heures programmées, vous pouvez allumer ou éteindre l'écran à la main : le planning ne le corrige pas et reprend à la prochaine heure programmée. Un jour sans plage est un jour entièrement éteint.
+- Au moment où le planning est enregistré, l'écran est aligné tout de suite sur l'état voulu à cette heure. Au redémarrage de webadmin, rien n'est forcé.
+- La page Pilotage affiche la prochaine action (allumage ou extinction, heure et temps restant) tant que le planning est actif.
+- Le planning suit l'**heure du Pi** (fuseau horaire du système, voir 3.4). Il s'exécute dans webadmin : il ne fonctionne que tant que webadmin tourne, et utilise le script `flight-screen` via sudo comme le bouton Écran. Une action est reportée si une reconstruction de carte ou une mise à jour est en cours. En cas d'échec de la commande, le message est affiché sous la prochaine action.
+- Dans `config.ini`, section `[schedule]` : `enabled` et une ligne par jour (`mon`, `tue`, `wed`, `thu`, `fri`, `sat`, `sun`) du type `mon = 07:00-09:30,18:00-24:00` (heures `HH:MM`, de `00:00` à `24:00`).
 
 **Reconstruction de la carte** (Réglages, Carte et position, en bas de la page ; un bandeau y renvoie quand un réglage de carte a changé)
 
@@ -1045,6 +1062,16 @@ stop_display = true
 [update]
 auto_check = true
 
+[schedule]
+enabled = false
+mon =
+tue =
+wed =
+thu =
+fri =
+sat =
+sun =
+
 [mqtt]
 enabled = false
 host =
@@ -1076,6 +1103,8 @@ interval = 30
 | | `flag` | `/run/flight-screen-off` | Fichier témoin de la veille (supprimé au redémarrage du Pi). |
 | `[build]` | `stop_display` | true | Valeur par défaut de l'interrupteur « Arrêter l'affichage pendant la construction » (reconstruction de la carte). |
 | `[update]` | `auto_check` | true | Vérifie toutes les 12 heures si une nouvelle version existe sur GitHub (signalée par une pastille). N'installe rien tout seul. |
+| `[schedule]` | `enabled` | false | Active le planning d'allumage et d'extinction de l'écran. |
+| | `mon` à `sun` | vide | Plages d'allumage du jour (`HH:MM-HH:MM`, séparées par des virgules). Vide : écran éteint toute la journée quand le planning est actif. |
 | `[mqtt]` | | | Voir la section 11. |
 
 Ne sont modifiables que par la ligne de commande : les services systemd, le fichier sudoers, le contenu des scripts de veille et de garde (numéros de terminaux virtuels) et les variables d'environnement.
@@ -1302,7 +1331,8 @@ sudo reboot
 | Après la mise à jour, ma veille personnalisée a disparu | L'étape 9 de l'installeur réécrit `flight-screen` et `flight-screen-guard`. Conserver une copie de vos modifications. |
 | L'écran se rallume seulement quand je l'éteins depuis Home Assistant | Vérifier que la commande de l'entité n'est pas publiée avec « retain » sur le serveur MQTT (11.3), et lire `journalctl -t sudo \| grep flight-screen` pour voir qui a lancé le réveil. |
 | Le moniteur ne s'éteint pas en veille | Vérifier `cat /sys/class/drm/card*-HDMI-A-*/dpms` : `Off` après la veille. Sinon essayer le DDC/CI (6.2). |
-| Les tuiles de Pilotage ne tiennent pas sur une ligne | Sur ordinateur, la ligne unique s'applique à partir de 860 px de large ; en dessous, les tuiles passent sur deux colonnes. |
+| Les tuiles de Pilotage sont sur deux colonnes | Sur ordinateur, les quatre colonnes s'appliquent à partir de 860 px de large ; en dessous, les tuiles passent sur deux colonnes. |
+| Le planning n'allume ou n'éteint pas l'écran | Vérifier que « Activer le planning » est coché et que le calendrier contient des plages. Contrôler l'heure du Pi (tuile « Heure du Pi », 3.4) : le planning suit son fuseau horaire. L'action n'a lieu qu'aux heures programmées (une extinction manuelle en cours de plage n'est pas corrigée). Un message d'erreur sous « Prochaine action » indique si la commande `flight-screen` a échoué (droits sudo : étape 9 de l'installeur). Le planning s'arrête avec webadmin (`sudo systemctl status flightadmin`). |
 | MQTT : « paho manquant » | `sudo apt install python3-paho-mqtt` puis `sudo systemctl restart flightadmin`. |
 | MQTT : « refuse » | Identifiants ou droits (ACL) du serveur MQTT. |
 | Entités absentes dans Home Assistant | Vérifier l'intégration MQTT, `discovery_prefix`, le même serveur, puis « Reconnecter / republier ». |

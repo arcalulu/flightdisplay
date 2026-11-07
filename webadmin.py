@@ -13,7 +13,40 @@ from i18n import tr
 HERE = os.path.dirname(os.path.abspath(__file__))
 INI_PATH = os.environ.get("WEBADMIN_INI") or os.path.join(HERE, "config.ini")
 # Sections de config.ini gérées par webadmin ; toutes les autres appartiennent au programme d'affichage.
-WEB_SECS = ("server", "app", "screen", "build", "mqtt", "update")
+WEB_SECS = ("server", "app", "screen", "build", "mqtt", "update", "schedule")
+
+
+SLOT_RE = re.compile(r"^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$")
+SCHED_DAYS = [("mon", "Lundi"), ("tue", "Mardi"), ("wed", "Mercredi"), ("thu", "Jeudi"), ("fri", "Vendredi"),
+              ("sat", "Samedi"), ("sun", "Dimanche")]
+
+
+def parse_slots(v):
+    """« 07:00-09:30,18:00-24:00 » -> [(420, 570), (1080, 1440)] (minutes depuis minuit), fusionnees et triees."""
+    out = []
+    for part in str(v).split(","):
+        part = part.strip()
+        if not part:
+            continue
+        m = SLOT_RE.match(part)
+        if not m:
+            raise ValueError("plage horaire invalide")
+        a, b = int(m.group(1)) * 60 + int(m.group(2)), int(m.group(3)) * 60 + int(m.group(4))
+        if int(m.group(2)) > 59 or int(m.group(4)) > 59 or a >= b or b > 1440:
+            raise ValueError("plage horaire invalide")
+        out.append((a, b))
+    out.sort()
+    merged = []
+    for a, b in out:
+        if merged and a <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], b))
+        else:
+            merged.append((a, b))
+    return merged
+
+
+def normalize_slots(v):
+    return ",".join("%02d:%02d-%02d:%02d" % (a // 60, a % 60, b // 60, b % 60) for a, b in parse_slots(v))
 
 
 class Settings:
@@ -56,6 +89,16 @@ class Settings:
         self.BUILD_STOP_DISPLAY = gb("build", "stop_display", True)
         self.UPDATE_AUTO = gb("update", "auto_check", True)
         self.LANG = i18n.set_language(gs("general", "language", "fr"))
+        self.SCHEDULE_ENABLED = gb("schedule", "enabled", False)
+        week = [False] * 10080  # une case par minute de la semaine (lundi 00:00 = 0)
+        for i, (k, _) in enumerate(SCHED_DAYS):
+            try:
+                for a, b in parse_slots(gs("schedule", k, "")):
+                    for m in range(a, b):
+                        week[i * 1440 + m] = True
+            except ValueError:
+                pass
+        self.SCHEDULE_MAP = week
 
 
 S = Settings()
@@ -85,6 +128,7 @@ CATS = [
     ("server", "Serveur web", "Webadmin"),
     ("paths", "Application et système", "Webadmin"),
     ("update", "Mises à jour", "Webadmin"),
+    ("schedule", "Planning de l'écran", "Webadmin"),
     ("mqtt", "MQTT / Home Assistant", "Intégrations"),
 ]
 CAT_NOTES = {
@@ -93,6 +137,7 @@ CAT_NOTES = {
     "position": "Modifier ces valeurs oblige à reconstruire la carte (section Reconstruction de la carte, en bas de cette page).",
     "server": "Le port et l'adresse d'écoute demandent un redémarrage de webadmin. L'identifiant et le mot de passe s'appliquent immédiatement.",
     "paths": "Réglages avancés. Une valeur vide utilise le comportement par défaut.",
+    "schedule": "Allume et éteint l'écran tout seul selon un calendrier hebdomadaire : faites glisser sur le calendrier pour tracer les plages d'allumage. Appliqué immédiatement.",
     "update": "La mise à jour elle-même se lance depuis l'onglet « Mises à jour ».",
     "mqtt": "Les changements sont appliqués immédiatement : webadmin se reconnecte au serveur MQTT.",
 }
@@ -197,6 +242,8 @@ PARAMS = [
     W("paths", "screen", "helper", "text", "/usr/local/bin/flight-screen", "Script de veille de l'écran", "", "Écran"),
     W("paths", "screen", "flag", "text", "/run/flight-screen-off", "Fichier témoin de la veille", "", "Écran"),
     W("update", "update", "auto_check", "bool", True, "Vérifier automatiquement", "Interroge GitHub toutes les 12 heures pour signaler une nouvelle version. Rien n'est installé sans votre accord.", "Vérification", apply="live"),
+    W("schedule", "schedule", "enabled", "bool", False, "Activer le planning", "Hors des plages d'allumage, l'écran est éteint.", "Planning", apply="live"),
+    *[W("schedule", "schedule", k, "text", "", name, "Plages d'allumage, au format 07:00-09:30,18:00-24:00.", "Plages", apply="live", slots=True) for k, name in SCHED_DAYS],
     W("mqtt", "mqtt", "enabled", "bool", False, "Activer MQTT", "Publie l'état et accepte les commandes de Home Assistant.", "Connexion", apply="mqtt"),
     W("mqtt", "mqtt", "host", "text", "", "Serveur", "Adresse du serveur MQTT.", "Connexion", apply="mqtt"),
     W("mqtt", "mqtt", "port", "int", 1883, "Port", "", "Connexion", apply="mqtt", min=1, max=65535),
@@ -272,6 +319,7 @@ def get_settings():
                          step=None, ui=None, secret=False, set=True, value=cur["value"]))
     cats["types"].update(kind="types", groups=[], file=None)
     cats["label"]["kind"] = "labels"
+    cats["schedule"]["kind"] = "schedule"
     menu = []
     for gname in ("Général", "Programme", "Webadmin", "Intégrations"):
         items = []
@@ -318,6 +366,8 @@ def norm_value(p, v):
         return v
     if p["file"] == "config" and "%" in v:
         raise ValueError("le caractère % n'est pas autorisé dans config.ini")
+    if p.get("slots"):
+        return normalize_slots(v)
     if p.get("fields"):  # liste ordonnee d'identifiants : on la complete avec les champs manquants
         items = [x.strip() for x in v.split(",") if x.strip()]
         if any(x not in p["fields"] for x in items) or len(set(items)) != len(items):
@@ -409,6 +459,8 @@ def apply_settings(changes):
         res["restart_web"] = (S.HOST, S.PORT) != BOUND
         if any(c.startswith("web:mqtt.") for c in changed):
             MQTT.restart(S.ini)
+    if any(c.startswith("web:schedule.") for c in changed):
+        SCHED["align"] = True
     if "config:general.language" in changed:
         S.reload()
         res["reload_ui"] = True
@@ -675,6 +727,75 @@ def self_restart():
     os.execv(sys.executable, [sys.executable] + sys.argv)
 
 
+SCHED = dict(last=None, align=False, error="", action=None)
+
+
+def sched_wanted(lt=None):
+    """True si le planning veut l'ecran allume a l'instant donne."""
+    lt = lt or time.localtime()
+    return S.SCHEDULE_MAP[lt.tm_wday * 1440 + lt.tm_hour * 60 + lt.tm_min]
+
+
+def sched_status():
+    if not S.SCHEDULE_ENABLED:
+        return dict(enabled=False)
+    t = time.time()
+    lt = time.localtime(t)
+    pos = lt.tm_wday * 1440 + lt.tm_hour * 60 + lt.tm_min
+    wanted = S.SCHEDULE_MAP[pos]
+    nxt = None
+    for add in range(1, 10081):
+        if S.SCHEDULE_MAP[(pos + add) % 10080] != wanted:
+            nxt = add
+            break
+    return dict(enabled=True, wanted=wanted, next_to=(not wanted) if nxt else None,
+                next_epoch=(t - lt.tm_sec + nxt * 60) if nxt else None, error=tr(SCHED["error"]) if SCHED["error"] else "",
+                action=SCHED["action"])
+
+
+def sched_apply(want):
+    if build["running"] or UPD.running():
+        return False  # on reessaie au prochain passage
+    ok, out = screen_cmd("on" if want else "off")
+    if ok:
+        SCHED["error"] = ""
+        SCHED["action"] = dict(to=bool(want), epoch=time.time())
+    else:
+        detail = ((out or "?").splitlines() or ["?"])[0][:120]
+        SCHED["error"] = ("échec du réveil de l'écran : {0}" if want else "échec de la mise en veille de l'écran : {0}").replace("{0}", detail)
+    return True
+
+
+def sched_tick():
+    if not S.SCHEDULE_ENABLED:
+        SCHED["last"] = None
+        return
+    want = sched_wanted()
+    if SCHED["align"]:  # planning venant d'etre enregistre : on aligne l'ecran tout de suite
+        if want != (not screen_off()) and not sched_apply(want):
+            return
+        SCHED["align"], SCHED["last"] = False, want
+    elif SCHED["last"] is None:  # demarrage de webadmin : on ne force rien
+        SCHED["last"] = want
+    elif want != SCHED["last"] and sched_apply(want):  # l'action ne se declenche qu'aux heures programmees
+        SCHED["last"] = want
+
+
+def sched_loop():
+    while True:
+        try:
+            sched_tick()
+        except Exception as e:
+            SCHED["error"] = "planning : {0}".replace("{0}", str(e))
+        time.sleep(15)
+
+
+def now_info():
+    t = time.time()
+    lt = time.localtime(t)
+    return dict(epoch=t, offset=(lt.tm_gmtoff or 0) // 60, tz=lt.tm_zone or "")
+
+
 UPD = webadmin_update.Updater(S, svc_state, screen_off, lambda: build["running"], self_restart)
 MQTT = webadmin_mqtt.Bridge(dict(sysinfo=sysinfo, sound_state=sound_state, sound_update=sound_update,
                                  screen_off=screen_off, screen=screen_cmd))
@@ -741,6 +862,8 @@ class Handler(BaseHTTPRequestHandler):
                 s["update_available"] = UPD.available()
                 s["update_running"] = UPD.running()
                 s["cpu"] = cpu["pct"]
+                s["now"] = now_info()
+                s["schedule"] = sched_status()
                 s["fps"] = fps_info() if s["service"] == "active" else None
                 s["fps_target"] = fps_target()
                 self.send_json(s)
@@ -920,6 +1043,21 @@ button.b:disabled{opacity:.45}
 .hr{display:flex;align-items:center;gap:10px;justify-content:flex-end;min-width:0}
 .crl{font-size:12px;color:var(--mut);white-space:nowrap}
 .cl{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px}.cl a{color:var(--acc);font-size:14px}
+.cal{border:1px solid var(--line);border-radius:12px;background:var(--card);overflow:hidden;user-select:none;-webkit-user-select:none}
+.calh,.calb{display:grid;grid-template-columns:40px repeat(7,minmax(0,1fr))}
+.calh{background:var(--card2);border-bottom:1px solid var(--line)}
+.calday{position:relative;text-align:center;padding:9px 0 8px;font-size:13px;color:var(--txt);border-left:1px solid var(--line)}
+.calday.today{color:var(--acc);font-weight:600}
+.calcp{position:absolute;right:1px;top:1px;border:0;background:none;color:var(--mut);font-size:12px;padding:2px 3px;cursor:pointer;line-height:1}
+.calhr{font-size:10px;color:var(--mut);text-align:right;padding-right:5px;box-sizing:border-box;position:relative;top:-6px}
+.calcol{position:relative;border-left:1px solid var(--line);background-image:repeating-linear-gradient(to bottom,#2a3646 0,#2a3646 1px,transparent 1px,transparent 40px),repeating-linear-gradient(to bottom,transparent 0,transparent 20px,#1c2531 20px,#1c2531 21px,transparent 21px,transparent 40px)}
+.blk span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:13px;font-size:10px}
+.blk{position:absolute;left:2px;right:2px;background:#2563b0;border:1px solid #5b9cf0;border-radius:6px;color:#fff;font-size:11px;line-height:1.2;overflow:hidden;touch-action:none;cursor:grab;box-sizing:border-box;padding:2px 4px}
+.blk.ghost{opacity:.55;pointer-events:none}.blk.drag{opacity:.85;z-index:6;cursor:grabbing;box-shadow:0 2px 10px #0008}
+.rh{position:absolute;left:0;right:0;height:9px;cursor:ns-resize;touch-action:none}.rh.t{top:0}.rh.b{bottom:0}
+.bx{position:absolute;right:1px;top:1px;border:0;background:#0004;color:#fff;border-radius:4px;font-size:10px;line-height:1;padding:2px 4px;cursor:pointer}
+.nowl{position:absolute;left:0;right:0;height:0;border-top:2px solid var(--bad);z-index:5;pointer-events:none}
+.nowl::before{content:"";position:absolute;left:-4px;top:-5px;width:8px;height:8px;border-radius:50%;background:var(--bad)}
 .dotn{position:relative}.dotn.dot::after{content:"";position:absolute;top:8px;right:calc(50% - 38px);width:8px;height:8px;border-radius:50%;background:var(--acc)}
 .set{display:block}
 .menu{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin:0 -4px 6px;scrollbar-width:none}
@@ -946,7 +1084,7 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 #toast{position:fixed;left:50%;top:calc(70px + env(safe-area-inset-top));transform:translateX(-50%);background:#1f2937;border:1px solid var(--line);padding:10px 16px;border-radius:10px;z-index:20;display:none;max-width:90vw;font-size:14px}
 #toast.bad{border-color:var(--bad);color:#ffb4ae}
 @media(min-width:860px){
-.tiles{grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);grid-template-columns:none}
+.tiles{grid-template-columns:repeat(4,minmax(0,1fr))}
 .tile b{font-size:18px;overflow-wrap:anywhere}
   .cols{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;align-items:start}
   nav{position:static;max-width:1100px;margin:0 auto;border:0;background:none;backdrop-filter:none;justify-content:flex-start;gap:6px;padding:10px 12px 0}
@@ -1108,7 +1246,7 @@ if (TL_ON) {
   trNode(document.body); document.title = tl(document.title);
 }
 
-let SET = null, edits = {}, curCat = null, cur = 'home', logText = '', lastSt = null, volDrag = false, volTimer = null;
+let lastStAt = 0, SET = null, edits = {}, curCat = null, cur = 'home', logText = '', lastSt = null, volDrag = false, volTimer = null;
 let pend = {app: false, web: false}, TYPES = null, rows = {}, UPD = null, updWasRunning = false, updBusy = false, updAuto = false, updTick = 0, histShut = {};
 const $ = s => document.querySelector(s);
 const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
@@ -1152,6 +1290,7 @@ function buildHome() {
   const box = $('#ctl'); box.innerHTML = ''; rows = {};
   const p = li('Programme Flight Display', ''); const tp = toggle(false, onProg); p.r.append(tp.label); rows.prog = {...p, t: tp}; box.append(p.r);
   const s = li('Écran', ''); const ts = toggle(true, onScreen); s.r.append(ts.label); rows.screen = {...s, t: ts}; const scr = $('#ctlScreen'); scr.innerHTML = ''; scr.append(s.r);
+  const sc = li('Planning de l\'écran', ''); const eb = el('button', 'b s', 'Modifier'); eb.onclick = () => { go('cfg'); curCat = 'schedule'; renderMenu(); renderCat(); }; sc.r.append(eb); sc.r.style.display = 'none'; rows.sched = sc; scr.append(sc.r);
   const n = li('Son des alertes', ''); const tn = toggle(true, onSound); n.r.append(tn.label); rows.sound = {...n, t: tn}; box.append(n.r);
   const v = li('Volume', '', 'full'); const w = el('div', 'sl'); w.style.width = '100%';
   const vol = document.createElement('input'); vol.type = 'range'; vol.min = 0; vol.max = 100; vol.step = 5; vol.value = 60; const vl = el('span', null, '60 %');
@@ -1207,6 +1346,7 @@ async function pollStatus() {
 
 
     const aw = $('#authWarn'); if (aw) aw.style.display = s.auth ? 'none' : 'block';
+    lastStAt = performance.now();
     const t = $('#tiles'); t.innerHTML = '';
     t.append(tile('Programme', s.service === 'active' ? 'actif' : s.service, s.service === 'active' ? 'ok' : 'bad', s.fps !== null && s.fps !== undefined ? s.fps.toFixed(1) + ' / ' + s.fps_target + ' fps' : ''));
     t.append(tile('Écran', s.screen_off ? 'en veille' : 'allumé', s.screen_off ? 'warn' : ''));
@@ -1217,6 +1357,7 @@ async function pollStatus() {
       t.append(tile('Mémoire', pct + ' %', pct > 90 ? 'bad' : (pct > 80 ? 'warn' : ''), used + ' / ' + tot + ' Mo'));
     } else t.append(tile('Mémoire', '-'));
     t.append(tile('Allumé depuis', fmtUp(s.uptime), '', s.host));
+    { const c = tile('Heure du Pi', '--:--:--', '', ''); c.querySelector('b').id = 'clk'; const i = el('i'); i.id = 'clkd'; c.append(i); t.append(c); tickClock(); }
     const ml = {connecte: ['connecté', 'ok'], deconnecte: ['déconnecté', 'bad'], off: ['désactivé', ''], 'paho manquant': ['paho manquant', 'bad'], 'host manquant': ['serveur manquant', 'warn']};
     const mq = ml[s.mqtt] || [String(s.mqtt).startsWith('refuse') ? 'refusé' : s.mqtt, 'bad'];
     t.append(tile('MQTT', mq[0], mq[1]));
@@ -1316,6 +1457,7 @@ function renderCatBase() {
   const cat = SET.cats[curCat]; if (!cat) return;
   const head = el('div', 'catt'); head.append(el('h3', null, cat.title)); box.append(head);
   if (cat.kind === 'types') return renderTypes(box);
+  if (cat.kind === 'schedule') { if (cat.note) box.append(el('p', 'note', cat.note)); return renderSchedule(box); }
   if (cat.kind === 'labels') { if (cat.note) box.append(el('p', 'note', cat.note)); return renderLabels(box); }
   if (cat.id === 'mqtt') {
     const st = lastSt ? lastSt.mqtt : 'off', h = el('div', 'tools'); const c = chip('État : ' + (st === 'off' ? 'désactivé' : st), st === 'connecte' ? 'ok' : (st === 'off' ? '' : 'bad')); c.style.flex = 'none';
@@ -1408,6 +1550,146 @@ async function renderTypes(box) {
   const save = el('button', 'b p', 'Enregistrer'), save2 = el('button', 'b', 'Enregistrer et relancer');
   const doSave = async relaunch => { try { await api('/api/types', {text: ta.value}); toast('Types enregistrés'); if (relaunch) await svc('restart'); else { pend.app = true; showPending(); } } catch (e) { toast(e.message, true); } };
   save.onclick = () => doSave(false); save2.onclick = () => doSave(true); bt.append(save, save2); box.append(bt);
+}
+
+/* ---------- Heure du Pi et prochaine action du planning ---------- */
+const p2 = n => String(n).padStart(2, '0');
+function piNow() { return lastSt && lastSt.now ? lastSt.now.epoch + (performance.now() - lastStAt) / 1000 : null; }
+function piDate(epoch) { return new Date(epoch * 1000 + lastSt.now.offset * 60000); }  // lire avec les getUTC*
+function fmtIn(sec) { sec = Math.max(0, Math.round(sec)); const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60); return h ? h + ' h ' + p2(m) + ' min' : (m ? m + ' min' : sec + ' s'); }
+function dayDiff(a, b) { return Math.round((Date.UTC(b.getUTCFullYear(), b.getUTCMonth(), b.getUTCDate()) - Date.UTC(a.getUTCFullYear(), a.getUTCMonth(), a.getUTCDate())) / 86400000); }
+function schedNextText() {
+  const sc = lastSt && lastSt.schedule, n = piNow();
+  if (!sc || !sc.enabled || n === null) return '';
+  let txt;
+  if (sc.next_to === null || sc.next_epoch === null) txt = _t('Planning actif : aucun changement programmé.');
+  else {
+    const d = piDate(sc.next_epoch), hhmm = p2(d.getUTCHours()) + ':' + p2(d.getUTCMinutes()), diff = dayDiff(piDate(n), d), left = fmtIn(sc.next_epoch - n);
+    const day = d.toLocaleDateString(I18N.lang, {weekday: 'long', timeZone: 'UTC'});
+    txt = sc.next_to
+      ? (diff <= 0 ? _t('Prochaine action : allumage à {0} (dans {1})', hhmm, left) : (diff === 1 ? _t('Prochaine action : allumage demain à {0} (dans {1})', hhmm, left) : _t('Prochaine action : allumage {2} à {0} (dans {1})', hhmm, left, day)))
+      : (diff <= 0 ? _t('Prochaine action : extinction à {0} (dans {1})', hhmm, left) : (diff === 1 ? _t('Prochaine action : extinction demain à {0} (dans {1})', hhmm, left) : _t('Prochaine action : extinction {2} à {0} (dans {1})', hhmm, left, day)));
+  }
+  return sc.error ? txt + '\n' + sc.error : txt;
+}
+function tickClock() {
+  const n = piNow(); if (n === null) return;
+  const d = piDate(n), c = $('#clk'), cd = $('#clkd');
+  if (c) c.textContent = p2(d.getUTCHours()) + ':' + p2(d.getUTCMinutes()) + ':' + p2(d.getUTCSeconds());
+  if (cd) cd.textContent = d.toLocaleDateString(I18N.lang, {weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC'}) + (lastSt.now.tz ? ' · ' + lastSt.now.tz : '');
+  if (rows.sched) {
+    const on = !!(lastSt.schedule && lastSt.schedule.enabled);
+    rows.sched.r.style.display = on ? '' : 'none';
+    if (on) { const x = schedNextText(); if (rows.sched.sub.textContent !== x) { rows.sched.sub.textContent = x; rows.sched.sub.style.whiteSpace = 'pre-line'; } }
+  }
+  if (typeof updSchedInfo === 'function') updSchedInfo();
+}
+
+/* ---------- Planning de l'écran : calendrier hebdomadaire ---------- */
+const SCH_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'], SCH_NAMES = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'], HOUR_PX = 40, SNAP = 15;
+let updSchedInfo = null;
+function sp(key) { return allParams().find(p => p.id === 'web:schedule.' + key); }
+function sval(key) { const p = sp(key); return p ? pval(p) : ''; }
+function sset(key, v) { const p = sp(key); if (p) setEdit(p, String(v)); }
+const mmTxt = m => p2(Math.floor(m / 60)) + ':' + p2(m % 60);
+function mergeSlots(arr) { arr = arr.map(x => x.slice()).sort((x, y) => x[0] - y[0]); const o = []; for (const [a, b] of arr) { if (o.length && a <= o[o.length - 1][1]) o[o.length - 1][1] = Math.max(o[o.length - 1][1], b); else o.push([a, b]); } return o; }
+function parseSlots(v) { const out = []; for (const part of String(v || '').split(',')) { const m = /^\s*(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})\s*$/.exec(part); if (m) { const a = +m[1] * 60 + +m[2], b = +m[3] * 60 + +m[4]; if (a < b && b <= 1440) out.push([a, b]); } } return mergeSlots(out); }
+const slotsStr = arr => mergeSlots(arr).map(([a, b]) => mmTxt(a) + '-' + mmTxt(b)).join(',');
+function renderSchedule(box) {
+  if (!lastSt) pollStatus();
+  const top = el('div', 'list'), enRow = el('div', 'li'), lt = el('div', 'lt');
+  lt.append(el('b', null, 'Activer le planning'), el('small', null, "Hors des plages d'allumage, l'écran est éteint. Un allumage ou une extinction manuels restent possibles : le planning reprend à la prochaine heure programmée."));
+  const tg = toggle(sval('enabled') === 'true', v => { sset('enabled', v ? 'true' : 'false'); });
+  enRow.append(lt, tg.label); top.append(enRow);
+  const info = el('div', 'li stack'), il = el('div', 'lt'), clockLine = el('b'), nextLine = el('small');
+  nextLine.style.whiteSpace = 'pre-line'; il.append(clockLine, nextLine); info.append(il); top.append(info); box.append(top);
+  updSchedInfo = () => {
+    if (!clockLine.isConnected) return;
+    const n = piNow(); if (n === null) return;
+    const d = piDate(n);
+    clockLine.textContent = _t('Heure du Pi : {0}', p2(d.getUTCHours()) + ':' + p2(d.getUTCMinutes()) + ':' + p2(d.getUTCSeconds()) + (lastSt.now.tz ? ' (' + lastSt.now.tz + ')' : ''));
+    const sc = lastSt.schedule;
+    nextLine.textContent = sc && sc.enabled ? (sc.wanted ? _t('Le planning veut l\'écran allumé maintenant.') : _t('Le planning veut l\'écran éteint maintenant.')) + '\n' + schedNextText() : _t('Planning enregistré inactif : l\'écran n\'est pas géré automatiquement.');
+    const today = (piDate(n).getUTCDay() + 6) % 7;
+    cal.querySelectorAll('.calday').forEach((e, i) => e.classList.toggle('today', i === today));
+    const nl = cal.querySelector('.nowl'); if (nl) { nl.remove(); }
+    const col = cal.querySelectorAll('.calcol')[today];
+    if (col) { const l = el('div', 'nowl'); l.style.top = ((d.getUTCHours() * 60 + d.getUTCMinutes()) / 60 * HOUR_PX) + 'px'; col.append(l); }
+  };
+  const tools = el('div', 'tools');
+  const b1 = el('button', 'b s', 'Tous les jours 07:00-23:00'), b2 = el('button', 'b s', 'Tout effacer');
+  b1.onclick = () => { for (const d of SCH_DAYS) sset(d, '07:00-23:00'); draw(); };
+  b2.onclick = () => { for (const d of SCH_DAYS) sset(d, ''); draw(); };
+  tools.append(b1, b2);
+  box.append(el('h2', 't', 'Calendrier hebdomadaire'), tools,
+    el('p', 'note', "Les plages bleues sont les heures où l'écran est allumé. Faites glisser sur une journée pour tracer une plage (un simple clic en crée une d'une heure), tirez ses bords pour l'ajuster, déplacez-la pour la changer d'heure ou de jour, ✕ pour la supprimer. Le bouton ⧉ copie la journée sur toute la semaine."));
+  const cal = el('div', 'cal'); box.append(cal);
+  const place = (d, a, b) => { d.style.top = (a / 60 * HOUR_PX) + 'px'; d.style.height = Math.max((b - a) / 60 * HOUR_PX, 8) + 'px'; };
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const snap = m => Math.round(m / SNAP) * SNAP;
+  const minAt = (col, y) => clamp((y - col.getBoundingClientRect().top) / HOUR_PX * 60, 0, 1440);
+  const colAtX = x => { const cols = [...cal.querySelectorAll('.calcol')]; return cols.find(c => { const r = c.getBoundingClientRect(); return x >= r.left && x < r.right; }) || null; };
+  function commit(day, arr) { sset(day, slotsStr(arr)); }
+  function block([a, b], k) {
+    const d = el('div', 'blk'); place(d, a, b);
+    const lab = el('span', null, mmTxt(a) + '–' + mmTxt(b)); d.append(lab);
+    const del = el('button', 'bx', '✕'); del.title = 'Supprimer'; del.onpointerdown = e => e.stopPropagation();
+    del.onclick = () => { commit(k, parseSlots(sval(k)).filter(x => !(x[0] === a && x[1] === b))); draw(); };
+    d.append(del);
+    const hT = el('div', 'rh t'), hB = el('div', 'rh b'); d.append(hT, hB);
+    const start = mode => e => {
+      if (e.button !== 0) return; e.stopPropagation(); e.preventDefault();
+      const col0 = d.parentElement, off = minAt(col0, e.clientY) - a, len = b - a; let A = a, B = b, day = k;
+      d.setPointerCapture(e.pointerId); d.classList.add('drag');
+      const mv = ev => {
+        if (mode === 'move') {
+          A = clamp(snap(minAt(col0, ev.clientY) - off), 0, 1440 - len); B = A + len;
+          const c = colAtX(ev.clientX); if (c) { day = c.dataset.day; d.style.transform = 'translateX(' + (c.getBoundingClientRect().left - col0.getBoundingClientRect().left) + 'px)'; }
+        } else if (mode === 'top') { A = clamp(snap(minAt(col0, ev.clientY)), 0, b - SNAP); B = b; }
+        else { B = clamp(snap(minAt(col0, ev.clientY)), a + SNAP, 1440); A = a; }
+        place(d, A, B); lab.textContent = mmTxt(A) + '–' + mmTxt(B);
+      };
+      const up = () => {
+        d.removeEventListener('pointermove', mv); d.removeEventListener('pointerup', up); d.removeEventListener('pointercancel', up);
+        const rest = parseSlots(sval(k)).filter(x => !(x[0] === a && x[1] === b));
+        if (day !== k) { commit(k, rest); const o = parseSlots(sval(day)); o.push([A, B]); commit(day, o); } else { rest.push([A, B]); commit(k, rest); }
+        draw();
+      };
+      d.addEventListener('pointermove', mv); d.addEventListener('pointerup', up); d.addEventListener('pointercancel', up);
+    };
+    d.addEventListener('pointerdown', start('move')); hT.addEventListener('pointerdown', start('top')); hB.addEventListener('pointerdown', start('bottom'));
+    return d;
+  }
+  function attachCol(col, k) {
+    col.addEventListener('pointerdown', e => {
+      if (e.target !== col || e.button !== 0) return;
+      const mouse = e.pointerType === 'mouse', m0 = Math.floor(minAt(col, e.clientY) / SNAP) * SNAP;
+      let a = m0, b = m0 + SNAP, moved = false;
+      const ghost = el('div', 'blk ghost'); col.append(ghost); place(ghost, a, b);
+      if (mouse) col.setPointerCapture(e.pointerId);
+      const end = () => { col.removeEventListener('pointermove', mv); col.removeEventListener('pointerup', up); col.removeEventListener('pointercancel', cancel); ghost.remove(); };
+      const mv = ev => { const m1 = Math.floor(minAt(col, ev.clientY) / SNAP) * SNAP; a = Math.min(m0, m1); b = Math.min(1440, Math.max(m0, m1) + SNAP); if (b - a > SNAP) moved = true; place(ghost, a, b); };
+      const up = () => { end(); if (!moved) { a = Math.min(m0, 1380); b = a + 60; } const arr = parseSlots(sval(k)); arr.push([a, b]); commit(k, arr); draw(); };
+      const cancel = () => end();
+      if (mouse) col.addEventListener('pointermove', mv);
+      col.addEventListener('pointerup', up); col.addEventListener('pointercancel', cancel);
+    });
+  }
+  function draw() {
+    cal.innerHTML = '';
+    const head = el('div', 'calh'); head.append(el('div'));
+    SCH_DAYS.forEach((k, i) => {
+      const h = el('div', 'calday', SCH_NAMES[i]), cp = el('button', 'calcp', '⧉'); cp.title = 'Copier ce jour sur toute la semaine';
+      cp.onclick = () => { const v = sval(k); for (const d of SCH_DAYS) sset(d, v); draw(); }; h.append(cp); head.append(h);
+    });
+    const body = el('div', 'calb'), axis = el('div');
+    for (let h = 0; h < 24; h++) { const l = el('div', 'calhr', p2(h) + ':00'); l.style.height = HOUR_PX + 'px'; axis.append(l); }
+    body.append(axis);
+    SCH_DAYS.forEach(k => { const col = el('div', 'calcol'); col.style.height = (24 * HOUR_PX) + 'px'; col.dataset.day = k; for (const r of parseSlots(sval(k))) col.append(block(r, k)); attachCol(col, k); body.append(col); });
+    cal.append(head, body);
+    if (updSchedInfo) updSchedInfo();
+  }
+  draw();
 }
 
 /* ---------- Étiquettes des avions ---------- */
@@ -1609,6 +1891,7 @@ async function pollBuild() {
 
 buildHome();
 setInterval(pollStatus, 4000);
+setInterval(tickClock, 1000);
 setInterval(() => { if (cur === 'log' && $('#logAuto').checked) loadLogs(); }, 3000);
 setInterval(() => { if (cur === 'cfg' && curCat === 'position') pollBuild(); }, 2000);
 setInterval(() => { if (updWasRunning || (cur === 'upd' && ++updTick % 7 === 0)) pollUpd(); }, 1500);
@@ -1631,6 +1914,7 @@ if __name__ == "__main__":
         print("ATTENTION : aucun mot de passe défini dans config.ini (section [server])", flush=True)
     threading.Thread(target=cpu_sampler, daemon=True).start()
     threading.Thread(target=UPD.auto_loop, daemon=True).start()
+    threading.Thread(target=sched_loop, daemon=True).start()
     MQTT.configure(S.ini)
     MQTT.start()
     print(f"Administration sur http://{S.HOST}:{S.PORT}  (app : {S.APP_DIR})", flush=True)

@@ -12,7 +12,7 @@ Affichage temps réel des avions autour de chez vous sur un Raspberry Pi : carte
 - Fiche photo de l'avion, liste des avions au sol.
 - Alerte de proximité : carillon, teinte rouge clignotante, fiche prioritaire, avec plage d'altitude réglable.
 - Webadmin : tuiles de supervision (température, CPU, mémoire, MQTT, images par seconde), interrupteurs (programme, écran, son), volume en direct, réglages complets, reconstruction de la carte, logs, et mises à jour du logiciel directement depuis GitHub.
-- Veille et réveil de l'écran, redémarrage et extinction du Pi à distance.
+- Veille et réveil de l'écran, redémarrage et extinction du Pi à distance, et planning hebdomadaire d'allumage de l'écran (calendrier glissable, prochaine action affichée dans Pilotage).
 - Multilingue : français et anglais, au choix dans webadmin (Réglages, Langue), pour l'interface comme pour l'écran ; d'autres langues s'ajoutent avec un simple fichier (dossier `lang`).
 - Intégration Home Assistant par MQTT (écran, son, volume, température).
 

@@ -500,6 +500,7 @@ write_configs() {
   ini_default config.ini build stop_display true
   ini_default config.ini update auto_check true
   ini_default config.ini general language fr
+  ini_default config.ini schedule enabled false
   ini_default config.ini mqtt enabled false
   ini_default config.ini mqtt port 1883
   ini_default config.ini mqtt tls false

@@ -168,6 +168,7 @@ Adapt these values if you choose others.
 | Language of the interface and of the screen | webadmin, Settings, Language (8.1) |
 | Content, order and style of the aircraft labels | webadmin, Settings, Aircraft labels (8.7) |
 | Software update, version history | webadmin, Updates tab (12.1) |
+| Automatic screen on/off | webadmin, Settings, Screen schedule (10.1) |
 | System installation items (services, sudoers, sleep scripts, `cmdline.txt`) | Automatic installer, or command line (sections 3 to 7) |
 
 ---
@@ -930,18 +931,20 @@ Valid categories: `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `bizje
 
 **Control** (home page)
 
-- Seven monitoring tiles, aligned on a single row on a computer and in two columns on a phone (the last one then takes the full width):
+- Eight monitoring tiles, in two rows of four on a computer and in two columns on a phone:
   - Program: active or stopped. When it is active, the number of frames per second really displayed (average over 2 seconds) is shown under the status, with the target set in `[display] fps`. A value clearly lower than the target signals an overloaded Pi Zero. The program publishes this measurement in `/dev/shm/flightdisplay-fps.json` (memory, not the SD card; `cache/fps.json` if `/dev/shm` does not exist).
   - Screen: on or asleep.
   - Pi temperature.
   - CPU usage: percentage of processor occupation, measured every 2 seconds (orange above 85%, red above 95%), with the system load average over 1 and 5 minutes in small print. The load average is not a percentage: on the Pi Zero, which has a single core, 1.00 already means a saturated processor.
   - Memory: percentage used, with the MB.
   - Up for: uptime and hostname.
+  - Pi time: local time of the Raspberry Pi (to the second), date and time zone. This is the time used by the screen schedule: if it is wrong, see 3.4.
   - MQTT: connected (green), disconnected or refused (red), disabled (neutral), with the server address.
   Refreshed every 4 seconds. The page header only shows status dots: "sound muted", "map building", "update in progress" or "update available".
 - Toggle commands, like in iOS Settings or Home Assistant:
   - Flight Display program: starts or stops the service (if the screen is asleep, the switch turns the screen back on).
   - Screen: sleep and wake-up (sleep also stops the program, see 6.2).
+  - Screen schedule (shown only when a schedule is active): next scheduled action, with the time and the time left (for example "Next action: turn off at 23:00 (in 4 h 12 min)"). The "Edit" button opens the calendar.
   - Alert sound: mutes or unmutes the sound (disabled and greyed out if `sound = false` in `config.ini`).
 - Volume slider (0 to 100%), applied live at the next alert.
 - "Test the sound" button (disabled while the sound is muted). Restarting the program is offered in Settings after saving ("Save and apply").
@@ -966,6 +969,7 @@ On a computer, a menu on the left lists the categories; on a phone, it becomes a
 | Webadmin | Web server | config.ini | Address, port, username, password. The "no password" warning is shown here (and only here) as long as no password is set. |
 | | Application and system | config.ini | Folder, files, service, map Python, sudo, commands, sleep script and marker, stopping the display during the map build. |
 | | Updates | config.ini | Automatic check every 12 hours (`auto_check`). |
+| | Screen schedule | config.ini | Schedule switch and weekly calendar of the on ranges (see below). |
 | Integrations | MQTT / Home Assistant | config.ini | Connection, topics and discovery, with state and a "Reconnect" button. |
 
 Input controls: toggle switches for yes/no values, segmented buttons for choices of two or three values (label size, language), sliders for the volume and the red intensity, text fields with limits for the rest. Passwords and the CARTO key are hidden: the field stays empty to keep the current value, typing a value replaces it, the "Clear" button deletes it.
@@ -989,8 +993,21 @@ When a change takes effect:
 | Language | Immediately for webadmin (the page reloads); at the next start of the program for the text shown on screen. |
 | Web server: address and port | At the restart of webadmin (offered: the page reopens by itself, on the new port if needed). |
 | Web server: username and password | Immediate (the browser asks for the credentials again). |
-| Application and system, Updates | Immediate. |
+| Application and system, Updates, Screen schedule | Immediate. |
 | MQTT | Immediate: webadmin reconnects to the server. |
+
+**Screen schedule** (Settings, Screen schedule)
+
+Turns the screen on and off by itself following a weekly calendar, like a diary.
+
+- The "Enable the schedule" switch starts the schedule. The calendar shows the seven days (Monday to Sunday) over 24 hours; the **blue** ranges are the hours when the screen is on, everything else is off. A red bar marks the current time in the column of the day.
+- On the calendar: dragging on a day draws a range (in steps of 15 minutes); a simple click creates a one-hour one; pulling the top or bottom of a range adjusts it; moving it with the mouse or a finger changes its time, or its day if you drag it onto another column; ✕ deletes it; ⧉ at the head of a column copies the day to the whole week. "Every day 07:00-23:00" and "Clear all" are shortcuts. Ranges that touch or overlap are merged.
+- Like the other settings, changes are saved with the bottom bar, then taken into account immediately (no restart).
+- The action runs **at the scheduled times**: at the start of each range, webadmin turns the screen on (wake-up, like the Screen button in Control); at the end of each range, it puts it to sleep (the display program is then stopped, see 6.2). Between two scheduled times, you can turn the screen on or off by hand: the schedule does not correct it and resumes at the next scheduled time. A day without ranges is a day entirely off.
+- When the schedule is saved, the screen is aligned at once with the state wanted at that time. When webadmin restarts, nothing is forced.
+- The Control page shows the next action (turn on or off, time and time left) as long as the schedule is active.
+- The schedule follows the **Pi time** (system time zone, see 3.4). It runs inside webadmin: it only works while webadmin is running, and uses the `flight-screen` script through sudo like the Screen button. An action is postponed while a map rebuild or an update is in progress. If the command fails, the message is shown below the next action.
+- In `config.ini`, section `[schedule]`: `enabled` and one line per day (`mon`, `tue`, `wed`, `thu`, `fri`, `sat`, `sun`) like `mon = 07:00-09:30,18:00-24:00` (`HH:MM` times, from `00:00` to `24:00`).
 
 **Map rebuild** (Settings, Map and position, at the bottom of the page; a banner points to it when a map setting has changed)
 
@@ -1045,6 +1062,16 @@ stop_display = true
 [update]
 auto_check = true
 
+[schedule]
+enabled = false
+mon =
+tue =
+wed =
+thu =
+fri =
+sat =
+sun =
+
 [mqtt]
 enabled = false
 host =
@@ -1076,6 +1103,8 @@ interval = 30
 | | `flag` | `/run/flight-screen-off` | Sleep marker file (deleted when the Pi reboots). |
 | `[build]` | `stop_display` | true | Default value of the "Stop the display during the build" switch (map rebuild). |
 | `[update]` | `auto_check` | true | Checks every 12 hours whether a new version exists on GitHub (shown by a dot). Installs nothing by itself. |
+| `[schedule]` | `enabled` | false | Enables the screen on/off schedule. |
+| | `mon` to `sun` | empty | On ranges of the day (`HH:MM-HH:MM`, separated by commas). Empty: screen off all day while the schedule is active. |
 | `[mqtt]` | | | See section 11. |
 
 Can only be changed from the command line: the systemd services, the sudoers file, the content of the sleep and guard scripts (virtual terminal numbers) and the environment variables.
@@ -1302,7 +1331,8 @@ sudo reboot
 | After the update, my custom sleep has disappeared | Step 9 of the installer rewrites `flight-screen` and `flight-screen-guard`. Keep a copy of your changes. |
 | The screen only wakes up when I turn it off from Home Assistant | Check that the entity's command is not published with "retain" on the MQTT server (11.3), and read `journalctl -t sudo \| grep flight-screen` to see who started the wake-up. |
 | The monitor does not turn off during sleep | Check `cat /sys/class/drm/card*-HDMI-A-*/dpms`: `Off` after the sleep. Otherwise try DDC/CI (6.2). |
-| The Control tiles do not fit on one row | On a computer, the single row applies from 860 px wide; below that, the tiles go into two columns. |
+| The Control tiles are in two columns | On a computer, the four columns apply from 860 px wide; below that, the tiles go into two columns. |
+| The schedule does not turn the screen on or off | Check that "Enable the schedule" is ticked and that the calendar contains ranges. Check the Pi time ("Pi time" tile, 3.4): the schedule follows its time zone. The action only happens at the scheduled times (a manual shutdown in the middle of a range is not corrected). An error message under "Next action" shows whether the `flight-screen` command failed (sudo rights: installer step 9). The schedule stops with webadmin (`sudo systemctl status flightadmin`). |
 | MQTT: "paho missing" | `sudo apt install python3-paho-mqtt` then `sudo systemctl restart flightadmin`. |
 | MQTT: "refuse" (refused) | Credentials or rights (ACL) of the MQTT server. |
 | Entities missing in Home Assistant | Check the MQTT integration, `discovery_prefix`, the same server, then "Reconnect / republish". |
