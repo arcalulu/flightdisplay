@@ -704,6 +704,7 @@ The whole interface is drawn at the resolution of the map. On Windows and on the
 |---|---|---|---|
 | `width` | 480 | 200 to 1200 | Panel width (px, 1080p basis). |
 | `rotate_seconds` | 12 | 3 to 120 | Display time of each aircraft when several are eligible. |
+| `show_credit` | true | true / false | Adds a "© name / JetPhotos" line below the photo. The photographer's credit is already visible inside the image: untick the option to remove this extra line. |
 | `corner_top_left`, `corner_top_right`, `corner_bottom_left`, `corner_bottom_right` | true | true / false | Corners where the panel may be shown. An unticked corner is never used, even if aircraft pass behind the other corners (the panel then picks the least obstructive among the allowed corners). If all four are unticked, there is no restriction. |
 
 ### 8.7 `[label]` — category "Aircraft labels"
@@ -850,7 +851,7 @@ simulate_seconds = 3
 - A panel with the photo, the model, the registration, the airline, the route, the altitude and the speed is shown for one aircraft at a time, alternating every `rotate_seconds` among the aircraft that have a photo.
 - The presented aircraft is highlighted in red on the map.
 - The panel is placed in the corner of the screen that obstructs the displayed aircraft the least, among the corners allowed in Settings, Photo panel (8.6). An unticked corner is never used.
-- Photos and details come from Flightradar24; the photographer's credit ("© name / JetPhotos") is shown in small print below the panel information. If a photo is missing or does not load, the aircraft is ignored in normal mode.
+- Photos and details come from Flightradar24; the photographer's credit is visible in the image and repeated ("© name / JetPhotos") in small print below the panel information, unless `show_credit` is unticked (8.6). If a photo is missing or does not load, the aircraft is ignored in normal mode.
 
 ### 9.3 Aircraft on the ground
 

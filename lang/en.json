@@ -449,6 +449,8 @@
   "Données de vol :": "Flight data:",
   "Photos :": "Photos:",
   "© leurs auteurs": "© their authors",
-  "Crédits et licences": "Credits and licenses"
+  "Crédits et licences": "Credits and licenses",
+  "Crédit du photographe sous la photo": "Photographer credit below the photo",
+  "Le crédit est déjà visible à l'intérieur de l'image : cette option ajoute en plus une ligne de texte sous la photo dans le panneau. Décochez-la pour la masquer.": "The credit is already visible inside the image: this option adds an extra line of text below the photo in the panel. Untick it to hide it."
  }
 }

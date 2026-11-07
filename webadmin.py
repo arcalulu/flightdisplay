@@ -153,6 +153,8 @@ PARAMS = [
     *LABEL_PARAMS,
     C("panel", "panel", "width", "int", 480, "Largeur (px, base 1080p)", "", "Fiche photo", min=200, max=1200),
     C("panel", "panel", "rotate_seconds", "float", 12, "Rotation entre avions (s)", "", "Fiche photo", min=3, max=120),
+    C("panel", "panel", "show_credit", "bool", True, "Crédit du photographe sous la photo",
+      "Le crédit est déjà visible à l'intérieur de l'image : cette option ajoute en plus une ligne de texte sous la photo dans le panneau. Décochez-la pour la masquer.", "Fiche photo"),
     C("panel", "panel", "corner_top_left", "bool", True, "Haut gauche", "Décochez un angle pour que le panneau n'y soit jamais affiché, même si un avion passe derrière les autres angles. Si tout est décoché, aucune restriction.", "Angles autorisés"),
     C("panel", "panel", "corner_top_right", "bool", True, "Haut droite", "", "Angles autorisés"),
     C("panel", "panel", "corner_bottom_left", "bool", True, "Bas gauche", "", "Angles autorisés"),

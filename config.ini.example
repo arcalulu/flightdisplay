@@ -36,6 +36,8 @@ height = 1080
 [panel]
 width = 480
 rotate_seconds = 12
+; Répéter le crédit du photographe sous la photo (il est déjà visible dans l'image)
+show_credit = true
 ; Angles où le panneau photo peut s'afficher (false = jamais dans cet angle)
 corner_top_left = true
 corner_top_right = true

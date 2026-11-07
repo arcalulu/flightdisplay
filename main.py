@@ -91,6 +91,7 @@ PANEL_W = S(cfg.getint("panel", "width", fallback=480))
 # Attributions exigees par les fournisseurs (OpenStreetMap : ODbL, CARTO : conditions du fond de carte) : ne pas retirer
 CREDITS = "\u00a9 OpenStreetMap contributors  \u00b7  \u00a9 CARTO  \u00b7  Flightradar24"
 ROTATE = cfg.getfloat("panel", "rotate_seconds", fallback=12)
+PANEL_CREDIT = cfg.getboolean("panel", "show_credit", fallback=True)  # ligne de credit du photographe sous le panneau
 # Angles ou le panneau photo peut s'afficher, dans l'ordre : haut droite, haut gauche, bas droite, bas gauche
 PANEL_CORNERS = [cfg.getboolean("panel", k, fallback=True) for k in
                  ("corner_top_right", "corner_top_left", "corner_bottom_right", "corner_bottom_left")]
@@ -770,7 +771,7 @@ def main():
                     (route(d["origin"], d["dest"]), f_mid, (220, 225, 230)),
                     (av, f_mid, (255, 150, 150)),
                 ]
-                if d.get("credit"):  # credit du photographe : obligatoire a l'affichage de la photo
+                if PANEL_CREDIT and d.get("credit"):  # le credit figure deja dans l'image : cette ligne le repete
                     lines.append((f'\u00a9 {str(d["credit"])[:44]} / JetPhotos', f_small, (140, 150, 160)))
             else:
                 lines = [

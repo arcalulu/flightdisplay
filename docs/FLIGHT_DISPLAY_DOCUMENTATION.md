@@ -704,6 +704,7 @@ Toute l'interface est dessinée à la résolution de la carte. Sous Windows et s
 |---|---|---|---|
 | `width` | 480 | 200 à 1200 | Largeur du panneau (px, base 1080p). |
 | `rotate_seconds` | 12 | 3 à 120 | Durée d'affichage de chaque avion quand plusieurs sont éligibles. |
+| `show_credit` | true | true / false | Ajoute sous la photo une ligne « © nom / JetPhotos ». Le crédit du photographe est déjà visible à l'intérieur de l'image : décochez l'option pour supprimer cette ligne supplémentaire. |
 | `corner_top_left`, `corner_top_right`, `corner_bottom_left`, `corner_bottom_right` | true | true / false | Angles où le panneau peut s'afficher. Un angle décoché n'est jamais utilisé, même si des avions passent derrière les autres angles (le panneau choisit alors le moins gênant parmi les angles autorisés). Si les quatre sont décochés, aucune restriction. |
 
 ### 8.7 `[label]` — catégorie « Étiquettes des avions »
@@ -850,7 +851,7 @@ simulate_seconds = 3
 - Un panneau avec la photo, le modèle, l'immatriculation, la compagnie, le trajet, l'altitude et la vitesse s'affiche pour un avion à la fois, en alternance toutes les `rotate_seconds` entre les avions qui ont une photo.
 - L'avion présenté est surligné en rouge sur la carte.
 - Le panneau se place dans le coin de l'écran qui gêne le moins les avions affichés, parmi les angles autorisés dans Réglages, Panneau photo (8.6). Un angle décoché n'est jamais utilisé.
-- Les photos et détails viennent de Flightradar24 ; le crédit du photographe (« © nom / JetPhotos ») s'affiche en petit sous les informations du panneau. Si une photo manque ou ne se charge pas, l'avion est ignoré en mode normal.
+- Les photos et détails viennent de Flightradar24 ; le crédit du photographe est visible dans l'image et répété (« © nom / JetPhotos ») en petit sous les informations du panneau, sauf si `show_credit` est décoché (8.6). Si une photo manque ou ne se charge pas, l'avion est ignoré en mode normal.
 
 ### 9.3 Avions au sol
 
