@@ -2080,7 +2080,7 @@ async function renderTypes(box) {
   const opened = new Set();
   const catOf = c => extra[c] || builtin[c] || 'narrow';
   const known = c => !!(extra[c] || builtin[c]);
-  const todo = el('div'), cats = el('div'), bt = el('div', 'grid'); bt.style.marginTop = '10px';
+  const todo = el('div'), cats = el('div'), catList = el('div'), bt = el('div', 'grid'); bt.style.marginTop = '10px';
   const find = document.createElement('input'); find.type = 'search'; find.placeholder = 'Rechercher un code (ex. A320)'; find.style.textTransform = 'uppercase';
   const bar = el('div', 'tools'); bar.append(find);
   const restart = el('button', 'b p', 'Relancer le programme');
@@ -2151,11 +2151,10 @@ async function renderTypes(box) {
     todo.append(box);
   }
   function catCards() {
-    cats.replaceChildren();
-    cats.append(el('h2', 't', 'Types par catégorie'), el('p', 'note', 'En vert : types déjà vus au-dessus de chez vous (survolez pour le nombre de passages).'), bar);
+    catList.replaceChildren();
     const all = new Set([...Object.keys(builtin), ...Object.keys(extra)]);
     if (query && /^[A-Z0-9]{2,6}$/.test(query) && !all.has(query)) {
-      const a = el('button', 'b s', _t('Ajouter le type {0}', query)); a.onclick = () => { extra[query] = 'narrow'; sel = query; find.value = ''; query = ''; draw(); persist(); }; cats.append(a);
+      const a = el('button', 'b s', _t('Ajouter le type {0}', query)); a.onclick = () => { extra[query] = 'narrow'; sel = query; find.value = ''; query = ''; draw(); persist(); }; catList.append(a);
     }
     for (const c of T.categories) {
       const codes = [...all].filter(k => catOf(k) === c && (!query || k.includes(query))).sort();
@@ -2167,7 +2166,7 @@ async function renderTypes(box) {
       for (const k of codes) { const sn = info[k] && info[k].n, b = el('button', 'tcode' + (sn ? ' seen' : '') + (k === sel ? ' on' : '') + (extra[k] ? ' mod' : ''), k); if (sn) b.title = _t('Vu {0} fois', sn); b.onclick = () => toggleSel(k); row.append(b); }
       d.append(row);
       if (sel && codes.includes(sel) && !inTodo.has(sel)) d.append(detail(sel));
-      cats.append(d);
+      catList.append(d);
     }
   }
   function draw() { todoList(); catCards(); }
@@ -2175,6 +2174,7 @@ async function renderTypes(box) {
   restart.onclick = async () => { try { await svc('restart'); } catch (e) { toast(e.message, true); } };
   bt.append(restart);
   const note2 = el('p', 'note', "Vos changements sont enregistrés tout de suite. Relancez le programme pour les voir à l'écran.");
+  cats.append(el('h2', 't', 'Types par catégorie'), el('p', 'note', 'En vert : types déjà vus au-dessus de chez vous (survolez pour le nombre de passages).'), bar, catList);
   box.append(todo, cats, note2, bt); draw();
   (async () => { for (const c of unknownCodes()) if (!sug[c]) await ask(c, true); })();
 }
