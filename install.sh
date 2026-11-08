@@ -748,6 +748,12 @@ Carte fournie (aéroport de Bordeaux-Mérignac) : aucune construction nécessair
 Carte fournie introuvable : construisez la carte depuis webadmin (Réglages, Carte et position) avec une clé CARTO.	Supplied map not found: build the map from webadmin (Settings, Map and position) with a CARTO key.
   %sMot de passe%s   aucun : définissez-en un dans webadmin (Réglages, Serveur web)\n	  %sPassword%s       none: set one in webadmin (Settings, Web server)\n
 \n  %sPosition%s       aéroport de Bordeaux-Mérignac : réglez la vôtre dans webadmin (Réglages, Carte et position)\n	\n  %sPosition%s       Bordeaux-Merignac airport: set yours in webadmin (Settings, Map and position)\n
+Cet utilisateur (%s) n'a pas les droits sudo : l'installation s'arrête ici.	This user (%s) does not have sudo rights: the installation stops here.
+L'installeur a besoin de sudo pour installer les paquets, créer les services et régler la veille de l'écran.	The installer needs sudo to install the packages, create the services and set up the screen sleep.
+Solutions possibles :	Possible solutions:
+Reflashez la carte avec Raspberry Pi Imager en renseignant le nom d'utilisateur et le mot de passe : l'utilisateur créé par Imager a les droits sudo.	Re-flash the card with Raspberry Pi Imager, filling in the username and password: the user created by Imager has sudo rights.
+Ou, depuis un compte administrateur : sudo usermod -aG sudo %s (puis déconnectez-vous et reconnectez-vous).	Or, from an administrator account: sudo usermod -aG sudo %s (then log out and log back in).
+Sans autre compte administrateur : voir la documentation, section 0.5 (« Pas de droits sudo »).	With no other administrator account: see the documentation, section 0.5 ("No sudo rights").
 EN_TABLE
 }
 
@@ -781,6 +787,22 @@ need_sudo() {
   fi
   ( while true; do sudo -n true 2>/dev/null; sleep 45; kill -0 "$$" 2>/dev/null || exit; done ) &
   KEEPALIVE=$!
+}
+
+check_sudo() {  # l'installation s'arrete des le debut si l'utilisateur n'a pas les droits sudo
+  [ -n "$DRY" ] && return 0
+  local u; u=$(id -un)
+  if command -v sudo >/dev/null 2>&1; then
+    sudo -n true 2>/dev/null && return 0
+    case " $(id -nG) " in *" sudo "*|*" wheel "*|*" admin "*) return 0 ;; esac
+  fi
+  printf '\n  %s%s %s%s\n\n' "$RED" "$KOC" "$(Lf "Cet utilisateur (%s) n'a pas les droits sudo : l'installation s'arrête ici." "$u")" "$R"
+  printf '  %s\n\n' "$(L "L'installeur a besoin de sudo pour installer les paquets, créer les services et régler la veille de l'écran.")"
+  printf '  %s%s%s\n' "$B" "$(L "Solutions possibles :")" "$R"
+  printf '    • %s\n' "$(L "Reflashez la carte avec Raspberry Pi Imager en renseignant le nom d'utilisateur et le mot de passe : l'utilisateur créé par Imager a les droits sudo.")"
+  printf '    • %s\n' "$(Lf "Ou, depuis un compte administrateur : sudo usermod -aG sudo %s (puis déconnectez-vous et reconnectez-vous)." "$u")"
+  printf '    • %s\n\n' "$(L "Sans autre compte administrateur : voir la documentation, section 0.5 (« Pas de droits sudo »).")"
+  exit 1
 }
 
 # ------------------------------------------------------------------ etapes
@@ -1143,6 +1165,7 @@ if [ -z "$LANG_UI" ]; then
 fi
 if [ "$LANG_UI" = en ]; then load_en; fi
 banner
+check_sudo
 if [ -z "$YES" ] && [ -z "$MANUAL" ]; then
   # Installation automatique par defaut ; un delai laisse la possibilite de passer en manuel
   if [ -n "$HAVE_TTY" ] && [ -z "$FORCE_AUTO" ] && [ "$COUNTDOWN" -gt 0 ] 2>/dev/null; then countdown "$COUNTDOWN"; fi

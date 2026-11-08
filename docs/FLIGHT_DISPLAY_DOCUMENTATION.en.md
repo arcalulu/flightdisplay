@@ -108,6 +108,10 @@ For each step, the screen shows an animated indicator, the elapsed time, the las
 
 - An essential step that fails stops the installer with a clear message, the last lines of the log and the file path. Fix the cause (network, disk space), then run the same command again: the installer resumes and keeps what is already done.
 - If only the map cannot be built (missing or rejected key, script error), everything else is installed. webadmin works, and the map is built from webadmin (Settings, Map and position, "Rebuild the map") after the fix. The display program starts automatically as soon as a map exists, or with the "Flight Display program" switch in Control.
+- **No sudo rights**: the installer checks right away that your user can use `sudo` (without a password, or as a member of the `sudo` group) and stops otherwise, before changing anything. The user created by Raspberry Pi Imager normally has these rights. Otherwise:
+  - the simplest: re-flash the card with Raspberry Pi Imager, filling in the username and password in the customization;
+  - from another administrator account: `sudo usermod -aG sudo <user>` and `echo '<user> ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/010_<user>` (then `sudo chmod 440` on that file), then log out and back in;
+  - with no other account: on the `bootfs` partition of the card, add `init=/bin/bash` at the end of the `cmdline.txt` line, start the Pi, type `mount -o remount,rw /`, the two commands `usermod -aG sudo <user>` and `echo '<user> ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/010_<user>` followed by `chmod 440 /etc/sudoers.d/010_<user>` and `sync`, power off, then remove `init=/bin/bash` from `cmdline.txt`.
 - Non-blocking warnings (clock, disk space, unrecognized hardware) are repeated in the final summary.
 
 ### 0.6 Running the installer again

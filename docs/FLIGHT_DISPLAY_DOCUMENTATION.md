@@ -108,6 +108,10 @@ L'écran montre pour chaque étape un indicateur animé, le temps écoulé, la d
 
 - Une étape essentielle qui échoue arrête l'installeur avec un message clair, les dernières lignes du journal et le chemin du fichier. Corrigez la cause (réseau, espace disque), puis relancez la même commande : l'installeur reprend et conserve ce qui est déjà fait.
 - Si seule la carte ne peut pas être construite (clé absente ou refusée, erreur du script), tout le reste est installé. webadmin fonctionne, et la carte se construit depuis webadmin (Réglages, Carte et position, « Reconstruire la carte ») après correction. Le programme d'affichage démarre automatiquement dès qu'une carte existe, ou avec l'interrupteur « Programme Flight Display » dans Pilotage.
+- **Pas de droits sudo** : l'installeur vérifie tout de suite que votre utilisateur peut utiliser `sudo` (sans mot de passe, ou membre du groupe `sudo`) et s'arrête sinon, avant toute modification. L'utilisateur créé par Raspberry Pi Imager a normalement ces droits. Sinon :
+  - le plus simple : reflasher la carte avec Raspberry Pi Imager en renseignant le nom d'utilisateur et le mot de passe dans la personnalisation ;
+  - depuis un autre compte administrateur : `sudo usermod -aG sudo <utilisateur>` et `echo '<utilisateur> ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/010_<utilisateur>` (puis `sudo chmod 440` sur ce fichier), puis déconnexion et reconnexion ;
+  - sans autre compte : sur la partition `bootfs` de la carte, ajouter `init=/bin/bash` à la fin de la ligne de `cmdline.txt`, démarrer le Pi, taper `mount -o remount,rw /`, les deux commandes `usermod -aG sudo <utilisateur>` et `echo '<utilisateur> ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/010_<utilisateur>` suivies de `chmod 440 /etc/sudoers.d/010_<utilisateur>` et `sync`, éteindre, puis retirer `init=/bin/bash` de `cmdline.txt`.
 - Les avertissements non bloquants (horloge, espace disque, matériel non reconnu) sont rappelés dans le résumé final.
 
 ### 0.6 Relancer l'installeur
