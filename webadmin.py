@@ -662,6 +662,36 @@ def unknown_types(known):
     return found
 
 
+_desig = {"t": 0.0, "map": {}}
+DESIG_URL = "https://en.wikipedia.org/w/api.php?action=parse&page=List_of_aircraft_type_designators&prop=text&format=json&formatversion=2"
+
+
+def designators():
+    """Table code ICAO -> nom du modele (liste publique de Wikipedia), gardee 24 h en memoire."""
+    if _desig["map"] and time.time() - _desig["t"] < 86400:
+        return _desig["map"]
+    import urllib.request
+    req = urllib.request.Request(DESIG_URL, headers={"User-Agent": "FlightDisplay/1.0 (webadmin)"})
+    with urllib.request.urlopen(req, timeout=10) as r:
+        html = json.load(r)["parse"]["text"]
+    out = {}
+    for code, name in re.findall(r"<tr>\s*<td>([A-Z0-9]{2,4})</td>\s*<td>[^<]*</td>\s*<td>(.*?)</td>", html, re.S):
+        name = re.sub(r"<[^>]+>", "", name).strip()
+        if name and code not in out:
+            out[code] = name
+    _desig.update(t=time.time(), map=out)
+    return out
+
+
+def suggest_type(code):
+    """Propose une categorie : d'apres le modele deja vu, sinon d'apres la liste des types ICAO de Wikipedia."""
+    code = code.upper()
+    model = next((e["model"] for e in seen_types() if e["code"] == code and e["model"]), "")
+    if not model:
+        model = designators().get(code, "")
+    return dict(code=code, model=model, suggest=aircraft_types.suggest(model) if model else None)
+
+
 def seen_photo_file(code):
     """Nom du fichier de la derniere photo vue pour ce type (valide, present dans le cache) ou leve une erreur."""
     with open(os.path.join(S.APP_DIR, "cache", "types_seen.json"), encoding="utf-8") as fh:
@@ -1173,6 +1203,14 @@ class Handler(BaseHTTPRequestHandler):
                 shapes = {c: [[round(x, 2), round(y, 2)] for x, y in aircraft_types.SHAPES[c]] for c in TYPE_CATS}
                 self.send_json(dict(text=text, categories=TYPE_CATS, labels={c: tr(TYPE_LABELS[c]) for c in TYPE_CATS}, shapes=shapes,
                                     builtin=aircraft_types.BUILTIN, extra=extra, seen=seen_types(), unknown=unknown_types(known)))
+            elif u.path == "/api/types/suggest":
+                code = parse_qs(u.query).get("code", [""])[0]
+                if not re.fullmatch(r"[A-Za-z0-9]{2,6}", code):
+                    return self.send_json({"error": "code de type invalide"}, 400)
+                try:
+                    self.send_json(suggest_type(code))
+                except Exception:
+                    self.send_json({"error": "Recherche impossible (pas d'accès à internet ?)"}, 502)
             elif u.path == "/api/types/photo":
                 code = parse_qs(u.query).get("code", [""])[0].upper()
                 try:
@@ -1453,13 +1491,14 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 .tools input[type=search]{padding:9px 10px;font-size:14px;width:100%;border-radius:9px;border:1px solid var(--line);background:#0e141b;color:var(--txt)}
 .tlist{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px}
 .tcode{border:1px solid var(--line);background:var(--card2);color:var(--txt);border-radius:8px;padding:3px 8px;font:12px ui-monospace,Menlo,Consolas,monospace;cursor:pointer}
-.tcode.mod{border-color:var(--acc)}.tcode.on{background:var(--acc);color:#111}
+.tcode.seen{background:rgba(52,199,89,.18);border-color:var(--ok)}.tcode.mod{border-color:var(--acc)}.tcode.on{background:var(--acc);color:#111}
 .tcard{border:1px solid var(--line);background:var(--card);border-radius:12px;margin:8px 0;padding:0 12px}
 .tcard summary{display:flex;align-items:center;gap:10px;padding:10px 0;cursor:pointer;list-style:none}.tcard summary::-webkit-details-marker{display:none}
 .tcard summary small{color:var(--mut);margin-left:auto}.tcard[open]>summary{border-bottom:1px solid var(--line)}.tcard .tlist{margin-bottom:10px}
 .tcard svg,.tcl svg,.tcat svg{color:var(--txt);flex:none}
 .tcl{padding:10px 0;border-top:.5px solid var(--line)}.tcl:first-child{border-top:0}
 .tvh{display:flex;align-items:center;gap:12px;cursor:pointer;flex-wrap:wrap}.tvh .lt{flex:1;min-width:160px}.tacts{display:flex;gap:6px;flex-wrap:wrap}
+.tsug.none{background:var(--card2);color:var(--mut)}
 .tsug{display:inline-block;margin-top:4px;background:rgba(210,153,34,.18);color:var(--warn);border-radius:8px;padding:2px 8px;font-size:12px}
 .tdet{margin:10px 0 4px}.tdtop{display:flex;gap:14px;flex-wrap:wrap}.tdtx{flex:1;min-width:220px}.tdt{font-weight:600;font-size:16px}
 .tph{width:200px;max-width:100%;height:130px;object-fit:cover;border-radius:8px;border:1px solid var(--line);flex:none}
@@ -1972,16 +2011,26 @@ async function renderTypes(box) {
   TYPES = T;
   const extra = Object.assign({}, T.extra), builtin = T.builtin, info = {};
   for (const e of T.seen) info[e.code] = e;
-  let dirty = false, sel = null, query = '';
+  let sel = null, query = '';
+  const sug = {}, busy = new Set();
   const opened = new Set();
   const catOf = c => extra[c] || builtin[c] || 'narrow';
   const known = c => !!(extra[c] || builtin[c]);
   const todo = el('div'), cats = el('div'), bt = el('div', 'grid'); bt.style.marginTop = '10px';
   const find = document.createElement('input'); find.type = 'search'; find.placeholder = 'Rechercher un code (ex. A320)'; find.style.textTransform = 'uppercase';
   const bar = el('div', 'tools'); bar.append(find);
-  const save = el('button', 'b p', 'Enregistrer'), save2 = el('button', 'b', 'Enregistrer et relancer');
+  const restart = el('button', 'b p', 'Relancer le programme');
+  const persist = async () => {
+    const text = Object.keys(extra).sort().map(k => k + ' ' + extra[k]).join('\n');
+    try { await api('/api/types', {text}); pend.app = true; showPending(); } catch (e) { toast(e.message, true); }
+  };
   const web = code => { const i = info[code]; window.open('https://www.google.com/search?q=' + encodeURIComponent('ICAO aircraft type ' + code + (i && i.model ? ' ' + i.model : '')), '_blank', 'noopener'); };
-  const choose = (code, c) => { if (builtin[code] === c) delete extra[code]; else extra[code] = c; dirty = true; draw(); };
+  const choose = (code, c) => { if (builtin[code] === c) delete extra[code]; else extra[code] = c; draw(); persist(); };
+  const ask = async code => {
+    busy.add(code); draw();
+    try { sug[code] = await api('/api/types/suggest?code=' + encodeURIComponent(code)); } catch (e) { toast(e.message, true); }
+    busy.delete(code); draw();
+  };
   const detail = code => {
     const i = info[code] || {}, w = el('div', 'tdet'), top = el('div', 'tdtop');
     if (i.photo) { const im = document.createElement('img'); im.className = 'tph'; im.alt = code; im.loading = 'lazy'; im.src = '/api/types/photo?code=' + encodeURIComponent(code); im.onerror = () => im.remove(); top.append(im); }
@@ -1998,7 +2047,7 @@ async function renderTypes(box) {
     }
     tx.append(row);
     const act = el('div', 'tools'), ws = el('button', 'b s', 'Fiche sur internet ↗'); ws.onclick = () => web(code); act.append(ws);
-    if (extra[code]) { const r = el('button', 'b s', builtin[code] ? "Rétablir l'icône d'origine" : 'Supprimer ce type'); r.onclick = () => { delete extra[code]; if (!builtin[code]) sel = null; dirty = true; draw(); }; act.append(r); }
+    if (extra[code]) { const r = el('button', 'b s', builtin[code] ? "Rétablir l'icône d'origine" : 'Supprimer ce type'); r.onclick = () => { delete extra[code]; if (!builtin[code]) sel = null; draw(); persist(); }; act.append(r); }
     tx.append(act); top.append(tx); w.append(top); return w;
   };
   const toggleSel = code => { sel = sel === code ? null : code; draw(); };
@@ -2015,10 +2064,13 @@ async function renderTypes(box) {
       inTodo.add(e.code);
       const r = el('div', 'tcl'), head = el('div', 'tvh'), t1 = el('div', 'lt');
       t1.append(el('b', null, e.code), el('small', null, [e.model, e.n ? _t('{0} passage(s)', e.n) : ''].filter(Boolean).join(' · ') || 'Modèle inconnu'));
-      if (e.suggest) t1.append(el('span', 'tsug', _t('Suggestion : {0}', T.labels[e.suggest])));
+      const sg = sug[e.code] || (e.suggest ? {model: e.model, suggest: e.suggest} : null);
+      if (sg && sg.suggest) t1.append(el('span', 'tsug', _t('Suggestion : {0}', T.labels[sg.suggest]) + (sg.model && sg.model !== e.model ? ' · ' + _t("d'après {0}", sg.model) : '')));
+      else if (sg) t1.append(el('span', 'tsug none', sg.model ? _t('Aucune suggestion pour {0}', sg.model) : 'Type introuvable dans la liste publique'));
       head.append(planeSvg(T, catOf(e.code), 34), t1); head.onclick = () => toggleSel(e.code);
       const acts = el('div', 'tacts');
-      if (e.suggest) { const ok = el('button', 'b s', 'Accepter'); ok.onclick = ev => { ev.stopPropagation(); choose(e.code, e.suggest); }; acts.append(ok); }
+      if (sg && sg.suggest) { const ok = el('button', 'b s', 'Accepter'); ok.onclick = ev => { ev.stopPropagation(); choose(e.code, sg.suggest); }; acts.append(ok); }
+      else { const qs = el('button', 'b s', busy.has(e.code) ? 'Recherche…' : 'Suggérer'); qs.onclick = ev => { ev.stopPropagation(); if (!busy.has(e.code)) ask(e.code); }; acts.append(qs); }
       const ws = el('button', 'b s', 'Chercher sur internet ↗'); ws.onclick = ev => { ev.stopPropagation(); web(e.code); }; acts.append(ws);
       head.append(acts); r.append(head);
       if (e.code === sel) r.append(detail(e.code));
@@ -2028,10 +2080,10 @@ async function renderTypes(box) {
   }
   function catCards() {
     cats.replaceChildren();
-    cats.append(el('h2', 't', 'Types par catégorie'), bar);
+    cats.append(el('h2', 't', 'Types par catégorie'), el('p', 'note', 'En vert : types déjà vus au-dessus de chez vous (survolez pour le nombre de passages).'), bar);
     const all = new Set([...Object.keys(builtin), ...Object.keys(extra)]);
     if (query && /^[A-Z0-9]{2,6}$/.test(query) && !all.has(query)) {
-      const a = el('button', 'b s', _t('Ajouter le type {0}', query)); a.onclick = () => { extra[query] = 'narrow'; sel = query; dirty = true; find.value = ''; query = ''; draw(); }; cats.append(a);
+      const a = el('button', 'b s', _t('Ajouter le type {0}', query)); a.onclick = () => { extra[query] = 'narrow'; sel = query; find.value = ''; query = ''; draw(); persist(); }; cats.append(a);
     }
     for (const c of T.categories) {
       const codes = [...all].filter(k => catOf(k) === c && (!query || k.includes(query))).sort();
@@ -2040,20 +2092,18 @@ async function renderTypes(box) {
       d.ontoggle = () => { if (query) return; if (d.open) opened.add(c); else opened.delete(c); };
       const sm = document.createElement('summary'); sm.append(planeSvg(T, c, 34), el('b', null, T.labels[c]), el('small', null, _t('{0} types', codes.length))); d.append(sm);
       const row = el('div', 'tlist');
-      for (const k of codes) { const b = el('button', 'tcode' + (k === sel ? ' on' : '') + (extra[k] ? ' mod' : ''), k); b.onclick = () => toggleSel(k); row.append(b); }
+      for (const k of codes) { const sn = info[k] && info[k].n, b = el('button', 'tcode' + (sn ? ' seen' : '') + (k === sel ? ' on' : '') + (extra[k] ? ' mod' : ''), k); if (sn) b.title = _t('Vu {0} fois', sn); b.onclick = () => toggleSel(k); row.append(b); }
       d.append(row);
       if (sel && codes.includes(sel) && !inTodo.has(sel)) d.append(detail(sel));
       cats.append(d);
     }
   }
-  function draw() { todoList(); catCards(); save.disabled = save2.disabled = !dirty; }
+  function draw() { todoList(); catCards(); }
   find.oninput = () => { query = find.value.trim().toUpperCase(); catCards(); };
-  const doSave = async relaunch => {
-    const text = Object.keys(extra).sort().map(k => k + ' ' + extra[k]).join('\n');
-    try { await api('/api/types', {text}); dirty = false; draw(); toast('Types enregistrés'); if (relaunch) await svc('restart'); else { pend.app = true; showPending(); } } catch (e) { toast(e.message, true); }
-  };
-  save.onclick = () => doSave(false); save2.onclick = () => doSave(true); bt.append(save, save2);
-  box.append(todo, cats, bt); draw();
+  restart.onclick = async () => { try { await svc('restart'); } catch (e) { toast(e.message, true); } };
+  bt.append(restart);
+  const note2 = el('p', 'note', "Vos changements sont enregistrés tout de suite. Relancez le programme pour les voir à l'écran.");
+  box.append(todo, cats, note2, bt); draw();
 }
 
 /* ---------- Sauvegarde et restauration ---------- */
