@@ -2974,7 +2974,7 @@ function renderUpd(lost) {
   const cur = u.current || (c && c.ok ? c.current : null), behind = c && c.ok ? c.behind : 0;
   // --- carte résumé
   const sm = $('#updSummary'); sm.innerHTML = '';
-  const row = el('div', 'urow'), left = el('div'), vr = el('div');
+  const row = el('div', 'urow'), left = el('div'), vr = el('div'); row.style.alignItems = 'flex-start'; left.style.cssText = 'flex:1 1 240px;min-width:0';
   vr.style.cssText = 'display:flex;align-items:center;flex-wrap:wrap;gap:8px';
   vr.append(el('span', 'uver', cur ? cur.label : '-'));
   if (behind) { vr.append(el('span', 'uarr', '→'), el('span', 'uver new', c.latest.label)); }
@@ -2984,8 +2984,8 @@ function renderUpd(lost) {
   const sub = el('div', 'usub');
   const chan = u.channel === 'stable' ? tl('canal stable') : tl('canal développement');
   sub.textContent = behind ? _t(behind > 1 ? '{0} nouveautés' : '{0} nouveauté', behind) + ' · ' + _t('vérifié {0}', ago(c.checked_at)) + ' · ' + chan
-    : (c && c.ok && c.dev_ahead ? _t('{0} commit(s) après {1}', c.dev_ahead, c.latest.label) + ' · ' : '') + (cur ? cur.date + ' · ' + cur.subject : '') + (c && c.ok ? ' · ' + _t('vérifié {0}', ago(c.checked_at)) + ' · ' + chan : '');
-  left.append(vr, sub);
+    : '';
+  left.append(vr); if (sub.textContent) left.append(sub);
   const btns = el('div', 'ubtns');
   const bc = el('button', 'b s', updBusy ? 'Vérification...' : (behind ? 'Vérifier' : 'Vérifier les mises à jour')); bc.disabled = updBusy || busy; bc.onclick = checkUpd; btns.append(bc);
   if (behind) { const bu = el('button', 'b p s', 'Mettre à jour'); bu.disabled = busy || updBusy || !c.can_update; bu.onclick = startUpd; btns.append(bu); }
@@ -3021,7 +3021,7 @@ function renderUpd(lost) {
     const txt = bad ? _t('Dernière tentative en échec : {0}', u.error) : (from && to && from !== to ? _t(u.mode === 'rollback' ? 'Retour arrière : {0} → {1}, {2}' : 'Dernière mise à jour : {0} → {1}, {2}', from, to, ago(u.finished)) : (u.done_msg || ''));
     last.append(el('span', 'ic', bad ? '✕' : '✓'), el('span', null, txt));
     if (u.previous) { const rb = el('button', 'b s', _t('Revenir à {0}', u.previous.label)); rb.style.marginLeft = 'auto'; rb.onclick = e => { e.stopPropagation(); startRollback(); }; last.append(rb); }
-    const more = el('span', 'more'); if (!u.previous) more.style.marginLeft = 'auto'; more.append(el('span', 'chev' + (idleOpen ? '' : ' shut'), '▾'), el('span', null, 'Détails')); more.firstChild.style.cssText = 'display:inline-block;transition:transform .15s;margin-right:4px' + (idleOpen ? '' : ';transform:rotate(-90deg)');
+    const more = el('span', 'more'); more.style.marginLeft = u.previous ? '0' : 'auto'; more.append(el('span', 'chev' + (idleOpen ? '' : ' shut'), '▾'), el('span', null, 'Détails')); more.firstChild.style.cssText = 'display:inline-block;transition:transform .15s;margin-right:4px' + (idleOpen ? '' : ';transform:rotate(-90deg)');
     last.append(more); last.onclick = () => { updDetailsOpen = !idleOpen; renderUpd(); };
     det.style.display = idleOpen ? 'block' : 'none'; showOut = idleOpen;
     det.innerHTML = '';
