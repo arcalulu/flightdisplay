@@ -734,6 +734,9 @@ Automatic protection: after a 429 error, the interval is multiplied by 1.5 (maxi
 | `speed_unit` | kmh | `kmh`, `kt` | Displayed speed unit. |
 | `max_altitude_ft` | 0 | 0 to 100000 | Higher aircraft are neither tracked nor displayed (0 = no limit). Their number appears in the status line. Also applies to the alert. |
 | `icon_scale` | 1.25 | 0.3 to 5 | Aircraft icon size. |
+| `plane_color_panel` | `#ff4646` | `#rrggbb` | Color of the aircraft whose photo is shown in the panel (its trail takes a matching shade). |
+| `plane_color_known` | `#ffd250` | `#rrggbb` | Color of the other aircraft, whose type is known. |
+| `plane_color_unknown` | `#ffaa5a` | `#rrggbb` | Color of aircraft whose type is not in the list (default icon). |
 | `width` | required | 320 to 7680 | Map width in pixels (map). |
 | `height` | required | 240 to 4320 | Map height in pixels (map). |
 
@@ -852,6 +855,9 @@ altitude_unit = ft
 speed_unit = kmh
 max_altitude_ft = 15000
 icon_scale = 1.25
+plane_color_panel = #ff4646
+plane_color_known = #ffd250
+plane_color_unknown = #ffaa5a
 width = 1280
 height = 720
 

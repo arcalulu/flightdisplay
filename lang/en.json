@@ -709,6 +709,14 @@
   "La clé API CARTO n'est pas renseignée (Carte et position, Fond de carte) : l'aperçu en a besoin.": "The CARTO API key is not set (Map and position, Base map): the preview needs it.",
   "une construction de la carte ou une mise à jour est en cours": "a map build or an update is in progress",
   "un aperçu est déjà en cours de génération": "a preview is already being generated",
-  "image introuvable": "image not found"
+  "image introuvable": "image not found",
+  "Couleurs des avions": "Aircraft colors",
+  "Avion affiché dans le panneau": "Aircraft shown in the panel",
+  "L'avion dont la photo est montrée dans le panneau.": "The aircraft whose photo is shown in the panel.",
+  "Autres avions": "Other aircraft",
+  "Avions dont le type d'avion est connu.": "Aircraft whose type is known.",
+  "Avions de type inconnu": "Unknown-type aircraft",
+  "Types absents de la liste (voir Types d'avion).": "Types missing from the list (see Aircraft types).",
+  "Couleur par défaut": "Default color"
  }
 }

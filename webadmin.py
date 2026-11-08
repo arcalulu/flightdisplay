@@ -236,6 +236,9 @@ PARAMS = [
     C("display", "display", "speed_unit", "choice", "kmh", "Unité de vitesse", "", "Unités", options=["kmh", "kt"]),
     C("display", "display", "max_altitude_ft", "int", 0, "Altitude maximale suivie (ft)", "0 = pas de limite. Les avions plus hauts sont ignorés.", "Filtre et icônes", min=0, max=100000),
     C("display", "display", "icon_scale", "float", 1.25, "Taille des icônes", "", "Filtre et icônes", min=0.3, max=5),
+    C("display", "display", "plane_color_panel", "color", "#ff4646", "Avion affiché dans le panneau", "L'avion dont la photo est montrée dans le panneau.", "Couleurs des avions"),
+    C("display", "display", "plane_color_known", "color", "#ffd250", "Autres avions", "Avions dont le type d'avion est connu.", "Couleurs des avions"),
+    C("display", "display", "plane_color_unknown", "color", "#ffaa5a", "Avions de type inconnu", "Types absents de la liste (voir Types d'avion).", "Couleurs des avions"),
     C("position", "display", "width", "int", 1920, "Largeur de la carte (px)", "Taille de l'image de fond. Demande de reconstruire la carte.", "Taille de la carte", min=320, max=7680, needs_map=True),
     C("position", "display", "height", "int", 1080, "Hauteur de la carte (px)", "Taille de l'image de fond. Demande de reconstruire la carte.", "Taille de la carte", min=240, max=4320, needs_map=True),
     *LABEL_PARAMS,
@@ -372,7 +375,7 @@ def get_settings():
         raw = cur["value"] if cur else fmt_default(p["default"])
         out = dict(id=f'{p["file"]}:{p["sec"]}.{p["key"]}', cat=p["cat"], key=p["key"], type=p["type"], label=tr(p["label"]),
                    help=tr(p["help"]), options=p.get("options"), labels=p.get("labels"), needs_map=bool(p.get("needs_map")), apply=p["apply"],
-                   present=cur is not None, min=p.get("min"), max=p.get("max"), step=p.get("step"), ui=p.get("ui"),
+                   default=fmt_default(p["default"]), present=cur is not None, min=p.get("min"), max=p.get("max"), step=p.get("step"), ui=p.get("ui"),
                    editor=bool(p.get("editor")), secret=p["type"] == "secret", set=bool(cur and cur["value"]), value="" if p["type"] == "secret" else raw)
         cats[p["cat"]]["groups"].setdefault(p["group"], []).append(out)
         cats[p["cat"]]["file"] = p["file"]
@@ -1682,6 +1685,7 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 .mscol{display:flex;align-items:center;gap:8px;font-size:13px}.mscol input[type=color]{width:34px;height:28px;padding:0;border:1px solid var(--line);border-radius:6px;background:none;flex:none}.mscol span{flex:1}
 .mscol .b{padding:2px 8px;flex:none}
 .note.err{color:var(--bad)}
+.colpick{display:flex;align-items:center;gap:8px}.colpick input[type=color]{width:44px;height:32px;padding:0;border:1px solid var(--line);border-radius:6px;background:none}.colpick .b{padding:2px 8px}
 .tools.v{flex-direction:column;align-items:stretch;margin-top:8px}
 .tools select,.tools input[type=text]{padding:9px 10px;font-size:14px}
 .cols{display:block}
@@ -2060,6 +2064,7 @@ function renderMenu() {
   }
   markMenu();
 }
+const PLANE_PTS = '0,-13 1.4,-9.9 1.8,-6.8 1.8,-1 12,5 12,7.2 1.8,5 1.8,9 5,11.5 5,13.7 0.9,11.2 0,13 -0.9,11.2 -5,13.7 -5,11.5 -1.8,9 -1.8,5 -12,7.2 -12,5 -1.8,-1 -1.8,-6.8 -1.4,-9.9';
 function control(p) {
   const v = pval(p), wrap = el('div');
   if (p.type === 'bool') {
@@ -2075,6 +2080,16 @@ function control(p) {
   if (p.type === 'choice') {
     const s = document.createElement('select'); for (const o of p.options) { const op = el('option', null, (p.labels && p.labels[o]) || o); op.value = o; s.append(op); }
     s.value = v; s.className = p.id in edits ? 'chg' : ''; s.onchange = () => { setEdit(p, s.value); s.classList.toggle('chg', p.id in edits); }; return {c: s, inline: false};
+  }
+  if (p.type === 'color') {
+    const w = el('div', 'colpick'), i = document.createElement('input'), pv = document.createElementNS('http://www.w3.org/2000/svg', 'svg'), rs = el('button', 'b s', '↺');
+    const ok = x => /^#[0-9a-f]{6}$/i.test(x || '');
+    i.type = 'color'; i.value = ok(v) ? v : p.default;
+    pv.setAttribute('viewBox', '-16 -16 32 32'); pv.setAttribute('width', 30); pv.setAttribute('height', 30);
+    const pg = document.createElementNS('http://www.w3.org/2000/svg', 'polygon'); pg.setAttribute('points', PLANE_PTS); pv.append(pg);
+    const paint = () => { pg.setAttribute('fill', i.value); rs.style.visibility = i.value.toLowerCase() === String(p.default).toLowerCase() ? 'hidden' : 'visible'; };
+    i.oninput = () => { setEdit(p, i.value.toLowerCase()); paint(); }; rs.title = 'Couleur par défaut'; rs.onclick = () => { i.value = p.default; setEdit(p, p.default); paint(); };
+    paint(); w.append(pv, i, rs); return {c: w, inline: true};
   }
   if (p.ui === 'slider') {
     const w = el('div', 'sl'), r = document.createElement('input'); r.type = 'range'; r.min = p.min; r.max = p.max; r.step = p.step || 1; r.value = v;

@@ -629,6 +629,24 @@ def category(code):
     return cat
 
 
+def cfg_color(key, default):
+    """Couleur #rrggbb de [display] (reglee dans webadmin) ou la valeur par defaut."""
+    v = cfg.get("display", key, fallback="").strip()
+    if len(v) == 7 and v[0] == "#":
+        try:
+            return tuple(int(v[i:i + 2], 16) for i in (1, 3, 5))
+        except ValueError:
+            pass
+    return default
+
+
+# avion affiche dans le panneau photo, autres avions dont le type est connu, avions de type inconnu
+PLANE_PANEL = cfg_color("plane_color_panel", (255, 70, 70))
+PLANE_KNOWN = cfg_color("plane_color_known", (255, 210, 80))
+PLANE_UNKNOWN = cfg_color("plane_color_unknown", (255, 170, 90))
+TRAIL_PANEL = tuple((c + g) // 2 for c, g in zip(PLANE_PANEL, (85, 90, 90)))
+
+
 def known_type(code):
     """False si le type est absent de la liste des types (icone par defaut) : l'avion est alors dessine en orange clair."""
     return not code or code.upper() in CATEGORY
@@ -913,8 +931,8 @@ def main():
             hl = panel is not None and k == cur_key
             if len(s["trail"]) > 1:
                 pts = [to_xy(*p) for p in s["trail"]] + [(x, y)]
-                pygame.draw.lines(screen, (170, 80, 80) if hl else (90, 130, 170), False, pts, lw)
-            draw_plane(screen, RED if hl else ((255, 210, 80) if known_type(s["code"]) else (255, 170, 90)), x, y, s["heading"], s["code"])
+                pygame.draw.lines(screen, TRAIL_PANEL if hl else (90, 130, 170), False, pts, lw)
+            draw_plane(screen, PLANE_PANEL if hl else (PLANE_KNOWN if known_type(s["code"]) else PLANE_UNKNOWN), x, y, s["heading"], s["code"])
             txt = label_lines(s, d)
             if not txt:
                 continue

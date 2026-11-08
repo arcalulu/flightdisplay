@@ -47,6 +47,10 @@ altitude_unit = ft
 speed_unit = kmh
 max_altitude_ft = 0
 icon_scale = 1.25
+; Couleurs des avions (#rrggbb) : avion du panneau photo, autres avions, avions de type inconnu
+plane_color_panel = #ff4646
+plane_color_known = #ffd250
+plane_color_unknown = #ffaa5a
 ; Taille de la carte en pixels, utilisée par build_map_vector.py pour construire l'image de fond
 ; (main.py lit la taille réelle dans map_meta.json). Modifier ces valeurs demande de reconstruire la carte.
 width = 1920

@@ -734,6 +734,9 @@ Protection automatique : après une erreur 429, l'intervalle est multiplié par 
 | `speed_unit` | kmh | `kmh`, `kt` | Unité de vitesse affichée. |
 | `max_altitude_ft` | 0 | 0 à 100000 | Les avions plus hauts ne sont ni suivis ni affichés (0 = pas de limite). Leur nombre apparaît dans la ligne d'état. S'applique aussi à l'alerte. |
 | `icon_scale` | 1.25 | 0.3 à 5 | Taille des icônes d'avion. |
+| `plane_color_panel` | `#ff4646` | `#rrggbb` | Couleur de l'avion dont la photo est affichée dans le panneau (sa traînée prend une teinte assortie). |
+| `plane_color_known` | `#ffd250` | `#rrggbb` | Couleur des autres avions, dont le type est connu. |
+| `plane_color_unknown` | `#ffaa5a` | `#rrggbb` | Couleur des avions dont le type est absent de la liste (icône par défaut). |
 | `width` | obligatoire | 320 à 7680 | Largeur de la carte en pixels (carte). |
 | `height` | obligatoire | 240 à 4320 | Hauteur de la carte en pixels (carte). |
 
@@ -852,6 +855,9 @@ altitude_unit = ft
 speed_unit = kmh
 max_altitude_ft = 15000
 icon_scale = 1.25
+plane_color_panel = #ff4646
+plane_color_known = #ffd250
+plane_color_unknown = #ffaa5a
 width = 1280
 height = 720
 
