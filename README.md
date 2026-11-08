@@ -2,24 +2,38 @@
 
 🇫🇷 **Français** · [🇬🇧 English](README.en.md)
 
-Affichage temps réel des avions autour de chez vous sur un Raspberry Pi : carte vectorielle, fiches photo, alerte de proximité (son et teinte rouge), liste des avions au sol, et une interface web d'administration pour tout régler depuis un téléphone ou un ordinateur (réglages, carte, logs, son, veille d'écran, MQTT / Home Assistant).
+Flight display transforme un Raspberry Pi et un écran en **tableau d'affichage des avions qui volent autour de chez vous**, en temps réel : une carte de votre quartier, les avions qui s'y déplacent, et, pour chacun, sa photo, sa compagnie, son modèle, son trajet, son altitude et sa vitesse. Quand un avion passe près de chez vous, l'affichage vous prévient (carillon et teinte rouge).
 
-C'est fait pour réaliser un **écran tête haute** : un écran qui affiche en permanence ce qui vole autour de chez vous. **Aucune souris ni aucun clavier n'est nécessaire** : le Pi démarre et affiche tout seul, et tout se règle depuis un téléphone ou un ordinateur via webadmin.
+C'est fait pour réaliser un **écran tête haute** : un écran posé dans le salon, le bureau ou l'atelier, qui affiche en permanence ce qui vole autour de vous. **Aucune souris ni aucun clavier n'est nécessaire** : le Pi démarre et affiche tout seul.
 
 ![Flight display en fonctionnement : carte, avions, fiche photo, cercles de distance et liste des avions au sol](docs/flightdisplay.png)
 
 *Flight display à l'écran, autour de l'aéroport de Bordeaux-Mérignac. Le crédit de la photo (© son auteur, via JetPhotos) et les attributions © OpenStreetMap contributors et © CARTO sont affichés dans l'image.*
 
-## Fonctionnalités
+## Ce que l'on voit à l'écran
 
-- Carte vectorielle centrée sur votre domicile, avions orientés selon leur cap, étiquettes (modèle, compagnie, trajet, altitude, vitesse) que vous pouvez réordonner et mettre en forme.
-- Fiche photo de l'avion (texte personnalisable : ordre, taille, gras, italique), liste des avions au sol.
-- Alerte de proximité : carillon, teinte rouge clignotante, fiche prioritaire, avec plage d'altitude réglable.
-- Webadmin : tuiles de supervision (température, CPU, mémoire et disque en anneaux de progression, MQTT, images par seconde, heure du Pi), surveillance du disque et gestion du cache des photos, interrupteurs (programme, écran, son), volume en direct, réglages complets, reconstruction de la carte, logs, et mises à jour du logiciel directement depuis GitHub.
-- Sauvegarde et restauration de la configuration depuis webadmin ; mises à jour sur le canal stable (versions publiées) ou développement, avec retour à la version précédente.
-- Veille et réveil de l'écran, redémarrage et extinction du Pi à distance, et planning hebdomadaire d'allumage de l'écran (calendrier glissable, prochaine action affichée dans Pilotage).
-- Multilingue : français et anglais, au choix dans webadmin (Réglages, Langue), pour l'interface comme pour l'écran ; d'autres langues s'ajoutent avec un simple fichier (dossier `lang`).
-- Intégration Home Assistant par MQTT (écran, son, volume, température, avions en vol / au sol / dans la zone d'alerte, alerte en cours, images par seconde, CPU, mémoire, disque).
+- Une carte vectorielle centrée sur votre domicile, avec des cercles de distance, et les avions orientés selon leur cap. Chaque avion porte une étiquette (modèle, compagnie, trajet, altitude, vitesse) que vous pouvez réordonner et mettre en forme.
+- Une fiche photo de l'avion le plus intéressant du moment (texte personnalisable : ordre, taille, gras, italique) et la liste des avions au sol.
+- Une alerte de proximité : carillon, teinte rouge clignotante et fiche prioritaire quand un avion entre dans la zone que vous avez définie, avec une plage d'altitude réglable.
+- Des couleurs différentes selon que le type d'avion est connu ou non, pour repérer d'un coup d'œil les appareils inhabituels.
+
+## Comment on le règle : une petite interface web
+
+Une fois le Pi installé, il n'y a rien à brancher pour le régler. Le Pi héberge lui-même une **petite interface web** (que ce projet appelle *webadmin*) : une page que vous ouvrez dans le navigateur de votre téléphone, de votre tablette ou de votre ordinateur, **tant que vous êtes sur le même réseau (la même box ou le même Wi-Fi) que le Pi**. Il suffit de saisir son adresse, par exemple `http://flightradarpi.local:8080` (le nom est celui que vous avez choisi pour le Pi dans Raspberry Pi Imager). Il n'y a rien à installer sur le téléphone ou l'ordinateur, et l'interface n'est pas visible depuis Internet. Vous pouvez la protéger par un mot de passe.
+
+Depuis cette page, vous pouvez :
+
+- **Piloter** l'affichage : allumer ou éteindre l'écran, couper le son, régler le volume en direct, redémarrer ou éteindre le Pi, et programmer un planning hebdomadaire d'allumage de l'écran.
+- **Choisir votre position** sur une petite carte, avec un rayon de surveillance, et **personnaliser le style de la carte** (thèmes, couleurs, éléments affichés, noms de lieux).
+- **Régler l'apparence et le comportement** : étiquettes, fiche photo, cercles de distance, distance et altitude d'alerte, couleurs des avions, langue (français ou anglais), et les types d'avions (classer ceux que le programme ne connaît pas encore).
+- **Surveiller** le Pi : température, processeur, mémoire, disque, images par seconde, et consulter les journaux (logs) en cas de souci.
+- **Sauvegarder et restaurer** toute la configuration.
+- **Mettre à jour** le logiciel directement depuis GitHub (versions publiées ou version de développement), avec retour possible à une version précédente.
+
+## Et aussi
+
+- Multilingue : français et anglais, pour l'interface comme pour l'écran ; d'autres langues s'ajoutent avec un simple fichier (dossier `lang`).
+- Intégration **Home Assistant** par MQTT (écran, son, volume, température, avions en vol / au sol / dans la zone d'alerte, alerte en cours, images par seconde, CPU, mémoire, disque).
 
 ## Avertissement important
 

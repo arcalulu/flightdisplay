@@ -2,24 +2,38 @@
 
 [🇫🇷 Français](README.md) · 🇬🇧 **English**
 
-Real-time display of the aircraft flying around your home on a Raspberry Pi: vector map, photo cards, proximity alert (sound and red tint), a list of aircraft on the ground, and a web administration interface to set everything up from a phone or a computer (settings, map, logs, sound, screen sleep, MQTT / Home Assistant).
+Flight display turns a Raspberry Pi and a screen into a **display board of the aircraft flying around your home**, in real time: a map of your neighborhood, the aircraft moving across it, and, for each one, its photo, airline, model, route, altitude and speed. When an aircraft flies close to your home, the display warns you (chime and red tint).
 
-It is made to build a **head-up display**: a screen that permanently shows what is flying around your home. **No mouse or keyboard is needed**: the Pi starts and displays by itself, and everything is set up from a phone or a computer through webadmin.
+It is made to build a **head-up display**: a screen standing in the living room, the office or the workshop, permanently showing what is flying around you. **No mouse or keyboard is needed**: the Pi starts and displays by itself.
 
 ![Flight display running: map, aircraft, photo card, distance circles and the list of aircraft on the ground](docs/flightdisplay.png)
 
 *Flight display on screen, around Bordeaux-Merignac airport. The photo credit (© its author, via JetPhotos) and the © OpenStreetMap contributors and © CARTO attributions are shown in the image.*
 
-## Features
+## What you see on the screen
 
-- Vector map centered on your home, aircraft oriented along their heading, labels (model, airline, route, altitude, speed) that you can reorder and style.
-- Photo card of the aircraft (customizable text: order, size, bold, italic), list of aircraft on the ground.
-- Proximity alert: chime, blinking red tint, priority card, with an adjustable altitude range.
-- Webadmin: monitoring tiles (temperature, CPU, memory and disk as progress rings, MQTT, frames per second, Pi time), disk monitoring and photo cache management, switches (program, screen, sound), live volume, full settings, map rebuild, logs, and software updates straight from GitHub.
-- Backup and restore of the configuration from webadmin; updates on the stable (published versions) or development channel, with a rollback to the previous version.
-- Screen sleep and wake-up, remote restart and shutdown of the Pi, and a weekly screen schedule (draggable calendar, next action shown in Control).
-- Multilingual: French and English, selectable in webadmin (Settings, Language), for the interface and for the on-screen text; other languages can be added with a simple file (`lang` folder).
-- Home Assistant integration through MQTT (screen, sound, volume, temperature, aircraft in flight / on the ground / in the alert zone, active alert, frames per second, CPU, memory, disk).
+- A vector map centered on your home, with distance circles, and the aircraft oriented along their heading. Each aircraft carries a label (model, airline, route, altitude, speed) that you can reorder and style.
+- A photo card of the most interesting aircraft of the moment (customizable text: order, size, bold, italic) and the list of aircraft on the ground.
+- A proximity alert: chime, blinking red tint and priority card when an aircraft enters the zone you defined, with an adjustable altitude range.
+- Different colors depending on whether the aircraft type is known or not, to spot unusual aircraft at a glance.
+
+## How you set it up: a small web interface
+
+Once the Pi is installed, there is nothing to plug in to set it up. The Pi hosts a **small web interface** itself (called *webadmin* in this project): a page you open in the browser of your phone, tablet or computer, **as long as you are on the same network (the same router or Wi-Fi) as the Pi**. You just type its address, for example `http://flightradarpi.local:8080` (the name is the one you chose for the Pi in Raspberry Pi Imager). Nothing needs to be installed on the phone or computer, and the interface is not visible from the Internet. You can protect it with a password.
+
+From this page, you can:
+
+- **Control** the display: turn the screen on or off, mute the sound, adjust the volume live, restart or shut down the Pi, and set a weekly schedule for the screen.
+- **Choose your position** on a small map, with a monitoring radius, and **customize the map style** (themes, colors, displayed elements, place names).
+- **Adjust the look and behavior**: labels, photo card, distance circles, alert distance and altitude, aircraft colors, language (French or English), and aircraft types (classify the ones the program does not know yet).
+- **Monitor** the Pi: temperature, processor, memory, disk, frames per second, and read the logs when something goes wrong.
+- **Back up and restore** the whole configuration.
+- **Update** the software straight from GitHub (published versions or development version), with a possible rollback to a previous version.
+
+## And also
+
+- Multilingual: French and English, for the interface and for the screen; other languages can be added with a simple file (`lang` folder).
+- **Home Assistant** integration through MQTT (screen, sound, volume, temperature, aircraft in flight / on the ground / in the alert zone, active alert, frames per second, CPU, memory, disk).
 
 ## Important notice
 
