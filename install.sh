@@ -754,6 +754,7 @@ Solutions possibles :	Possible solutions:
 Reflashez la carte avec Raspberry Pi Imager en renseignant le nom d'utilisateur et le mot de passe : l'utilisateur créé par Imager a les droits sudo.	Re-flash the card with Raspberry Pi Imager, filling in the username and password: the user created by Imager has sudo rights.
 Ou, depuis un compte administrateur : sudo usermod -aG sudo %s (puis déconnectez-vous et reconnectez-vous).	Or, from an administrator account: sudo usermod -aG sudo %s (then log out and log back in).
 Sans autre compte administrateur : voir la documentation, section 0.5 (« Pas de droits sudo »).	With no other administrator account: see the documentation, section 0.5 ("No sudo rights").
+Le mot de passe sudo est demandé maintenant, une seule fois : l'installation se déroule ensuite sans intervention.	The sudo password is asked now, once: the installation then runs without any intervention.
 EN_TABLE
 }
 
@@ -782,8 +783,10 @@ need_sudo() {
   if [ -n "$YES" ]; then sudo -n true 2>/dev/null || die "Mode sans questions : sudo doit fonctionner sans mot de passe (sudo -n)."
   elif [ -n "$AUTO" ] && [ -z "$HAVE_TTY" ]; then sudo -n true 2>/dev/null || die "Installation automatique sans terminal : sudo doit fonctionner sans mot de passe (sudo -n)."
   else
-  pt '  %sLe mot de passe sudo peut vous être demandé une fois.%s\n' "$DIM" "$R"
-  sudo -v || die "sudo est nécessaire."
+  if ! sudo -n true 2>/dev/null; then
+    pt '  %sLe mot de passe sudo peut vous être demandé une fois.%s\n' "$DIM" "$R"
+    sudo -v || die "sudo est nécessaire."
+  fi
   fi
   ( while true; do sudo -n true 2>/dev/null; sleep 45; kill -0 "$$" 2>/dev/null || exit; done ) &
   KEEPALIVE=$!
@@ -803,6 +806,15 @@ check_sudo() {  # l'installation s'arrete des le debut si l'utilisateur n'a pas 
   printf '    • %s\n' "$(Lf "Ou, depuis un compte administrateur : sudo usermod -aG sudo %s (puis déconnectez-vous et reconnectez-vous)." "$u")"
   printf '    • %s\n\n' "$(L "Sans autre compte administrateur : voir la documentation, section 0.5 (« Pas de droits sudo »).")"
   exit 1
+}
+
+early_sudo() {  # mot de passe sudo demande tout de suite, une seule fois : le reste de l'installation se deroule sans intervention
+  [ -n "$DRY" ] && return 0
+  [ -n "$YES" ] && return 0
+  [ -n "$HAVE_TTY" ] || return 0
+  sudo -n true 2>/dev/null && return 0
+  printf '  %s%s%s\n' "$DIM" "$(L "Le mot de passe sudo est demandé maintenant, une seule fois : l'installation se déroule ensuite sans intervention.")" "$R"
+  sudo -v || die "sudo est nécessaire."
 }
 
 # ------------------------------------------------------------------ etapes
@@ -1166,6 +1178,7 @@ fi
 if [ "$LANG_UI" = en ]; then load_en; fi
 banner
 check_sudo
+early_sudo
 if [ -z "$YES" ] && [ -z "$MANUAL" ]; then
   # Installation automatique par defaut ; un delai laisse la possibilite de passer en manuel
   if [ -n "$HAVE_TTY" ] && [ -z "$FORCE_AUTO" ] && [ "$COUNTDOWN" -gt 0 ] 2>/dev/null; then countdown "$COUNTDOWN"; fi

@@ -50,7 +50,7 @@ git clone https://github.com/arcalulu/flightdisplay.git ~/flightdisplay
 bash ~/flightdisplay/install.sh
 ```
 
-Ne lancez pas le script avec `sudo` : il utilise votre utilisateur normal et demande le mot de passe sudo au début, avant la première étape. Il fonctionne avec n'importe quel nom d'utilisateur.
+Ne lancez pas le script avec `sudo` : il utilise votre utilisateur normal et demande le mot de passe sudo tout au début, avant le compte à rebours, pour que le reste se déroule sans intervention (rien n'est demandé si `sudo` fonctionne sans mot de passe, comme avec Raspberry Pi Imager). Il fonctionne avec n'importe quel nom d'utilisateur.
 
 **Installation automatique (par défaut).** Au lancement, un compte à rebours de 15 secondes s'affiche. Appuyez sur une touche (ou Ctrl+C) pour passer à l'installation manuelle ; sinon l'installation démarre seule, sans aucune question :
 

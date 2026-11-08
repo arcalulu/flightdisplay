@@ -50,7 +50,7 @@ git clone https://github.com/arcalulu/flightdisplay.git ~/flightdisplay
 bash ~/flightdisplay/install.sh
 ```
 
-Do not run the script with `sudo`: it uses your normal user and asks for the sudo password at the start, before the first step. It works with any user name.
+Do not run the script with `sudo`: it uses your normal user and asks for the sudo password right at the start, before the countdown, so that the rest runs without intervention (nothing is asked if `sudo` works without a password, as with Raspberry Pi Imager). It works with any user name.
 
 **Automatic installation (default).** When started, a 15-second countdown is displayed. Press a key (or Ctrl+C) to switch to the manual installation; otherwise the installation starts by itself, with no question at all:
 
