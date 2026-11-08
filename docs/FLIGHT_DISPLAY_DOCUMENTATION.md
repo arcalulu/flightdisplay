@@ -712,7 +712,7 @@ La clé n'est lue que par `build_map_vector.py`, pas par `main.py`. Elle est sto
 | `[cities] max_labels` | `25` | Nombre maximum de noms. |
 | `[cities] font_size` | `20` | Taille du texte (pixels). |
 
-La page de webadmin propose des miniatures des cinq thèmes, des interrupteurs pour les éléments, un sélecteur de couleurs et les réglages des noms de lieux. L'**aperçu** est dessiné par `build_map_vector.py --preview` (même programme que la construction, image réduite à 640 px de large, zone et ratio de la page « Carte et position », réglages non enregistrés compris) : il nécessite la clé CARTO et internet. Les tuiles téléchargées sont gardées dans `cache/mapprev/` pour accélérer les aperçus suivants. Les thèmes clairs rendent les avions jaunes moins lisibles.
+La page de webadmin propose des miniatures des cinq thèmes, des interrupteurs pour les éléments, un sélecteur de couleurs et les réglages des noms de lieux. L'**aperçu** est dessiné par `build_map_vector.py --preview` (même programme que la construction, image réduite à 640 px de large, zone et ratio de la page « Carte et position », réglages non enregistrés compris) : il nécessite la clé CARTO et internet. Il n'est généré automatiquement qu'à la première ouverture de la page ; ensuite, un message signale qu'il n'est plus à jour après un changement, et le bouton « Mettre à jour l'aperçu » le régénère. Les images et les tuiles téléchargées sont gardées dans `cache/mapprev/` (l'aperçu reste affiché après un redémarrage). Les thèmes clairs rendent les avions jaunes moins lisibles.
 
 ### 8.4 `[api]` — catégorie « Flightradar24 »
 

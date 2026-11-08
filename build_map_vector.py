@@ -236,7 +236,15 @@ if PREVIEW:
         print("Dessin : " + name, flush=True)
         img, cnt = make(st)
         img.resize((W, H), Image.LANCZOS).save(os.path.join(OUT, name + ".png"), optimize=True)
-    json.dump({"lat": LAT, "lon": LON, "w": W, "h": H, "zoom": Z, "files": [n + ".png" for n, _ in jobs]}, open(os.path.join(OUT, "preview.json"), "w"))
+    try:
+        prev = json.load(open(os.path.join(OUT, "preview.json")))
+    except (OSError, ValueError):
+        prev = {}
+    geo = {"lat": LAT, "lon": LON, "radius_km": RADIUS_M / 1000, "width": W0, "height": H0}
+    thumbs = [n + ".png" for n, _ in jobs if n.startswith("preset_")]
+    json.dump({"geo": geo, "w": W, "h": H, "zoom": Z, "files": ["current.png"],
+               "thumbs_geo": geo if thumbs else prev.get("thumbs_geo"), "thumb_files": thumbs if thumbs else prev.get("thumb_files", [])},
+              open(os.path.join(OUT, "preview.json"), "w"))
     print("OK apercu, zoom", Z, {k: len(v) for k, v in draw_list.items() if v})
     raise SystemExit
 

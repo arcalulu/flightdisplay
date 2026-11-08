@@ -712,7 +712,7 @@ The key is only read by `build_map_vector.py`, not by `main.py`. It is stored in
 | `[cities] max_labels` | `25` | Maximum number of names. |
 | `[cities] font_size` | `20` | Text size (pixels). |
 
-The webadmin page offers thumbnails of the five themes, switches for the elements, a color picker and the place name settings. The **preview** is drawn by `build_map_vector.py --preview` (same program as the build, image reduced to 640 px wide, area and ratio of the "Map and position" page, unsaved settings included): it needs the CARTO key and internet. Downloaded tiles are kept in `cache/mapprev/` to speed up the next previews. Light themes make the yellow aircraft less readable.
+The webadmin page offers thumbnails of the five themes, switches for the elements, a color picker and the place name settings. The **preview** is drawn by `build_map_vector.py --preview` (same program as the build, image reduced to 640 px wide, area and ratio of the "Map and position" page, unsaved settings included): it needs the CARTO key and internet. It is generated automatically only the first time the page is opened; afterwards a message says it is out of date after a change, and the "Refresh the preview" button regenerates it. The images and downloaded tiles are kept in `cache/mapprev/` (the preview stays displayed after a restart). Light themes make the yellow aircraft less readable.
 
 ### 8.4 `[api]` — category "Flightradar24"
 

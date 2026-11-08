@@ -1132,7 +1132,7 @@ def cancel_build():
     p.terminate()
 
 
-mapprev = dict(running=False, error="", t=0.0, files=[], w=0, h=0, started=0.0, proc=None, cancel=False, lines=collections.deque(maxlen=200))
+mapprev = dict(running=False, error="", started=0.0, proc=None, cancel=False, lines=collections.deque(maxlen=200))
 mapprev_lock = threading.Lock()
 
 
@@ -1141,15 +1141,27 @@ def mapprev_dir():
 
 
 def mapprev_state():
+    """Etat du dernier apercu : les images presentes sur le disque (elles survivent a un redemarrage) et le travail en cours."""
+    info, t = {}, 0.0
+    try:
+        p = os.path.join(mapprev_dir(), "preview.json")
+        with open(p, encoding="utf-8") as fh:
+            info = json.load(fh)
+        t = os.path.getmtime(p)
+    except (OSError, ValueError):
+        pass
+    files = [f for f in info.get("files", []) if os.path.exists(os.path.join(mapprev_dir(), f))]
+    thumbs = [f for f in info.get("thumb_files", []) if os.path.exists(os.path.join(mapprev_dir(), f))]
     with mapprev_lock:
         m = mapprev
-        return dict(running=m["running"], error=tr(m["error"]) if m["error"] else "", files=list(m["files"]), w=m["w"], h=m["h"], t=m["t"],
+        return dict(running=m["running"], error=tr(m["error"]) if m["error"] else "", files=files, thumb_files=thumbs, geo=info.get("geo"),
+                    thumbs_geo=info.get("thumbs_geo") if thumbs else None, t=t,
                     elapsed=int(time.time() - m["started"]) if m["running"] else 0, lines=list(m["lines"])[-60:])
 
 
 def _mapprev_worker(req):
     d = mapprev_dir()
-    err, info = "", {}
+    err = ""
     log = mapprev["lines"].append
     try:
         os.makedirs(d, exist_ok=True)
@@ -1174,13 +1186,10 @@ def _mapprev_worker(req):
         elif rc != 0:
             last = [l for l in list(mapprev["lines"])[-6:] if l.strip()][-3:]
             err = "L'aperçu n'a pas pu être généré : " + " / ".join(last)[-300:]
-        else:
-            with open(os.path.join(d, "preview.json"), encoding="utf-8") as fh:
-                info = json.load(fh)
     except Exception as e:
         err = "L'aperçu n'a pas pu être généré : " + str(e)
     with mapprev_lock:
-        mapprev.update(running=False, error=err, t=time.time(), files=info.get("files", []), w=info.get("w", 0), h=info.get("h", 0), proc=None)
+        mapprev.update(running=False, error=err, proc=None)
 
 
 def cancel_mapprev():
@@ -2494,7 +2503,7 @@ function renderMapStyle(box, cat) {
     c.onclick = () => {
       setEdit(P('mapstyle', 'preset'), id);
       for (const k of colorKeys) if (V('mapstyle', 'color_' + k)) setEdit(P('mapstyle', 'color_' + k), '');
-      syncAll(); schedule();
+      syncAll(); markStale();
     };
     cards[id] = {c, th}; grid.append(c);
   }
@@ -2505,31 +2514,31 @@ function renderMapStyle(box, cat) {
   const lst = el('div', 'list'), tgs = {};
   for (const l of cat.layers) {
     const p = layerParam(l.id), row = el('div', 'li'), t = el('div', 'lt'); t.append(el('b', null, l.label));
-    const tg = toggle(String(pval(p)) === 'true', on => { setEdit(p, on ? 'true' : 'false'); chg(p, tg.label); schedule(); });
+    const tg = toggle(String(pval(p)) === 'true', on => { setEdit(p, on ? 'true' : 'false'); chg(p, tg.label); markStale(); });
     chg(p, tg.label); tgs[l.id] = tg; row.append(t, tg.label); lst.append(row);
   }
   box.append(lst);
   const rwp = P('mapstyle', 'road_width'), rrow = el('div', 'li'), rt = el('div', 'lt'), rwc = el('div', 'sl'), rw = document.createElement('input'), rwl = el('span');
   rt.append(el('b', null, 'Épaisseur des routes'));
   rw.type = 'range'; rw.min = 0.5; rw.max = 3; rw.step = 0.1; rw.value = V('mapstyle', 'road_width'); rwl.textContent = '× ' + rw.value;
-  rw.oninput = () => { rwl.textContent = '× ' + rw.value; setEdit(rwp, String(rw.value)); chg(rwp, rwc); schedule(); };
+  rw.oninput = () => { rwl.textContent = '× ' + rw.value; setEdit(rwp, String(rw.value)); chg(rwp, rwc); markStale(); };
   rwc.append(rw, rwl); rrow.append(rt, rwc); lst.append(rrow);
 
   /* noms de lieux */
   box.append(el('h2', 't', 'Noms de lieux'));
   const cl = el('div', 'list'), cshow = P('cities', 'show'), ck = P('cities', 'kinds'), cmax = P('cities', 'max_labels'), cfs = P('cities', 'font_size');
   const r1 = el('div', 'li'), t1 = el('div', 'lt'); t1.append(el('b', null, 'Afficher les noms de lieux'));
-  const tgc = toggle(String(pval(cshow)) === 'true', on => { setEdit(cshow, on ? 'true' : 'false'); chg(cshow, tgc.label); schedule(); }); r1.append(t1, tgc.label); cl.append(r1);
+  const tgc = toggle(String(pval(cshow)) === 'true', on => { setEdit(cshow, on ? 'true' : 'false'); chg(cshow, tgc.label); markStale(); }); r1.append(t1, tgc.label); cl.append(r1);
   const r2 = el('div', 'li full'), t2 = el('div', 'lt'); t2.append(el('b', null, 'Types de lieux'));
   const seg = el('div', 'kinds'), kindLabel = {city: 'Villes', town: 'Petites villes', village: 'Villages'};
-  const setKinds = () => { const k = cat.city_kinds.filter(x => seg.querySelector('[data-k="' + x + '"]').classList.contains('on')); setEdit(ck, k.join(',')); schedule(); };
+  const setKinds = () => { const k = cat.city_kinds.filter(x => seg.querySelector('[data-k="' + x + '"]').classList.contains('on')); setEdit(ck, k.join(',')); markStale(); };
   const nowKinds = String(pval(ck)).split(',').map(x => x.trim());
   for (const k of cat.city_kinds) { const b = el('button', 'tcode' + (nowKinds.includes(k) ? ' on' : ''), kindLabel[k] || k); b.dataset.k = k; b.onclick = () => { b.classList.toggle('on'); setKinds(); }; seg.append(b); }
   r2.append(t2, seg); cl.append(r2);
   const slider = (p, label, min, max, step, fmt) => {
     const row = el('div', 'li'), t = el('div', 'lt'), c = el('div', 'sl'), r = document.createElement('input'), l = el('span');
     t.append(el('b', null, label)); r.type = 'range'; r.min = min; r.max = max; r.step = step; r.value = pval(p); l.textContent = fmt(r.value);
-    r.oninput = () => { l.textContent = fmt(r.value); setEdit(p, String(r.value)); chg(p, c); schedule(); };
+    r.oninput = () => { l.textContent = fmt(r.value); setEdit(p, String(r.value)); chg(p, c); markStale(); };
     c.append(r, l); row.append(t, c); return row;
   };
   cl.append(slider(cmax, 'Nombre maximum de noms', 0, 100, 1, v => v), slider(cfs, 'Taille du texte', 10, 40, 1, v => v + ' px'));
@@ -2543,8 +2552,8 @@ function renderMapStyle(box, cat) {
   for (const k of colorKeys) {
     const p = P('mapstyle', 'color_' + k), w = el('label', 'mscol'), i = document.createElement('input'), rs = el('button', 'b s', '↺');
     i.type = 'color'; rs.title = 'Couleur du thème'; rs.style.display = 'none';
-    i.oninput = () => { setEdit(p, i.value); sync(k); schedule(); };
-    rs.onclick = ev => { ev.preventDefault(); setEdit(p, ''); sync(k); schedule(); };
+    i.oninput = () => { setEdit(p, i.value); sync(k); markStale(); };
+    rs.onclick = ev => { ev.preventDefault(); setEdit(p, ''); sync(k); markStale(); };
     w.append(i, el('span', null, cat.color_labels[k]), rs); cin[k] = {i, rs}; cg.append(w);
   }
   det.append(cg); box.append(det);
@@ -2553,22 +2562,27 @@ function renderMapStyle(box, cat) {
   syncAll();
   box.append(el('p', 'note', "Les noms de lieux, les routes et les autres éléments proviennent du fond vectoriel CARTO. Avec un fond clair, les avions jaunes ressortent moins : préférez un thème sombre pour un écran lisible de loin."));
 
-  /* génération de l'aperçu */
-  let busy = false, redo = false, timer = null, thumbsFor = '';
+  /* génération de l'aperçu : seulement au premier affichage (s'il n'en existe pas) ou sur demande */
+  let busy = false;
   const sleep = ms => new Promise(r => setTimeout(r, ms));
-  function schedule() { clearTimeout(timer); timer = setTimeout(refresh, 1300); }
+  const same = (a, g) => !!a && ['lat', 'lon', 'radius_km', 'width', 'height'].every(k => Math.abs(a[k] - g[k]) < 1e-9);
+  function markStale() { if (busy) return; msg.classList.remove('err'); msg.textContent = _t("Les réglages ont changé : l'aperçu affiché n'est plus à jour."); again.classList.add('p'); }
   const showLog = st => { log.textContent = st.lines.join('\n'); log.scrollTop = log.scrollHeight; };
-  async function refresh() {
-    if (!msAlive || !box.isConnected) return;
-    if (busy) { redo = true; return; }
-    busy = true; redo = false;
-    const g = geo(), gkey = JSON.stringify(g), thumbs = gkey !== thumbsFor;
+  const showImages = (st, withThumbs) => {
+    const t = '&t=' + Math.round(st.t);
+    if (st.files.includes('current.png')) img.src = '/api/mapstyle/img?name=current.png' + t;
+    if (withThumbs) for (const id in cards) if (st.thumb_files.includes('preset_' + id + '.png')) { cards[id].th.style.visibility = ''; cards[id].th.src = '/api/mapstyle/img?name=preset_' + id + '.png' + t; }
+  };
+  async function refresh(attach) {
+    if (!msAlive || !box.isConnected || busy) return;
+    busy = true; again.classList.remove('p');
+    const g = geo();
     msg.classList.remove('err'); again.disabled = true; stop.style.display = ''; lg.open = true;
     if (isFinite(g.width) && isFinite(g.height) && g.height > 0) pvw.style.aspectRatio = g.width + ' / ' + g.height;
     try {
       let st = await api('/api/mapstyle/preview');
-      if (st.running) redo = true;  // un aperçu était déjà en cours : on le suit, puis on relance avec les réglages actuels
-      else await api('/api/mapstyle/preview', Object.assign({}, g, {style: styleNow(), cities: citiesNow(), presets: thumbs ? Object.keys(presets) : []}));
+      const wantThumbs = !(st.thumb_files.length === Object.keys(presets).length && same(st.thumbs_geo, g));
+      if (!st.running) await api('/api/mapstyle/preview', Object.assign({}, g, {style: styleNow(), cities: citiesNow(), presets: wantThumbs ? Object.keys(presets) : []}));
       for (;;) {
         await sleep(1000); if (!msAlive) return;
         st = await api('/api/mapstyle/preview'); showLog(st);
@@ -2576,17 +2590,25 @@ function renderMapStyle(box, cat) {
         if (!st.running) break;
       }
       if (st.error) throw new Error(st.error);
-      const t = '&t=' + Date.now();
-      img.src = '/api/mapstyle/img?name=current.png' + t;
-      if (thumbs && !redo) { for (const id in cards) { cards[id].th.style.visibility = ''; cards[id].th.src = '/api/mapstyle/img?name=preset_' + id + '.png' + t; } thumbsFor = gkey; }
-      msg.textContent = ''; lg.open = false;
+      showImages(st, true); msg.textContent = ''; lg.open = false;
     } catch (e) { msg.textContent = e.message; msg.classList.add('err'); }
     busy = false; again.disabled = false; stop.style.display = 'none';
-    if (redo && msAlive) refresh();
   }
-  stop.onclick = async () => { try { await api('/api/mapstyle/cancel', {}); redo = false; } catch (e) { toast(e.message, true); } };
-  again.onclick = () => { thumbsFor = ''; refresh(); };
-  refresh();
+  stop.onclick = async () => { try { await api('/api/mapstyle/cancel', {}); } catch (e) { toast(e.message, true); } };
+  again.onclick = () => refresh();
+  (async () => {
+    try {
+      const st = await api('/api/mapstyle/preview'), g = geo();
+      if (st.running) return refresh();
+      if (st.files.includes('current.png')) {  // un aperçu existe déjà : on l'affiche tel quel
+        if (isFinite(g.width) && isFinite(g.height) && g.height > 0 && st.geo) pvw.style.aspectRatio = st.geo.width + ' / ' + st.geo.height;
+        showImages(st, same(st.thumbs_geo, g));
+        if (!same(st.geo, g)) markStale();
+        return;
+      }
+    } catch (e) {}
+    refresh();
+  })();
 }
 
 /* ---------- Sauvegarde et restauration ---------- */

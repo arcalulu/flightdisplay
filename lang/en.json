@@ -720,6 +720,7 @@
   "Génération de l'aperçu… {0} s": "Generating the preview… {0} s",
   "Suivi en direct": "Live progress",
   "Aperçu annulé.": "Preview cancelled.",
-  "aucun aperçu en cours": "no preview in progress"
+  "aucun aperçu en cours": "no preview in progress",
+  "Les réglages ont changé : l'aperçu affiché n'est plus à jour.": "Settings have changed: the displayed preview is out of date."
  }
 }
