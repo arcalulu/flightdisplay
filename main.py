@@ -7,7 +7,11 @@ cfg = configparser.ConfigParser(); cfg.read("config.ini")
 i18n.set_language(cfg.get("general", "language", fallback="fr"))  # langue du texte affiche a l'ecran
 tr = i18n.tr
 
-ALERT_KM = cfg.getfloat("alert", "radius_km", fallback=5)
+# Cercles de distance autour de la maison : le premier cercle peut aussi donner la distance d'alerte
+RING_FIRST = max(0.1, cfg.getfloat("rings", "first_km", fallback=5))
+RING_STEP = max(0.1, cfg.getfloat("rings", "step_km", fallback=5))
+RING_N = max(0, min(30, cfg.getint("rings", "count", fallback=4))) if cfg.getboolean("rings", "show", fallback=True) else 0
+ALERT_KM = RING_FIRST if cfg.getboolean("alert", "link_first_ring", fallback=False) else cfg.getfloat("alert", "radius_km", fallback=5)
 ALERT_ON = ALERT_KM > 0
 ALERT_SOUND = cfg.getboolean("alert", "sound", fallback=True)
 ALERT_START_SOUND = cfg.getboolean("alert", "sound_on_start", fallback=False)
@@ -629,9 +633,9 @@ def category(code):
     return cat
 
 
-def cfg_color(key, default):
-    """Couleur #rrggbb de [display] (reglee dans webadmin) ou la valeur par defaut."""
-    v = cfg.get("display", key, fallback="").strip()
+def cfg_color(key, default, sec="display"):
+    """Couleur #rrggbb d'une section de config.ini (reglee dans webadmin) ou la valeur par defaut."""
+    v = cfg.get(sec, key, fallback="").strip()
     if len(v) == 7 and v[0] == "#":
         try:
             return tuple(int(v[i:i + 2], 16) for i in (1, 3, 5))
@@ -644,6 +648,10 @@ def cfg_color(key, default):
 PLANE_PANEL = cfg_color("plane_color_panel", (255, 70, 70))
 PLANE_KNOWN = cfg_color("plane_color_known", (255, 210, 80))
 PLANE_UNKNOWN = cfg_color("plane_color_unknown", (255, 170, 90))
+RING_COL = cfg_color("color", (45, 55, 70), "rings")
+RING_W = max(1, min(8, cfg.getint("rings", "width", fallback=1)))
+RING_LABELS = cfg.getboolean("rings", "show_labels", fallback=False)
+RING_TXT = tuple(min(255, (c + 150) // 2 + 20) for c in RING_COL)
 TRAIL_PANEL = tuple((c + g) // 2 for c, g in zip(PLANE_PANEL, (85, 90, 90)))
 
 
@@ -835,9 +843,15 @@ def main():
         if alert_visible:
             p = (1 - math.cos(2 * math.pi * now / ALERT_PULSE)) / 2
             screen.blit(overlays[int(p * (LEVELS - 1) + 0.5)], (int(hx) - ar, int(hy) - ar))
-        for km in (5, 10, 15, 20):
-            if km * 1000 <= RADIUS_M:
-                pygame.draw.circle(screen, (45, 55, 70), (int(hx), int(hy)), int(km * 1000 / MPP), 1)
+        for i in range(RING_N):
+            km = RING_FIRST + i * RING_STEP
+            if km * 1000 > RADIUS_M:
+                break
+            rr = int(km * 1000 / MPP)
+            pygame.draw.circle(screen, RING_COL, (int(hx), int(hy)), rr, RING_W)
+            if RING_LABELS and hy - rr > f_small.get_height():
+                tx = f_small.render("%g km" % round(km, 2), True, RING_TXT)
+                screen.blit(tx, (int(hx) - tx.get_width() // 2, int(hy) - rr - tx.get_height() - 2))
         if alert_visible:
             pygame.draw.circle(screen, RED, (int(hx), int(hy)), ar, lw)
         pygame.draw.circle(screen, (255, 200, 60), (int(hx), int(hy)), S(5))

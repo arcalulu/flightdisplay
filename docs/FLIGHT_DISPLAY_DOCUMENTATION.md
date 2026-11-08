@@ -689,6 +689,20 @@ Se règle dans webadmin : Réglages, Langue. L'ajout d'une langue est décrit en
 
 Modifier l'une de ces trois valeurs oblige à reconstruire la carte (webadmin l'indique). Le programme affiche un avertissement au démarrage si la carte a été construite pour d'autres coordonnées.
 
+**Cercles de distance** (`[rings]`, webadmin, Réglages, « Carte et position », groupe « Cercles de distance »). Ces cercles sont tracés par le programme autour de votre position : aucune reconstruction de carte n'est nécessaire, seulement une relance du programme. Par défaut : 4 cercles, de 5 à 20 km.
+
+| Option | Défaut | Plage | Description |
+|---|---|---|---|
+| `show` | `true` | `true` / `false` | Afficher les cercles. |
+| `count` | 4 | 0 à 30 | Nombre de cercles. Seuls ceux qui tiennent dans la hauteur de la carte (rayon de la carte) sont tracés. |
+| `first_km` | 5 | 0,1 à 200 | Distance du premier cercle (km). Peut aussi servir de distance d'alerte (`[alert] link_first_ring`). |
+| `step_km` | 5 | 0,1 à 200 | Écartement entre deux cercles (km). |
+| `width` | 1 | 1 à 8 | Épaisseur du trait (pixels). |
+| `color` | `#2d3746` | `#rrggbb` | Couleur des cercles. |
+| `show_labels` | `false` | `true` / `false` | Écrit la distance (« 5 km ») au sommet de chaque cercle. |
+
+La carte de choix de la position de webadmin dessine ces cercles (gris) et le cercle d'alerte (rouge) : ils bougent en direct quand vous changez les valeurs.
+
 ### 8.3 `[map]` — catégorie « Carte et position », groupe « Fond de carte »
 
 | Option | Défaut | Description |
@@ -802,7 +816,8 @@ Les options sont regroupées dans webadmin en cinq groupes : Zone, Son, Teinte r
 
 | Option | Défaut | Plage | Groupe | Description |
 |---|---|---|---|---|
-| `radius_km` | 5 | 0 à 50 | Zone | Rayon du cercle d'alerte. `0` désactive toute l'alerte (teinte, son de proximité, simulation). |
+| `radius_km` | 5 | 0 à 50 | Zone | Rayon du cercle d'alerte. `0` désactive toute l'alerte (teinte, son de proximité, simulation). Ignoré si `link_first_ring` est activé. |
+| `link_first_ring` | `false` | `true` / `false` | Zone | `true` : le rayon d'alerte est la distance du premier cercle (`[rings] first_km`). `false` : `radius_km` (distance indépendante). |
 | `sound` | true | true / false | Son | Interrupteur général du son. À `false`, aucun son ni périphérique audio n'est utilisé, y compris au démarrage. |
 | `volume` | 0.6 | 0 à 1 | Son | Volume de départ. Le curseur de Pilotage le remplace en direct. |
 | `pulse_seconds` | 3 | 0.5 à 30 | Teinte rouge | Durée d'un cycle de clignotement de la teinte rouge. |

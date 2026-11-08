@@ -236,6 +236,13 @@ PARAMS = [
     C("display", "display", "speed_unit", "choice", "kmh", "Unité de vitesse", "", "Unités", options=["kmh", "kt"]),
     C("display", "display", "max_altitude_ft", "int", 0, "Altitude maximale suivie (ft)", "0 = pas de limite. Les avions plus hauts sont ignorés.", "Filtre et icônes", min=0, max=100000),
     C("display", "display", "icon_scale", "float", 1.25, "Taille des icônes", "", "Filtre et icônes", min=0.3, max=5),
+    C("position", "rings", "show", "bool", True, "Afficher les cercles de distance", "Cercles centrés sur votre position, tracés par le programme (pas besoin de reconstruire la carte).", "Cercles de distance"),
+    C("position", "rings", "count", "int", 4, "Nombre de cercles", "Seuls les cercles contenus dans la hauteur de la carte sont tracés.", "Cercles de distance", min=0, max=30),
+    C("position", "rings", "first_km", "float", 5, "Distance du premier cercle (km)", "Peut aussi servir de distance d'alerte (Alerte de proximité).", "Cercles de distance", min=0.1, max=200),
+    C("position", "rings", "step_km", "float", 5, "Écartement entre les cercles (km)", "", "Cercles de distance", min=0.1, max=200),
+    C("position", "rings", "width", "int", 1, "Épaisseur (px)", "", "Cercles de distance", min=1, max=8),
+    C("position", "rings", "color", "color", "#2d3746", "Couleur", "", "Cercles de distance"),
+    C("position", "rings", "show_labels", "bool", False, "Afficher la distance sur chaque cercle", "Petit texte « 5 km » au sommet du cercle.", "Cercles de distance"),
     C("display", "display", "plane_color_panel", "color", "#ff4646", "Avion affiché dans le panneau", "L'avion dont la photo est montrée dans le panneau.", "Couleurs des avions"),
     C("display", "display", "plane_color_known", "color", "#ffd250", "Autres avions", "Avions dont le type d'avion est connu.", "Couleurs des avions"),
     C("display", "display", "plane_color_unknown", "color", "#ffaa5a", "Avions de type inconnu", "Types absents de la liste (voir Types d'avion).", "Couleurs des avions"),
@@ -256,7 +263,8 @@ PARAMS = [
     C("ground", "ground", "min_speed_kt", "float", 0, "Vitesse minimale (kt)", "Masque les avions quasi immobiles.", "Filtres", min=0, max=200),
     C("ground", "ground", "landed_alt_ft", "int", 2000, "Altitude d'atterrissage (ft)", "Un avion qui disparaît sous cette altitude est considéré comme posé.", "Atterrissage", min=0, max=10000),
     C("ground", "ground", "landed_keep_minutes", "float", 10, "Durée d'affichage après atterrissage (min)", "", "Atterrissage", min=0, max=240),
-    C("alert", "alert", "radius_km", "float", 5, "Rayon d'alerte (km)", "0 désactive toute l'alerte.", "Zone", min=0, max=50),
+    C("alert", "alert", "radius_km", "float", 5, "Rayon d'alerte (km)", "0 désactive toute l'alerte. Ignoré quand la distance du premier cercle est utilisée (option ci-dessous).", "Zone", min=0, max=50),
+    C("alert", "alert", "link_first_ring", "bool", False, "Utiliser la distance du premier cercle", "Le rayon d'alerte prend la distance du premier cercle (Carte et position, Cercles de distance). Désactivez pour fixer une autre distance.", "Zone"),
     C("alert", "alert", "sound", "bool", True, "Son", "Interrupteur général. La coupure temporaire se fait dans Pilotage.", "Son"),
     C("alert", "alert", "volume", "float", 0.6, "Volume par défaut", "Valeur de départ. Le curseur de Pilotage la remplace en direct.", "Son", min=0, max=1, ui="slider", step=0.05),
 
@@ -1709,6 +1717,7 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 .mprad{margin:8px 0}.mprad b{flex:none;margin-right:10px}.mprad input{flex:1}
 .mppv{width:100%;max-width:640px;border-radius:10px;border:1px solid var(--line);overflow:hidden;background:#0e141b;margin:8px 0}
 .mpprev{width:100%;height:100%}.mpprev .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.72) saturate(.5)}
+.mpring span{display:block;text-align:center;font:11px/14px inherit;color:#e6edf3;text-shadow:0 0 3px #000,0 0 3px #000}
 .mppin i{display:block;width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#ffd250;border:2px solid #111;box-sizing:border-box}
 .leaflet-container{font:12px/1.4 inherit}
 .msprev{width:100%;max-width:760px;aspect-ratio:16/9;border-radius:10px;border:1px solid var(--line);overflow:hidden;background:#0e141b;margin:8px 0}
@@ -2107,7 +2116,7 @@ const PLANE_PTS = '0,-13 1.4,-9.9 1.8,-6.8 1.8,-1 12,5 12,7.2 1.8,5 1.8,9 5,11.5
 function control(p) {
   const v = pval(p), wrap = el('div');
   if (p.type === 'bool') {
-    const t = toggle(String(v) === 'true', on => setEdit(p, on ? 'true' : 'false'));
+    const t = toggle(String(v) === 'true', on => setEdit(p, on ? 'true' : 'false')); t.input.dataset.pid = p.id;
     t.label.classList.toggle('chg', p.id in edits); t.input.addEventListener('change', () => t.label.classList.toggle('chg', p.id in edits));
     return {c: t.label, inline: true};
   }
@@ -2123,7 +2132,7 @@ function control(p) {
   if (p.type === 'color') {
     const w = el('div', 'colpick'), i = document.createElement('input'), pv = document.createElementNS('http://www.w3.org/2000/svg', 'svg'), rs = el('button', 'b s', '↺');
     const ok = x => /^#[0-9a-f]{6}$/i.test(x || '');
-    i.type = 'color'; i.value = ok(v) ? v : p.default;
+    i.type = 'color'; i.value = ok(v) ? v : p.default; i.dataset.pid = p.id;
     pv.setAttribute('viewBox', '-16 -16 32 32'); pv.setAttribute('width', 30); pv.setAttribute('height', 30);
     const pg = document.createElementNS('http://www.w3.org/2000/svg', 'polygon'); pg.setAttribute('points', PLANE_PTS); pv.append(pg);
     const paint = () => { pg.setAttribute('fill', i.value); rs.style.visibility = i.value.toLowerCase() === String(p.default).toLowerCase() ? 'hidden' : 'visible'; };
@@ -2396,7 +2405,7 @@ function renderMapPicker(box) {
   if (!pLat || !pLon || !pRad || !pW || !pH) return;
   const num = (p, d) => { const v = parseFloat(String(pval(p)).replace(',', '.')); return isFinite(v) ? v : d; };
   box.append(el('h2', 't', 'Position et zone affichée'));
-  box.append(el('p', 'note', "Cliquez sur la carte ou faites glisser le repère pour placer votre position. Le rectangle jaune est la zone que le programme affichera, le cercle en pointillés son rayon. Les valeurs sont écrites dans les champs plus bas ; il faut ensuite enregistrer puis reconstruire la carte."));
+  box.append(el('p', 'note', "Cliquez sur la carte ou faites glisser le repère pour placer votre position. Le rectangle jaune est la zone que le programme affichera, le cercle en pointillés son rayon ; les cercles gris sont les cercles de distance, le cercle rouge la distance d'alerte. Les valeurs sont écrites dans les champs plus bas ; il faut ensuite enregistrer puis reconstruire la carte."));
   const sr = el('div', 'tools'), q = document.createElement('input'); q.type = 'text'; q.placeholder = 'Rechercher une adresse ou un lieu'; q.autocomplete = 'off';
   const go = el('button', 'b s', 'Chercher'); go.style.flex = 'none'; sr.append(q, go); box.append(sr);
   const res = el('p', 'note'); res.style.display = 'none'; box.append(res);
@@ -2415,6 +2424,21 @@ function renderMapPicker(box) {
     const c = L.CRS.EPSG3857, pt = c.project(L.latLng(lat, lon)), k = 1 / Math.cos(lat * Math.PI / 180), hh = R * 1000 * k, hw = hh * W / H;
     return {lat, lon, R, W, H, b: L.latLngBounds(c.unproject(L.point(pt.x - hw, pt.y - hh)), c.unproject(L.point(pt.x + hw, pt.y + hh)))};
   };
+  const RP = k => allParams().find(p => p.id === 'config:' + k);
+  function drawRings(ll, R) {
+    st.rings.clearLayers(); st.ringsPv.clearLayers();
+    const on = String(pval(RP('rings.show'))) === 'true', n = parseInt(pval(RP('rings.count'))) || 0, f = parseFloat(pval(RP('rings.first_km'))) || 5, stp = parseFloat(pval(RP('rings.step_km'))) || 5;
+    const w = parseInt(pval(RP('rings.width'))) || 1, col = pval(RP('rings.color')) || '#2d3746', lab = String(pval(RP('rings.show_labels'))) === 'true';
+    const link = String(pval(RP('alert.link_first_ring'))) === 'true', ak = link ? f : (parseFloat(pval(RP('alert.radius_km'))) || 0);
+    if (on) for (let i = 0; i < n; i++) {
+      const km = f + i * stp; if (km > R) break;
+      for (const [grp, color, wt] of [[st.rings, '#8aa0bd', 1], [st.ringsPv, col, w]]) {
+        L.circle(ll, {radius: km * 1000, color, weight: wt, fill: false, interactive: false}).addTo(grp);
+        if (lab && grp === st.rings) L.marker(L.latLng(ll.lat + km / 110.574, ll.lng), {interactive: false, icon: L.divIcon({className: 'mpring', html: '<span>' + (Math.round(km * 100) / 100) + ' km</span>', iconSize: [50, 14], iconAnchor: [25, 14]})}).addTo(grp);
+      }
+    }
+    if (ak > 0) L.circle(ll, {radius: ak * 1000, color: '#ff4646', weight: 2, fillColor: '#ff4646', fillOpacity: 0.08, interactive: false}).addTo(st.rings);
+  }
   function refresh(fit) {
     if (!st.alive || !st.big) return;
     const g = bounds(), W = num(pW, 1920), H = num(pH, 1080), R = num(pRad, 20);
@@ -2429,6 +2453,7 @@ function renderMapPicker(box) {
     st.home.setLatLng(ll); if (!st.pv.hasLayer(st.home)) st.home.addTo(st.pv);
     st.pv.invalidateSize({animate: false}); st.pv.fitBounds(g.b, {animate: false, padding: [0, 0]});
     if (fit) st.big.fitBounds(g.b, {animate: false, padding: [20, 20]});
+    drawRings(ll, g.R);  // après les cadrages : Leaflet refuse de tracer un cercle sur une carte sans vue
   }
   function setPos(lat, lon, fit) {
     setEdit(pLat, String(Math.round(lat * 100000) / 100000)); setEdit(pLon, String(Math.round(((lon + 540) % 360 - 180) * 100000) / 100000));
@@ -2436,7 +2461,7 @@ function renderMapPicker(box) {
   }
   rr.oninput = () => { setEdit(pRad, String(rr.value)); syncInput(pRad); refresh(false); };
   rr.onchange = () => refresh(true);
-  box.oninput = ev => { const t = ev.target; if (t && t.dataset && t.dataset.pid) { if (!st.alive) return; refresh(false); const sl = Math.round(num(pRad, 20)); if (String(sl) !== rr.value && sl >= 1 && sl <= 200) rr.value = sl; } };
+  box.oninput = box.onchange = ev => { const t = ev.target; if (t && t.dataset && t.dataset.pid) { if (!st.alive) return; refresh(false); const sl = Math.round(num(pRad, 20)); if (String(sl) !== rr.value && sl >= 1 && sl <= 200) rr.value = sl; } };
   const search = async () => {
     const t = q.value.trim(); if (!t) return;
     res.style.display = 'block'; res.textContent = _t('Recherche…');
@@ -2458,12 +2483,13 @@ function renderMapPicker(box) {
     st.circle = L.circle([0, 0], {radius: 1, color: '#ffd250', weight: 2, dashArray: '6 6', fill: false, interactive: false});
     st.rect = L.rectangle([[0, 0], [1, 1]], {color: '#ffd250', weight: 2, fillColor: '#ffd250', fillOpacity: 0.06, interactive: false});
     st.home = L.circleMarker([0, 0], {radius: 5, color: '#ffc83c', fillColor: '#ffc83c', fillOpacity: 1, weight: 1, interactive: false});
+    st.rings = L.layerGroup().addTo(st.big); st.ringsPv = L.layerGroup().addTo(st.pv);
     st.mk.on('dragend', () => { const l = st.mk.getLatLng(); setPos(l.lat, l.lng, false); });
     st.big.on('click', ev => setPos(ev.latlng.lat, ev.latlng.lng, false));
     st.big.setView([46.6, 2.4], 5);
     refresh(true);
     setTimeout(() => { if (st.alive) { st.big.invalidateSize(); refresh(true); } }, 150);
-  }).catch(() => { big.className = 'note'; big.textContent = _t("La carte n'a pas pu être chargée (accès à internet nécessaire depuis ce navigateur). Vous pouvez toujours saisir les valeurs dans les champs ci-dessous."); pvw.remove(); });
+  }).catch(e => { console.error(e); big.className = 'note'; big.textContent = _t("La carte n'a pas pu être chargée (accès à internet nécessaire depuis ce navigateur). Vous pouvez toujours saisir les valeurs dans les champs ci-dessous."); pvw.remove(); });
 }
 
 /* ---------- Style de la carte : thème, éléments, couleurs, noms de lieux, aperçu réel ---------- */

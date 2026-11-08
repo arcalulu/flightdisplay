@@ -90,8 +90,20 @@ min_speed_kt = 0
 landed_alt_ft = 2000
 landed_keep_minutes = 10
 
+[rings]
+; Cercles de distance autour de la maison (tracés par le programme, sans reconstruire la carte)
+show = true
+count = 4
+first_km = 5
+step_km = 5
+width = 1
+color = #2d3746
+show_labels = false
+
 [alert]
 radius_km = 5
+; true : la distance d'alerte est celle du premier cercle (first_km) ; false : radius_km
+link_first_ring = false
 sound = true
 volume = 0.4
 pulse_seconds = 3

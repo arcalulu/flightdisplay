@@ -689,6 +689,20 @@ Set in webadmin: Settings, Language. Adding a language is described in 12.3.
 
 Changing one of these three values requires rebuilding the map (webadmin says so). The program shows a warning at startup if the map was built for other coordinates.
 
+**Distance circles** (`[rings]`, webadmin, Settings, "Map and position", group "Distance circles"). These circles are drawn by the program around your position: no map rebuild is needed, only a program restart. Default: 4 circles, from 5 to 20 km.
+
+| Option | Default | Range | Description |
+|---|---|---|---|
+| `show` | `true` | `true` / `false` | Show the circles. |
+| `count` | 4 | 0 to 30 | Number of circles. Only those that fit within the map height (map radius) are drawn. |
+| `first_km` | 5 | 0.1 to 200 | Distance of the first circle (km). Can also be used as the alert distance (`[alert] link_first_ring`). |
+| `step_km` | 5 | 0.1 to 200 | Spacing between two circles (km). |
+| `width` | 1 | 1 to 8 | Line thickness (pixels). |
+| `color` | `#2d3746` | `#rrggbb` | Circle color. |
+| `show_labels` | `false` | `true` / `false` | Writes the distance ("5 km") at the top of each circle. |
+
+The position picker map in webadmin draws these circles (gray) and the alert circle (red): they move live when you change the values.
+
 ### 8.3 `[map]` — category "Map and position", group "Base map"
 
 | Option | Default | Description |
@@ -802,7 +816,8 @@ The options are grouped in webadmin in five groups: Zone, Sound, Red tint, Altit
 
 | Option | Default | Range | Group | Description |
 |---|---|---|---|---|
-| `radius_km` | 5 | 0 to 50 | Zone | Radius of the alert circle. `0` disables the whole alert (tint, proximity sound, simulation). |
+| `radius_km` | 5 | 0 to 50 | Zone | Radius of the alert circle. `0` disables the whole alert (tint, proximity sound, simulation). Ignored if `link_first_ring` is on. |
+| `link_first_ring` | `false` | `true` / `false` | Zone | `true`: the alert radius is the distance of the first circle (`[rings] first_km`). `false`: `radius_km` (independent distance). |
 | `sound` | true | true / false | Sound | Master switch of the sound. At `false`, no sound nor audio device is used, including at startup. |
 | `volume` | 0.6 | 0 to 1 | Sound | Starting volume. The slider in Control overrides it live. |
 | `pulse_seconds` | 3 | 0.5 to 30 | Red tint | Duration of one blink cycle of the red tint. |
