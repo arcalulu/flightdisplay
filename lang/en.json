@@ -457,7 +457,6 @@
   "Photos": "Photos",
   "© leurs auteurs, via JetPhotos. Le crédit du photographe est visible dans l'image.": "© their authors, through JetPhotos. The photographer's credit is visible inside the image.",
   "Bibliothèques": "Libraries",
-  "pygame (LGPL), requests (Apache 2.0), Pillow (MIT-CMU), paho-mqtt (EPL 2.0 ou BSD 3-Clause), polices DejaVu.": "pygame (LGPL), requests (Apache 2.0), Pillow (MIT-CMU), paho-mqtt (EPL 2.0 or BSD 3-Clause), DejaVu fonts.",
   "Conditions et licences en détail": "Full terms and licenses",
   "Retour": "Back",
   "Planning de l'écran": "Screen schedule",
@@ -645,6 +644,18 @@
   "La sauvegarde contient config.ini (réglages, avec ou sans les secrets), la liste des types d'avion, l'état du son et la carte déjà construite (background.png et map_meta.json). Les photos ne sont pas incluses.": "The backup contains config.ini (settings, with or without the secrets), the aircraft type list, the sound state and the map already built (background.png and map_meta.json). Photos are not included.",
   "Modifier le type": "Change the type",
   "Le programme d'affichage n'est pas concerné par cette mise à jour : il continue sans interruption.": "The display program is not affected by this update: it keeps running without interruption.",
-  "non concerné par cette mise à jour : pas de relance": "not affected by this update: no restart"
+  "non concerné par cette mise à jour : pas de relance": "not affected by this update: no restart",
+  "Position et zone affichée": "Position and displayed area",
+  "Cliquez sur la carte ou faites glisser le repère pour placer votre position. Le rectangle jaune est la zone que le programme affichera, le cercle en pointillés son rayon. Les valeurs sont écrites dans les champs plus bas ; il faut ensuite enregistrer puis reconstruire la carte.": "Click the map or drag the marker to set your position. The yellow rectangle is the area the program will display, the dashed circle its radius. The values are written in the fields below; then save and rebuild the map.",
+  "Rechercher une adresse ou un lieu": "Search an address or a place",
+  "Chercher": "Search",
+  "Rayon": "Radius",
+  "Aperçu sur l'écran": "Preview on the display",
+  "Cet aperçu montre la même zone que la carte reconstruite, avec le fond OpenStreetMap assombri. Le fond réellement affiché sera celui de CARTO (routes, eau, pistes et noms de lieux), construit à la reconstruction.": "This preview shows the same area as the rebuilt map, on a darkened OpenStreetMap background. The background actually displayed will be CARTO's (roads, water, runways and place names), built when the map is rebuilt.",
+  "Choisissez une position sur la carte.": "Pick a position on the map.",
+  "Zone affichée : {0} km × {1} km (ratio {2}, {3} m par pixel).": "Displayed area: {0} km × {1} km (ratio {2}, {3} m per pixel).",
+  "Aucun résultat": "No result",
+  "La carte n'a pas pu être chargée (accès à internet nécessaire depuis ce navigateur). Vous pouvez toujours saisir les valeurs dans les champs ci-dessous.": "The map could not be loaded (this browser needs internet access). You can still type the values in the fields below.",
+  "pygame (LGPL), requests (Apache 2.0), Pillow (MIT-CMU), paho-mqtt (EPL 2.0 ou BSD 3-Clause), polices DejaVu. Dans webadmin : Leaflet (BSD 2-Clause), pour la carte de choix de la position.": "pygame (LGPL), requests (Apache 2.0), Pillow (MIT-CMU), paho-mqtt (EPL 2.0 or BSD 3-Clause), DejaVu fonts. In webadmin: Leaflet (BSD 2-Clause), for the position picker map."
  }
 }

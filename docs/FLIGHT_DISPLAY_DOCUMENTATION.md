@@ -1066,6 +1066,12 @@ Allume et éteint l'écran tout seul selon un calendrier hebdomadaire, comme un 
 - Le planning suit l'**heure du Pi** (fuseau horaire du système, voir 3.4). Il s'exécute dans webadmin : il ne fonctionne que tant que webadmin tourne, et utilise le script `flight-screen` via sudo comme le bouton Écran. Une action est reportée si une reconstruction de carte ou une mise à jour est en cours. En cas d'échec de la commande, le message est affiché sous la prochaine action.
 - Dans `config.ini`, section `[schedule]` : `enabled` et une ligne par jour (`mon`, `tue`, `wed`, `thu`, `fri`, `sat`, `sun`) du type `mon = 07:00-09:30,18:00-24:00` (heures `HH:MM`, de `00:00` à `24:00`).
 
+**Choix de la position et du rayon** (Réglages, Carte et position, en haut de la page)
+- Une carte OpenStreetMap permet de cliquer ou de glisser le repère pour placer la position, ou de chercher une adresse (recherche Nominatim, lancée seulement quand vous la demandez). La latitude et la longitude des champs plus bas se mettent à jour.
+- Le curseur « Rayon » règle `radius_km`. Le rectangle jaune montre la zone réellement affichée (hauteur = 2 × rayon, largeur dans le ratio « Largeur / Hauteur » de la taille de la carte) et le cercle en pointillés le rayon.
+- Sous la carte, un aperçu au même ratio que l'écran montre la zone avec un fond OpenStreetMap assombri (le vrai fond est celui de CARTO, construit à la reconstruction).
+- Les valeurs sont des modifications en attente : « Enregistrer », puis reconstruire la carte. La carte demande l'accès à internet depuis le navigateur (Leaflet est chargé depuis cdnjs) ; sans cela, les champs restent utilisables à la main.
+
 **Reconstruction de la carte** (Réglages, Carte et position, en bas de la page ; un bandeau y renvoie quand un réglage de carte a changé)
 
 - Bouton « Reconstruire la carte » : lance `build_map_vector.py` avec les réglages actuels, affiche sa sortie en direct, et propose « Annuler ».

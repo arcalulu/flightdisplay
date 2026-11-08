@@ -1549,6 +1549,12 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 .hint{background:#2a2108;border:1px solid #5a4410;color:#f0d78c;padding:10px 12px;border-radius:10px;margin-bottom:12px;display:none;font-size:14px}
 .hint .btns{display:flex;gap:8px;margin-top:8px}.hint .btns button{flex:1}
 .tools{display:flex;gap:8px;margin-bottom:8px;align-items:center}.tools>*{flex:1}
+.mpbig{height:380px;border-radius:12px;border:1px solid var(--line);margin:10px 0;overflow:hidden;background:#0e141b}
+.mprad{margin:8px 0}.mprad b{flex:none;margin-right:10px}.mprad input{flex:1}
+.mppv{width:100%;max-width:640px;border-radius:10px;border:1px solid var(--line);overflow:hidden;background:#0e141b;margin:8px 0}
+.mpprev{width:100%;height:100%}.mpprev .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.72) saturate(.5)}
+.mppin i{display:block;width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#ffd250;border:2px solid #111;box-sizing:border-box}
+.leaflet-container{font:12px/1.4 inherit}
 .tools.v{flex-direction:column;align-items:stretch;margin-top:8px}
 .tools select,.tools input[type=text]{padding:9px 10px;font-size:14px}
 .cols{display:block}
@@ -1672,7 +1678,7 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
       <div class="cl"><a href="https://www.flightradar24.com/terms-of-service" target="_blank" rel="noopener noreferrer">Flightradar24</a><a href="https://github.com/JeanExtreme002/FlightRadarAPI" target="_blank" rel="noopener noreferrer">FlightRadarAPI</a></div></div></div>
     <div class="li stack"><div class="lt"><b>Photos</b><small>© leurs auteurs, via JetPhotos. Le crédit du photographe est visible dans l'image.</small>
       <div class="cl"><a href="https://www.jetphotos.com" target="_blank" rel="noopener noreferrer">JetPhotos</a></div></div></div>
-    <div class="li stack"><div class="lt"><b>Bibliothèques</b><small>pygame (LGPL), requests (Apache 2.0), Pillow (MIT-CMU), paho-mqtt (EPL 2.0 ou BSD 3-Clause), polices DejaVu.</small></div></div>
+    <div class="li stack"><div class="lt"><b>Bibliothèques</b><small>pygame (LGPL), requests (Apache 2.0), Pillow (MIT-CMU), paho-mqtt (EPL 2.0 ou BSD 3-Clause), polices DejaVu. Dans webadmin : Leaflet (BSD 2-Clause), pour la carte de choix de la position.</small></div></div>
   </div>
   <div class="grid" style="margin-top:12px">
     <a style="text-align:center;text-decoration:none;display:block;padding:12px;border-radius:10px;border:1px solid var(--line);background:#1b2431;color:var(--txt);font-size:16px" href="https://github.com/arcalulu/flightdisplay/blob/main/CREDITS.md" target="_blank" rel="noopener noreferrer">Conditions et licences en détail</a>
@@ -1958,7 +1964,7 @@ function control(p) {
   }
   const i = document.createElement('input'); i.type = 'text'; i.value = v; i.className = p.id in edits ? 'chg' : '';
   i.inputMode = p.type === 'int' ? 'numeric' : (p.type === 'float' ? 'decimal' : 'text');
-  i.autocomplete = 'off'; i.autocapitalize = 'off'; i.spellcheck = false;
+  i.autocomplete = 'off'; i.autocapitalize = 'off'; i.spellcheck = false; i.dataset.pid = p.id;
   i.oninput = () => { setEdit(p, p.type === 'float' ? i.value.trim().replace(',', '.') : i.value.trim()); i.classList.toggle('chg', p.id in edits); };
   return {c: i, inline: false};
 }
@@ -1987,7 +1993,7 @@ function renderGroups(box, cat) {
 }
 let fieldTab = {};
 function renderCatBase() {
-  const box = $('#catbox'); box.innerHTML = '';
+  const box = $('#catbox'); box.innerHTML = ''; box.oninput = null; mapPickDestroy();
   const cat = SET.cats[curCat]; if (!cat) return;
   const head = el('div', 'catt'); head.append(el('h3', null, cat.title)); box.append(head);
   if (cat.kind === 'types') return renderTypes(box);
@@ -2010,6 +2016,7 @@ function renderCatBase() {
   }
   if (cat.note) box.append(el('p', 'note', cat.note));
   if (cat.id === 'server') { const w = el('div', 'hint', "Aucun mot de passe n'est défini : toute personne du réseau local peut piloter le Raspberry Pi. Définissez-en un ci-dessous."); w.id = 'authWarn'; w.style.display = (lastSt && !lastSt.auth) ? 'block' : 'none'; box.append(w); }  
+  if (cat.id === 'position') renderMapPicker(box);
   renderGroups(box, cat);
   if (cat.file) {
     const r = el('button', 'b s', 'Revenir à la version précédente de ' + 'config.ini');
@@ -2177,6 +2184,104 @@ async function renderTypes(box) {
   cats.append(el('h2', 't', 'Types par catégorie'), el('p', 'note', 'En vert : types déjà vus au-dessus de chez vous (survolez pour le nombre de passages).'), bar, catList);
   box.append(todo, cats, note2, bt); draw();
   (async () => { for (const c of unknownCodes()) if (!sug[c]) await ask(c, true); })();
+}
+
+/* ---------- Carte : choix de la position, du rayon et aperçu de la zone affichée ---------- */
+const LEAFLET = {
+  js: ['https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js', 'sha512-puJW3E/qXDqYp9IfhAI54BJEaWIfloJ7JWs7OeD5i6ruC9JZL1gERT1wjtwXFlh7CjE7ZJ+/vcRZRkIYIb6p4g=='],
+  css: ['https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css', 'sha512-h9FcoyWjHcOcmEVkxOfTLnmZFWIH0iZhZT1H2TbOq55xssQGEJHEaIm+PgoUaZbRvQTNTluNOEfb1ZRy6D3BOw==']
+};
+let leafletP = null, mapPick = null;
+function loadLeaflet() {
+  if (window.L) return Promise.resolve();
+  if (leafletP) return leafletP;
+  leafletP = new Promise((ok, ko) => {
+    const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = LEAFLET.css[0]; css.integrity = LEAFLET.css[1]; css.crossOrigin = 'anonymous'; document.head.append(css);
+    const sc = document.createElement('script'); sc.src = LEAFLET.js[0]; sc.integrity = LEAFLET.js[1]; sc.crossOrigin = 'anonymous';
+    sc.onload = () => ok(); sc.onerror = () => { leafletP = null; ko(new Error('leaflet')); }; document.head.append(sc);
+  });
+  return leafletP;
+}
+function mapPickDestroy() {
+  if (!mapPick) return;
+  for (const m of [mapPick.big, mapPick.pv]) { try { if (m) m.remove(); } catch (e) {} }
+  mapPick = null;
+}
+function gcd(a, b) { return b ? gcd(b, a % b) : a; }
+function renderMapPicker(box) {
+  const P = k => allParams().find(p => p.id.endsWith(':' + k));
+  const pLat = P('position.latitude'), pLon = P('position.longitude'), pRad = P('position.radius_km'), pW = P('display.width'), pH = P('display.height');
+  if (!pLat || !pLon || !pRad || !pW || !pH) return;
+  const num = (p, d) => { const v = parseFloat(String(pval(p)).replace(',', '.')); return isFinite(v) ? v : d; };
+  box.append(el('h2', 't', 'Position et zone affichée'));
+  box.append(el('p', 'note', "Cliquez sur la carte ou faites glisser le repère pour placer votre position. Le rectangle jaune est la zone que le programme affichera, le cercle en pointillés son rayon. Les valeurs sont écrites dans les champs plus bas ; il faut ensuite enregistrer puis reconstruire la carte."));
+  const sr = el('div', 'tools'), q = document.createElement('input'); q.type = 'text'; q.placeholder = 'Rechercher une adresse ou un lieu'; q.autocomplete = 'off';
+  const go = el('button', 'b s', 'Chercher'); go.style.flex = 'none'; sr.append(q, go); box.append(sr);
+  const res = el('p', 'note'); res.style.display = 'none'; box.append(res);
+  const big = el('div', 'mpbig'); box.append(big);
+  const rw = el('div', 'sl mprad'), rl = el('b', null, 'Rayon'), rr = document.createElement('input'), rv = el('span');
+  rr.type = 'range'; rr.min = 1; rr.max = 200; rr.step = 1; rr.value = Math.max(1, Math.min(200, Math.round(num(pRad, 20)))); rw.append(rl, rr, rv); box.append(rw);
+  const info = el('p', 'note'); box.append(info);
+  box.append(el('h2', 't', "Aperçu sur l'écran"));
+  const pvw = el('div', 'mppv'), pv = el('div', 'mpprev'); pvw.append(pv); box.append(pvw);
+  box.append(el('p', 'note', "Cet aperçu montre la même zone que la carte reconstruite, avec le fond OpenStreetMap assombri. Le fond réellement affiché sera celui de CARTO (routes, eau, pistes et noms de lieux), construit à la reconstruction."));
+  const st = mapPick = {big: null, pv: null, alive: true};
+  const syncInput = p => { const i = document.querySelector('[data-pid="' + p.id.replace(/"/g, '\\"') + '"]'); if (i) { i.value = pval(p); i.classList.toggle('chg', p.id in edits); } };
+  const bounds = () => {
+    const lat = num(pLat, NaN), lon = num(pLon, NaN), R = num(pRad, 20), W = num(pW, 1920), H = num(pH, 1080);
+    if (!isFinite(lat) || !isFinite(lon) || H <= 0 || W <= 0) return null;
+    const c = L.CRS.EPSG3857, pt = c.project(L.latLng(lat, lon)), k = 1 / Math.cos(lat * Math.PI / 180), hh = R * 1000 * k, hw = hh * W / H;
+    return {lat, lon, R, W, H, b: L.latLngBounds(c.unproject(L.point(pt.x - hw, pt.y - hh)), c.unproject(L.point(pt.x + hw, pt.y + hh)))};
+  };
+  function refresh(fit) {
+    if (!st.alive || !st.big) return;
+    const g = bounds(), W = num(pW, 1920), H = num(pH, 1080), R = num(pRad, 20);
+    rv.textContent = Math.round(R * 10) / 10 + ' km';
+    if (W > 0 && H > 0) { pvw.style.aspectRatio = W + ' / ' + H; const d = gcd(Math.round(W), Math.round(H)) || 1; var ratio = Math.round(W / d) + ':' + Math.round(H / d); }
+    if (!g) { info.textContent = _t('Choisissez une position sur la carte.'); return; }
+    const kmW = 2 * g.R * g.W / g.H, kmH = 2 * g.R;
+    info.textContent = _t('Zone affichée : {0} km × {1} km (ratio {2}, {3} m par pixel).', (Math.round(kmW * 10) / 10).toLocaleString(), (Math.round(kmH * 10) / 10).toLocaleString(), ratio || '?', (Math.round(2 * g.R * 1000 / g.H * 10) / 10).toLocaleString());
+    const ll = L.latLng(g.lat, g.lon);
+    st.mk.setLatLng(ll); st.circle.setLatLng(ll).setRadius(g.R * 1000); st.rect.setBounds(g.b);
+    for (const l of [st.mk, st.circle, st.rect]) if (!st.big.hasLayer(l)) l.addTo(st.big);
+    st.home.setLatLng(ll); if (!st.pv.hasLayer(st.home)) st.home.addTo(st.pv);
+    st.pv.invalidateSize({animate: false}); st.pv.fitBounds(g.b, {animate: false, padding: [0, 0]});
+    if (fit) st.big.fitBounds(g.b, {animate: false, padding: [20, 20]});
+  }
+  function setPos(lat, lon, fit) {
+    setEdit(pLat, String(Math.round(lat * 100000) / 100000)); setEdit(pLon, String(Math.round(((lon + 540) % 360 - 180) * 100000) / 100000));
+    syncInput(pLat); syncInput(pLon); refresh(fit);
+  }
+  rr.oninput = () => { setEdit(pRad, String(rr.value)); syncInput(pRad); refresh(false); };
+  rr.onchange = () => refresh(true);
+  box.oninput = ev => { const t = ev.target; if (t && t.dataset && t.dataset.pid) { if (!st.alive) return; refresh(false); const sl = Math.round(num(pRad, 20)); if (String(sl) !== rr.value && sl >= 1 && sl <= 200) rr.value = sl; } };
+  const search = async () => {
+    const t = q.value.trim(); if (!t) return;
+    res.style.display = 'block'; res.textContent = _t('Recherche…');
+    try {
+      const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(t));
+      const d = await r.json();
+      if (!d.length) { res.textContent = _t('Aucun résultat'); return; }
+      res.textContent = d[0].display_name; setPos(parseFloat(d[0].lat), parseFloat(d[0].lon), true);
+    } catch (e) { res.textContent = _t("Recherche impossible (pas d'accès à internet ?)"); }
+  };
+  go.onclick = search; q.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); search(); } };
+  loadLeaflet().then(() => {
+    if (!box.contains(big)) return;
+    const tiles = () => L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 18, attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'});
+    st.big = L.map(big, {zoomControl: true, worldCopyJump: true}); tiles().addTo(st.big);
+    st.pv = L.map(pv, {zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false, zoomSnap: 0, attributionControl: true});
+    tiles().addTo(st.pv); st.pv.attributionControl.setPrefix('');
+    st.mk = L.marker([0, 0], {draggable: true, icon: L.divIcon({className: 'mppin', html: '<i></i>', iconSize: [22, 22], iconAnchor: [11, 11]})});
+    st.circle = L.circle([0, 0], {radius: 1, color: '#ffd250', weight: 2, dashArray: '6 6', fill: false, interactive: false});
+    st.rect = L.rectangle([[0, 0], [1, 1]], {color: '#ffd250', weight: 2, fillColor: '#ffd250', fillOpacity: 0.06, interactive: false});
+    st.home = L.circleMarker([0, 0], {radius: 5, color: '#ffc83c', fillColor: '#ffc83c', fillOpacity: 1, weight: 1, interactive: false});
+    st.mk.on('dragend', () => { const l = st.mk.getLatLng(); setPos(l.lat, l.lng, false); });
+    st.big.on('click', ev => setPos(ev.latlng.lat, ev.latlng.lng, false));
+    st.big.setView([46.6, 2.4], 5);
+    refresh(true);
+    setTimeout(() => { if (st.alive) { st.big.invalidateSize(); refresh(true); } }, 150);
+  }).catch(() => { big.className = 'note'; big.textContent = _t("La carte n'a pas pu être chargée (accès à internet nécessaire depuis ce navigateur). Vous pouvez toujours saisir les valeurs dans les champs ci-dessous."); pvw.remove(); });
 }
 
 /* ---------- Sauvegarde et restauration ---------- */

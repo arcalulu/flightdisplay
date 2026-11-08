@@ -1066,6 +1066,12 @@ Turns the screen on and off by itself following a weekly calendar, like a diary.
 - The schedule follows the **Pi time** (system time zone, see 3.4). It runs inside webadmin: it only works while webadmin is running, and uses the `flight-screen` script through sudo like the Screen button. An action is postponed while a map rebuild or an update is in progress. If the command fails, the message is shown below the next action.
 - In `config.ini`, section `[schedule]`: `enabled` and one line per day (`mon`, `tue`, `wed`, `thu`, `fri`, `sat`, `sun`) like `mon = 07:00-09:30,18:00-24:00` (`HH:MM` times, from `00:00` to `24:00`).
 
+**Choosing the position and the radius** (Settings, Map and position, at the top of the page)
+- An OpenStreetMap map lets you click or drag the marker to set the position, or search an address (Nominatim search, run only when you ask for it). The latitude and longitude fields below are updated.
+- The "Radius" slider sets `radius_km`. The yellow rectangle shows the area actually displayed (height = 2 × radius, width following the "Width / Height" ratio of the map size) and the dashed circle shows the radius.
+- Below the map, a preview with the same ratio as the display shows the area on a darkened OpenStreetMap background (the real background is CARTO's, built at rebuild time).
+- The values are pending changes: "Save", then rebuild the map. The map needs internet access from the browser (Leaflet is loaded from cdnjs); without it, the fields can still be filled in by hand.
+
 **Map rebuild** (Settings, Map and position, at the bottom of the page; a banner points to it when a map setting has changed)
 
 - "Rebuild the map" button: runs `build_map_vector.py` with the current settings, shows its output live, and offers "Cancel".
