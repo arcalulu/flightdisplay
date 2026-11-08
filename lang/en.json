@@ -636,11 +636,12 @@
   "En vert : types déjà vus au-dessus de chez vous (survolez pour le nombre de passages).": "In green: types already seen above your home (hover to see how many times).",
   "d'après {0}": "from {0}",
   "Aucune suggestion pour {0}": "No suggestion for {0}",
-  "Type introuvable dans la liste publique": "Type not found in the public list",
   "Recherche…": "Searching…",
   "Suggérer": "Suggest",
   "Vos changements sont enregistrés tout de suite. Relancez le programme pour les voir à l'écran.": "Your changes are saved immediately. Restart the program to see them on the display.",
   "Recherche impossible (pas d'accès à internet ?)": "Search failed (no internet access?)",
-  "code de type invalide": "invalid type code"
+  "code de type invalide": "invalid type code",
+  "base OACI : {0}": "ICAO database: {0}",
+  "Type introuvable dans la base OACI": "Type not found in the ICAO database"
  }
 }

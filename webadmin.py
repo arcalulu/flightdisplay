@@ -683,13 +683,51 @@ def designators():
     return out
 
 
+_icao = {"t": 0.0, "map": {}}
+ICAO_URL = "https://doc8643.icao.int/external/aircrafttypes"
+
+
+def icao_types():
+    """Base officielle OACI des types d'avion (doc 8643) : {code: [fiches]}, gardee 24 h en memoire."""
+    if _icao["map"] and time.time() - _icao["t"] < 86400:
+        return _icao["map"]
+    import urllib.request
+    req = urllib.request.Request(ICAO_URL, data=b"", headers={"User-Agent": "FlightDisplay/1.0 (webadmin)"})
+    with urllib.request.urlopen(req, timeout=20) as r:
+        raw = json.load(r)
+    out = {}
+    for x in raw:
+        try:
+            out.setdefault(str(x["Designator"]).upper(), []).append(
+                (str(x.get("ManufacturerCode") or ""), str(x.get("ModelFullName") or ""), str(x.get("AircraftDescription") or ""),
+                 str(x.get("WTC") or ""), int(x["EngineCount"]) if str(x.get("EngineCount")).isdigit() else 1, str(x.get("EngineType") or "")))
+        except (KeyError, ValueError):
+            pass
+    del raw
+    _icao.update(t=time.time(), map=out)
+    return out
+
+
 def suggest_type(code):
-    """Propose une categorie : d'apres le modele deja vu, sinon d'apres la liste des types ICAO de Wikipedia."""
+    """Categorie probable : base OACI (fiable), sinon nom du modele vu ou liste Wikipedia (mots-cles)."""
     code = code.upper()
+    failed = 0
+    try:
+        recs = icao_types().get(code)
+        if recs:
+            cat, model = aircraft_types.classify_icao(recs)
+            return dict(code=code, model=model, suggest=cat, source="icao")
+    except Exception:
+        failed += 1
     model = next((e["model"] for e in seen_types() if e["code"] == code and e["model"]), "")
     if not model:
-        model = designators().get(code, "")
-    return dict(code=code, model=model, suggest=aircraft_types.suggest(model) if model else None)
+        try:
+            model = designators().get(code, "")
+        except Exception:
+            failed += 1
+    if failed == 2 and not model:
+        raise OSError("hors ligne")
+    return dict(code=code, model=model, suggest=aircraft_types.suggest(model) if model else None, source="web")
 
 
 def seen_photo_file(code):
@@ -2026,11 +2064,13 @@ async function renderTypes(box) {
   };
   const web = code => { const i = info[code]; window.open('https://www.google.com/search?q=' + encodeURIComponent('ICAO aircraft type ' + code + (i && i.model ? ' ' + i.model : '')), '_blank', 'noopener'); };
   const choose = (code, c) => { if (builtin[code] === c) delete extra[code]; else extra[code] = c; draw(); persist(); };
-  const ask = async code => {
+  const ask = async (code, quiet) => {
     busy.add(code); draw();
-    try { sug[code] = await api('/api/types/suggest?code=' + encodeURIComponent(code)); } catch (e) { toast(e.message, true); }
+    try { sug[code] = await api('/api/types/suggest?code=' + encodeURIComponent(code)); }
+    catch (e) { sug[code] = {error: true}; if (!quiet) toast(e.message, true); }
     busy.delete(code); draw();
   };
+  const unknownCodes = () => { const l = T.seen.filter(e => !known(e.code)).map(e => e.code); for (const u of T.unknown) { const c = u.toUpperCase(); if (!known(c) && !l.includes(c)) l.push(c); } return l; };
   const detail = code => {
     const i = info[code] || {}, w = el('div', 'tdet'), top = el('div', 'tdtop');
     if (i.photo) { const im = document.createElement('img'); im.className = 'tph'; im.alt = code; im.loading = 'lazy'; im.src = '/api/types/photo?code=' + encodeURIComponent(code); im.onerror = () => im.remove(); top.append(im); }
@@ -2064,13 +2104,15 @@ async function renderTypes(box) {
       inTodo.add(e.code);
       const r = el('div', 'tcl'), head = el('div', 'tvh'), t1 = el('div', 'lt');
       t1.append(el('b', null, e.code), el('small', null, [e.model, e.n ? _t('{0} passage(s)', e.n) : ''].filter(Boolean).join(' · ') || 'Modèle inconnu'));
-      const sg = sug[e.code] || (e.suggest ? {model: e.model, suggest: e.suggest} : null);
-      if (sg && sg.suggest) t1.append(el('span', 'tsug', _t('Suggestion : {0}', T.labels[sg.suggest]) + (sg.model && sg.model !== e.model ? ' · ' + _t("d'après {0}", sg.model) : '')));
-      else if (sg) t1.append(el('span', 'tsug none', sg.model ? _t('Aucune suggestion pour {0}', sg.model) : 'Type introuvable dans la liste publique'));
+      const sg = sug[e.code] || null;
+      if (busy.has(e.code)) t1.append(el('span', 'tsug none', 'Recherche…'));
+      else if (sg && sg.suggest) t1.append(el('span', 'tsug', _t('Suggestion : {0}', T.labels[sg.suggest]) + (sg.model ? ' · ' + (sg.source === 'icao' ? _t('base OACI : {0}', sg.model) : _t("d'après {0}", sg.model)) : '')));
+      else if (sg && sg.error) t1.append(el('span', 'tsug none', "Recherche impossible (pas d'accès à internet ?)"));
+      else if (sg) t1.append(el('span', 'tsug none', sg.model ? _t('Aucune suggestion pour {0}', sg.model) : 'Type introuvable dans la base OACI'));
       head.append(planeSvg(T, catOf(e.code), 34), t1); head.onclick = () => toggleSel(e.code);
       const acts = el('div', 'tacts');
       if (sg && sg.suggest) { const ok = el('button', 'b s', 'Accepter'); ok.onclick = ev => { ev.stopPropagation(); choose(e.code, sg.suggest); }; acts.append(ok); }
-      else { const qs = el('button', 'b s', busy.has(e.code) ? 'Recherche…' : 'Suggérer'); qs.onclick = ev => { ev.stopPropagation(); if (!busy.has(e.code)) ask(e.code); }; acts.append(qs); }
+      else { const qs = el('button', 'b s', 'Suggérer'); qs.onclick = ev => { ev.stopPropagation(); if (!busy.has(e.code)) ask(e.code); }; acts.append(qs); }
       const ws = el('button', 'b s', 'Chercher sur internet ↗'); ws.onclick = ev => { ev.stopPropagation(); web(e.code); }; acts.append(ws);
       head.append(acts); r.append(head);
       if (e.code === sel) r.append(detail(e.code));
@@ -2104,6 +2146,7 @@ async function renderTypes(box) {
   bt.append(restart);
   const note2 = el('p', 'note', "Vos changements sont enregistrés tout de suite. Relancez le programme pour les voir à l'écran.");
   box.append(todo, cats, note2, bt); draw();
+  (async () => { for (const c of unknownCodes()) if (!sug[c]) await ask(c, true); })();
 }
 
 /* ---------- Sauvegarde et restauration ---------- */
