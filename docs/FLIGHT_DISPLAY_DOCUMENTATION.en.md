@@ -79,7 +79,7 @@ These questions are only asked in a manual installation: with `--manual`, or if 
 | CARTO API key | Visible input, so you can check the paste (the field stays hidden in webadmin). Written to `config.ini`, section `[map]`, key `carto_key`. Without a key, the map is not built (possible later from webadmin). |
 | Webadmin password | At least 6 characters, with confirmation, or Enter to generate a random one (shown only once at the end). Visible input. |
 | MQTT | Optional: server, port, username, password (visible input). |
-| Screen sleep fix | Adds `vc4.force_hotplug=1` to the boot options (see 3.6); a reboot is recommended. |
+| Screen sleep fix | Adds `vc4.force_hotplug=1` and `video=HDMI-A-1:D` to the boot options (see 3.6); a reboot is recommended. |
 | Automatic reboot | If the screen fix is accepted: reboot the Pi by itself at the end (10 seconds, Ctrl+C to cancel), or have it offered as a command. |
 
 All inputs stay visible, passwords included, so you can check what you type. A summary is shown before the start. All these questions, plus the `sudo` password, are asked **before** the first step: the installation then runs unattended.
@@ -303,16 +303,16 @@ sudo apt install -y git curl python3-venv python3-pygame python3-pil python3-req
 
 ### 3.6 HDMI signal fix (hotplug)
 
-Some monitors cut their detection signal during sleep, which makes the Pi think a screen has just been plugged in and turns the output back on. For the Pi to ignore these changes, add `vc4.force_hotplug=1` at the end of the single line of `cmdline.txt`:
+Some monitors cut their detection signal during sleep, which makes the Pi think a screen has just been plugged in and turns the output back on. For the Pi to ignore these changes, add `vc4.force_hotplug=1` and `video=HDMI-A-1:D` at the end of the single line of `cmdline.txt` (the second option forces the HDMI output as "connected" in the current graphics driver; with recent kernels, the first one alone is no longer enough):
 
 ```
 sudo cp /boot/firmware/cmdline.txt /boot/firmware/cmdline.txt.bak
-sudo sed -i '1 s/$/ vc4.force_hotplug=1/' /boot/firmware/cmdline.txt
+sudo sed -i '1 s/$/ vc4.force_hotplug=1 video=HDMI-A-1:D/' /boot/firmware/cmdline.txt
 cat /boot/firmware/cmdline.txt
 sudo reboot
 ```
 
-The file must remain on a single line. On some older versions, it is at `/boot/cmdline.txt`. Consequence: the Pi no longer detects a monitor that is unplugged or changed while running; it must then be restarted. Check after the reboot: `grep -o 'vc4.force_hotplug=1' /proc/cmdline`.
+The file must remain on a single line. On some older versions, it is at `/boot/cmdline.txt`. Consequence: the Pi no longer detects a monitor that is unplugged or changed while running; it must then be restarted. Check after the reboot: `grep -o 'vc4.force_hotplug=1\|video=HDMI-A-1:D' /proc/cmdline` (both options must appear).
 
 ---
 
@@ -604,7 +604,7 @@ Expected results: `On`, `active`, and the map on the screen.
 
 **If the monitor still wakes up.** In order:
 
-1. Check that the fix of step 3.6 is active (`grep -o 'vc4.force_hotplug=1' /proc/cmdline`).
+1. Check that the fix of step 3.6 is active (`grep -o 'vc4.force_hotplug=1\|video=HDMI-A-1:D' /proc/cmdline`, both options must appear).
 2. Read `journalctl -t flight-screen-guard`: the lines give the time of each wake-up. Wake-ups at regular intervals point to the monitor (automatic input detection or "deep sleep": disable this option in its menu).
 3. Look for a wake-up command: `journalctl -t sudo --since today | grep flight-screen` (a Home Assistant automation or a webadmin tab may have turned the screen back on).
 4. Check that the Pi has not rebooted (`uptime -s`) nor suffered an under-voltage (`vcgencmd get_throttled` must return `0x0`).

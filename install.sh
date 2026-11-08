@@ -658,7 +658,7 @@ Création du service %s et de la commande fd	Creating the %s service and the fd 
 Interface web d'administration	Web administration interface
 Installation de webadmin (service, droits sudo, script de veille)	Installing webadmin (service, sudo rights, sleep script)
 Correctif de veille d'écran	Screen sleep fix
-Ajout de vc4.force_hotplug=1 au démarrage	Adding vc4.force_hotplug=1 to the boot options
+Ajout de vc4.force_hotplug=1 et video=HDMI-A-1:D au démarrage	Adding vc4.force_hotplug=1 and video=HDMI-A-1:D to the boot options
 Démarrage et vérifications	Start and checks
 Démarrage du programme d'affichage	Starting the display program
 Test de l'interface web	Testing the web interface
@@ -1139,9 +1139,13 @@ hdmi_fix() {
   local f=/boot/firmware/cmdline.txt
   [ -f "$f" ] || f=/boot/cmdline.txt
   [ -f "$f" ] || { echo "$(L 'cmdline.txt introuvable')"; return 1; }
-  if grep -q 'vc4.force_hotplug' "$f"; then echo "$(L 'Correctif déjà présent')"; return 0; fi
-  sudo cp "$f" "$f.bak"
-  sudo sed -i '1 s/$/ vc4.force_hotplug=1/' "$f"
+  # deux options : force_hotplug (ancien pilote) et video=HDMI-A-1:D (pilote KMS actuel, noyau 6.x) ; chacune n'est ajoutee que si elle manque
+  local todo=""
+  grep -q 'vc4.force_hotplug' "$f" || todo="$todo vc4.force_hotplug=1"
+  grep -q 'video=HDMI-A-1' "$f" || todo="$todo video=HDMI-A-1:D"
+  if [ -z "$todo" ]; then echo "$(L 'Correctif déjà présent')"; return 0; fi
+  [ -f "$f.bak" ] || sudo cp "$f" "$f.bak"
+  sudo sed -i "1 s/\$/$todo/" "$f"
 }
 
 start_all() {
@@ -1275,7 +1279,7 @@ run_step "Installation de webadmin (service, droits sudo, script de veille)" ins
 
 step "Correctif de veille d'écran"
 if [ -n "$HDMI_FIX" ]; then
-  if soft "Ajout de vc4.force_hotplug=1 au démarrage" hdmi_fix; then NEED_REBOOT=1; else warn "Correctif non appliqué (voir le journal)."; fi
+  if soft "Ajout de vc4.force_hotplug=1 et video=HDMI-A-1:D au démarrage" hdmi_fix; then NEED_REBOOT=1; else warn "Correctif non appliqué (voir le journal)."; fi
 else
   ok "Correctif ignoré"
 fi

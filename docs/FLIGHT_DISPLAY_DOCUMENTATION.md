@@ -79,7 +79,7 @@ Ces questions ne sont posées qu'en installation manuelle : avec `--manual`, ou 
 | Clé API CARTO | Saisie visible, pour vérifier le collage (le champ reste masqué dans webadmin). Écrite dans `config.ini`, section `[map]`, clé `carto_key`. Sans clé, la carte n'est pas construite (possible plus tard depuis webadmin). |
 | Mot de passe de webadmin | Au moins 6 caractères, avec confirmation, ou Entrée pour en générer un aléatoire (affiché une seule fois à la fin). Saisie visible. |
 | MQTT | Facultatif : serveur, port, identifiant, mot de passe (saisie visible). |
-| Correctif de veille d'écran | Ajoute `vc4.force_hotplug=1` au démarrage (voir 3.6) ; redémarrage conseillé. |
+| Correctif de veille d'écran | Ajoute `vc4.force_hotplug=1` et `video=HDMI-A-1:D` au démarrage (voir 3.6) ; redémarrage conseillé. |
 | Redémarrage automatique | Si le correctif d'écran est accepté : redémarrer le Pi tout seul à la fin (10 secondes, Ctrl+C pour annuler), ou le proposer en commande. |
 
 Toutes les saisies restent visibles, mots de passe compris, pour que vous puissiez vérifier ce que vous tapez. Un récapitulatif est affiché avant le lancement. Toutes ces questions, plus le mot de passe `sudo`, sont posées **avant** la première étape : l'installation se déroule ensuite sans intervention.
@@ -303,16 +303,16 @@ sudo apt install -y git curl python3-venv python3-pygame python3-pil python3-req
 
 ### 3.6 Correctif du signal HDMI (hotplug)
 
-Certains moniteurs coupent leur signal de détection en veille, ce qui fait croire au Pi qu'un écran vient d'être branché et rallume la sortie. Pour que le Pi ignore ces changements, ajouter `vc4.force_hotplug=1` à la fin de l'unique ligne de `cmdline.txt` :
+Certains moniteurs coupent leur signal de détection en veille, ce qui fait croire au Pi qu'un écran vient d'être branché et rallume la sortie. Pour que le Pi ignore ces changements, ajouter `vc4.force_hotplug=1` et `video=HDMI-A-1:D` à la fin de l'unique ligne de `cmdline.txt` (la seconde option force la sortie HDMI comme « connectée » dans le pilote graphique actuel ; avec les noyaux récents, la première seule ne suffit plus) :
 
 ```
 sudo cp /boot/firmware/cmdline.txt /boot/firmware/cmdline.txt.bak
-sudo sed -i '1 s/$/ vc4.force_hotplug=1/' /boot/firmware/cmdline.txt
+sudo sed -i '1 s/$/ vc4.force_hotplug=1 video=HDMI-A-1:D/' /boot/firmware/cmdline.txt
 cat /boot/firmware/cmdline.txt
 sudo reboot
 ```
 
-Le fichier doit rester sur une seule ligne. Sur certaines versions plus anciennes, il se trouve dans `/boot/cmdline.txt`. Conséquence : le Pi ne détecte plus un moniteur débranché ou changé à chaud, il faut alors le redémarrer. Vérification après le redémarrage : `grep -o 'vc4.force_hotplug=1' /proc/cmdline`.
+Le fichier doit rester sur une seule ligne. Sur certaines versions plus anciennes, il se trouve dans `/boot/cmdline.txt`. Conséquence : le Pi ne détecte plus un moniteur débranché ou changé à chaud, il faut alors le redémarrer. Vérification après le redémarrage : `grep -o 'vc4.force_hotplug=1\|video=HDMI-A-1:D' /proc/cmdline` (les deux options doivent apparaître).
 
 ---
 
@@ -604,7 +604,7 @@ Résultats attendus : `On`, `active`, et la carte à l'écran.
 
 **Si le moniteur se rallume malgré tout.** Dans l'ordre :
 
-1. Vérifier que le correctif de l'étape 3.6 est actif (`grep -o 'vc4.force_hotplug=1' /proc/cmdline`).
+1. Vérifier que le correctif de l'étape 3.6 est actif (`grep -o 'vc4.force_hotplug=1\|video=HDMI-A-1:D' /proc/cmdline`, les deux options doivent apparaître).
 2. Lire `journalctl -t flight-screen-guard` : les lignes donnent l'heure de chaque réveil. Des réveils à intervalles réguliers orientent vers le moniteur (détection automatique d'entrée ou « veille profonde » : désactiver cette option dans son menu).
 3. Chercher une commande de réveil : `journalctl -t sudo --since today | grep flight-screen` (une automatisation Home Assistant ou un onglet webadmin peut avoir rallumé l'écran).
 4. Vérifier que le Pi n'a pas redémarré (`uptime -s`) ni souffert d'une sous-tension (`vcgencmd get_throttled` doit renvoyer `0x0`).
