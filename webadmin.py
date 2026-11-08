@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Administration web legere pour flightdisplay (bibliotheque standard uniquement)."""
 import base64, collections, configparser, hmac, json, math, os, re, shlex, shutil, socket
-import subprocess, sys, threading, time
+import struct, subprocess, sys, threading, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
@@ -537,7 +537,9 @@ def restore_backup(f):
 # ---------------------------------------------------------------- sauvegarde et restauration
 BACKUP_SECRETS = (("map", "carto_key"), ("server", "password"), ("mqtt", "password"))
 BACKUP_MAX = 1024 * 1024
-BACKUP_FILES = {"config.ini", "types_extra.txt", "runtime.json", "manifest.json"}
+BACKUP_FILES = {"config.ini", "types_extra.txt", "runtime.json", "manifest.json", "map_meta.json", "background.png"}
+BACKUP_MAP = ("map_meta.json", "background.png")  # carte deja construite : evite de la reconstruire (long sur un Pi Zero)
+BACKUP_PNG_MAX = 8 * 1024 * 1024
 
 
 def _read_text(path):
@@ -574,6 +576,14 @@ def build_backup(secrets):
         rt = runtime_read()
         if rt:
             z.writestr("runtime.json", json.dumps({k: rt[k] for k in ("muted", "volume") if k in rt}))
+        for name in BACKUP_MAP:
+            try:
+                with open(os.path.join(S.APP_DIR, name), "rb") as fh:
+                    data = fh.read(BACKUP_PNG_MAX + 1)
+            except OSError:
+                continue
+            if len(data) <= (BACKUP_PNG_MAX if name.endswith(".png") else BACKUP_MAX):
+                z.writestr(name, data, compress_type=zipfile.ZIP_STORED if name.endswith(".png") else zipfile.ZIP_DEFLATED)
         cur = UPD.state().get("current") or {}
         z.writestr("manifest.json", json.dumps(dict(app="flightdisplay", version=cur.get("label", ""), host=socket.gethostname(),
                                                     created=time.strftime("%Y-%m-%dT%H:%M:%S%z"), secrets=bool(secrets))))
@@ -599,14 +609,14 @@ def _set_in_text(text, sec, key, value):
 
 
 def restore_from_backup(blob):
-    """Restaure une sauvegarde (zip) : config.ini, types_extra.txt, etat du son. L'ancien config.ini est conserve en .bak."""
+    """Restaure une sauvegarde (zip) : config.ini, types_extra.txt, etat du son, carte. L'ancien config.ini est conserve en .bak."""
     import io, zipfile
     try:
         z = zipfile.ZipFile(io.BytesIO(blob))
     except (zipfile.BadZipFile, ValueError):
         raise ValueError("fichier de sauvegarde invalide")
     names = set(z.namelist())
-    if "config.ini" not in names or not names <= BACKUP_FILES or any(i.file_size > BACKUP_MAX for i in z.infolist()):
+    if "config.ini" not in names or not names <= BACKUP_FILES or any(i.file_size > (BACKUP_PNG_MAX if i.filename.endswith(".png") else BACKUP_MAX) for i in z.infolist()):
         raise ValueError("fichier de sauvegarde invalide")
     try:
         manifest = json.loads(z.read("manifest.json")) if "manifest.json" in names else {}
@@ -618,7 +628,15 @@ def restore_from_backup(blob):
         rt = json.loads(z.read("runtime.json")) if "runtime.json" in names else None
         if rt is not None and not isinstance(rt, dict):
             raise ValueError
-    except (ValueError, UnicodeDecodeError, configparser.Error):
+        meta = png = None
+        if "map_meta.json" in names or "background.png" in names:  # la carte va avec son fichier de description, ou pas du tout
+            meta = json.loads(z.read("map_meta.json"))
+            png = z.read("background.png")
+            if not isinstance(meta, dict) or not all(isinstance(meta.get(k), (int, float)) for k in ("lat", "lon", "mpp", "w", "h")):
+                raise ValueError
+            if png[:8] != b"\x89PNG\r\n\x1a\n" or png[12:16] != b"IHDR" or struct.unpack(">II", png[16:24]) != (int(meta["w"]), int(meta["h"])):
+                raise ValueError
+    except (ValueError, KeyError, UnicodeDecodeError, configparser.Error):
         raise ValueError("fichier de sauvegarde invalide")
     if types is not None:
         check_types(types)
@@ -647,6 +665,13 @@ def restore_from_backup(blob):
     if rt:
         sound_update({k: rt[k] for k in ("muted", "volume") if k in rt})
         done.append("runtime.json")
+    if png is not None:
+        for name, data in (("background.png", png), ("map_meta.json", json.dumps(meta).encode())):  # image d'abord : le programme lit les deux au demarrage
+            tmp = os.path.join(S.APP_DIR, name + ".tmp")
+            with open(tmp, "wb") as fh:
+                fh.write(data)
+            os.replace(tmp, os.path.join(S.APP_DIR, name))
+            done.append(name)
     S.reload()
     MQTT.restart(S.ini)
     SCHED["align"] = True
@@ -1297,7 +1322,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             n = int(self.headers.get("Content-Length", "0"))
             path = urlparse(self.path).path
-            if n > (3 * 1024 * 1024 if path == "/api/backup/restore" else 65536):
+            if n > (14 * 1024 * 1024 if path == "/api/backup/restore" else 65536):
                 return self.send_json({"error": "requête trop grande"}, 413)
             body = json.loads(self.rfile.read(n) or b"{}")
             act = str(body.get("action", ""))
@@ -2166,7 +2191,7 @@ function renderBackup(box) {
     } catch (e) { toast(e.message, true); }
   };
   r2.append(dl); l1.append(r2); box.append(l1);
-  box.append(el('p', 'note', 'La sauvegarde contient config.ini (réglages, avec ou sans les secrets), la liste des types d\'avion et l\'état du son. Les photos et la carte ne sont pas incluses : la carte se reconstruit depuis la configuration.'));
+  box.append(el('p', 'note', 'La sauvegarde contient config.ini (réglages, avec ou sans les secrets), la liste des types d\'avion, l\'état du son et la carte déjà construite (background.png et map_meta.json). Les photos ne sont pas incluses.'));
   box.append(el('h2', 't', 'Restaurer une sauvegarde'));
   const l2 = el('div', 'list'), r3 = el('div', 'li stack'), t3 = el('div', 'lt');
   t3.append(el('b', null, 'Choisir un fichier de sauvegarde'), el('small', null, "Remplace la configuration actuelle (l'ancienne est conservée en config.ini.bak). Une sauvegarde sans secrets garde ceux de cette installation."));

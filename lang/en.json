@@ -595,7 +595,6 @@
   "Nécessaire pour tout retrouver après une panne. Le fichier contient alors des secrets : ne le partagez pas et gardez-le en lieu sûr.": "Needed to get everything back after a failure. The file then contains secrets: do not share it and keep it somewhere safe.",
   "Télécharger la sauvegarde": "Download the backup",
   "Sauvegarde téléchargée": "Backup downloaded",
-  "La sauvegarde contient config.ini (réglages, avec ou sans les secrets), la liste des types d'avion et l'état du son. Les photos et la carte ne sont pas incluses : la carte se reconstruit depuis la configuration.": "The backup contains config.ini (settings, with or without the secrets), the aircraft types list and the sound state. Photos and the map are not included: the map is rebuilt from the configuration.",
   "Restaurer une sauvegarde": "Restore a backup",
   "Choisir un fichier de sauvegarde": "Choose a backup file",
   "Remplace la configuration actuelle (l'ancienne est conservée en config.ini.bak). Une sauvegarde sans secrets garde ceux de cette installation.": "Replaces the current configuration (the old one is kept as config.ini.bak). A backup without secrets keeps those of this installation.",
@@ -642,6 +641,7 @@
   "Recherche impossible (pas d'accès à internet ?)": "Search failed (no internet access?)",
   "code de type invalide": "invalid type code",
   "base OACI : {0}": "ICAO database: {0}",
-  "Type introuvable dans la base OACI": "Type not found in the ICAO database"
+  "Type introuvable dans la base OACI": "Type not found in the ICAO database",
+  "La sauvegarde contient config.ini (réglages, avec ou sans les secrets), la liste des types d'avion, l'état du son et la carte déjà construite (background.png et map_meta.json). Les photos ne sont pas incluses.": "The backup contains config.ini (settings, with or without the secrets), the aircraft type list, the sound state and the map already built (background.png and map_meta.json). Photos are not included."
  }
 }

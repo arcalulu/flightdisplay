@@ -1048,7 +1048,7 @@ When a change takes effect:
 
 **Backup** (Settings, Backup)
 
-- **Export**: the "Download the backup" button produces a file `flightdisplay-backup-<pi-name>-<date>.zip` containing `config.ini` (all the program and webadmin settings), `types_extra.txt` (aircraft types), the sound state and a small information file. Photos and the map are not in it: the map is rebuilt from the configuration (position, radius, CARTO key).
+- **Export**: the "Download the backup" button produces a file `flightdisplay-backup-<pi-name>-<date>.zip` containing `config.ini` (all the program and webadmin settings), `types_extra.txt` (aircraft types), the sound state, the map already built (`background.png` and `map_meta.json`, so it does not have to be rebuilt) and a small information file. Photos are not in it.
 - **Secrets**: the "Include passwords and the CARTO key" switch (on by default) decides whether the secrets (CARTO key, webadmin password, MQTT password) are in the file. With the secrets, the restore gets everything back; **the file is then sensitive**: do not share it. Without secrets, it can be shared (for example for a diagnosis). An export with secrets is only possible from the interface (`X-Admin` header), never through a plain link.
 - **Restore**: choose a file then "Restore" (confirmation asked). The current configuration is replaced (the old `config.ini` stays as `config.ini.bak`). A backup made without secrets keeps those of the current installation. The file is checked before any change (format, allowed content, readable `config.ini`, valid type rules): an invalid file is refused without changing anything. Webadmin then offers to restart the program (equivalent to "Save and apply"); a language change reloads the page.
 - Typical case, after an SD card failure: install a new Pi (section 0, with `--yes` if you like), open webadmin, restore the file, restart the program, then rebuild the map.
@@ -1351,7 +1351,7 @@ To keep: `config.ini` (CARTO key, webadmin password, MQTT), `types_extra.txt`, `
 
 ```
 cd ~/flightdisplay
-tar czf ~/flightdisplay-backup.tgz config.ini types_extra.txt cache/runtime.json
+tar czf ~/flightdisplay-backup.tgz config.ini types_extra.txt cache/runtime.json background.png map_meta.json
 ```
 
 This backup contains secrets: do not share it.
@@ -1425,7 +1425,7 @@ sudo reboot
 | The Program tile shows fewer frames per second than the target | The Pi Zero cannot keep the pace: lower `fps`, switch the map to 1280×720, or limit the number of aircraft (maximum tracked altitude). |
 | "disk X % full" alert | The SD card is approaching saturation. Open Settings, Storage and photos: clear the photo cache, then look for big files (`du -h --max-depth=1 ~ \| sort -h`, logs, old backups). See also 6.3. |
 | Updates: no new version although commits were pushed | The channel is "Stable": only tagged `vX.Y.Z` versions are offered (12.2). Switch to the "Development" channel (Settings, Updates) to receive every commit. |
-| Restore: "invalid backup file" | The file must be a zip produced by Settings, Backup (containing `config.ini`, possibly `types_extra.txt`, `runtime.json` and `manifest.json`), unmodified and under 1 MB per file. |
+| Restore: "invalid backup file" | The file must be a zip produced by Settings, Backup (containing `config.ini`, possibly `types_extra.txt`, `runtime.json`, `manifest.json` and the map `background.png` with `map_meta.json`), unmodified, under 1 MB per file (8 MB for the map image, whose dimensions must match `map_meta.json`). |
 | Unstable Wi-Fi | Disable power saving (6.4). |
 
 ---

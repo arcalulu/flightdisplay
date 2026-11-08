@@ -1048,7 +1048,7 @@ Quand une modification est prise en compte :
 
 **Sauvegarde** (Réglages, Sauvegarde)
 
-- **Exporter** : le bouton « Télécharger la sauvegarde » produit un fichier `flightdisplay-backup-<nom-du-pi>-<date>.zip` contenant `config.ini` (tous les réglages du programme et de webadmin), `types_extra.txt` (types d'avion), l'état du son et un petit fichier d'information. Les photos et la carte n'y sont pas : la carte se reconstruit depuis la configuration (position, rayon, clé CARTO).
+- **Exporter** : le bouton « Télécharger la sauvegarde » produit un fichier `flightdisplay-backup-<nom-du-pi>-<date>.zip` contenant `config.ini` (tous les réglages du programme et de webadmin), `types_extra.txt` (types d'avion), l'état du son, la carte déjà construite (`background.png` et `map_meta.json`, pour ne pas avoir à la reconstruire) et un petit fichier d'information. Les photos n'y sont pas.
 - **Secrets** : l'interrupteur « Inclure les mots de passe et la clé CARTO » (activé par défaut) décide si les secrets (clé CARTO, mot de passe de webadmin, mot de passe MQTT) sont dans le fichier. Avec les secrets, la restauration retrouve tout ; **le fichier est alors sensible** : ne le partagez pas. Sans secrets, il peut être partagé (par exemple pour un diagnostic). Un export avec secrets n'est possible que depuis l'interface (en-tête `X-Admin`), jamais par un simple lien.
 - **Restaurer** : choisissez un fichier puis « Restaurer » (confirmation demandée). La configuration actuelle est remplacée (l'ancien `config.ini` reste en `config.ini.bak`). Une sauvegarde faite sans secrets conserve ceux de l'installation actuelle. Le fichier est vérifié avant tout changement (format, contenu autorisé, `config.ini` lisible, règles de types valides) : un fichier invalide est refusé sans rien modifier. Webadmin propose ensuite de relancer le programme (« Enregistrer et appliquer » équivalent) ; un changement de langue recharge la page.
 - Cas typique, après une panne de carte SD : installer un Pi neuf (section 0, avec `--yes` si vous voulez), ouvrir webadmin, restaurer le fichier, relancer le programme, puis reconstruire la carte.
@@ -1351,7 +1351,7 @@ Quand une nouvelle version du logiciel ajoute un texte, il apparaît en françai
 
 ```
 cd ~/flightdisplay
-tar czf ~/flightdisplay-backup.tgz config.ini types_extra.txt cache/runtime.json
+tar czf ~/flightdisplay-backup.tgz config.ini types_extra.txt cache/runtime.json background.png map_meta.json
 ```
 
 Cette sauvegarde contient des secrets : ne la partagez pas.
@@ -1425,7 +1425,7 @@ sudo reboot
 | La tuile Programme affiche moins d'images par seconde que la cible | Le Pi Zero ne tient pas la cadence : baisser `fps`, passer la carte en 1280×720, ou limiter le nombre d'avions (altitude maximale suivie). |
 | Alerte « disque rempli à X % » | La carte SD approche de la saturation. Ouvrir Réglages, Stockage et photos : vider le cache des photos, puis chercher les gros fichiers (`du -h --max-depth=1 ~ \| sort -h`, journaux, anciennes sauvegardes). Voir aussi 6.3. |
 | Mises à jour : aucune nouvelle version alors que des commits ont été poussés | Le canal est « Stable » : seules les versions étiquetées `vX.Y.Z` sont proposées (12.2). Passer au canal « Développement » (Réglages, Mises à jour) pour recevoir chaque commit. |
-| Restauration : « fichier de sauvegarde invalide » | Le fichier doit être un zip produit par Réglages, Sauvegarde (contenant `config.ini`, éventuellement `types_extra.txt`, `runtime.json` et `manifest.json`), non modifié et de moins de 1 Mo par fichier. |
+| Restauration : « fichier de sauvegarde invalide » | Le fichier doit être un zip produit par Réglages, Sauvegarde (contenant `config.ini`, éventuellement `types_extra.txt`, `runtime.json`, `manifest.json` et la carte `background.png` avec `map_meta.json`), non modifié, de moins de 1 Mo par fichier (8 Mo pour l'image de la carte, dont les dimensions doivent correspondre à `map_meta.json`). |
 | Wi-Fi instable | Désactiver l'économie d'énergie (6.4). |
 
 ---
