@@ -30,11 +30,11 @@ This project is not affiliated with Flightradar24 or with any airline. Flight da
 - **Any Raspberry Pi**: Zero, Zero 2 W, 3, 4, 5 or Compute Module. The Zero is the cheapest; from the Pi 3 on, the display is smoother and the map builds much faster, but the settings do not change.
 - A microSD card of 16 GB or more, and an HDMI screen. For sound: the screen's speakers, the headphone jack if your model has one, or a USB sound card (the Pi Zero has no jack).
 - An Internet connection: 2.4 GHz Wi-Fi on the Zero and Zero 2 W (no 5 GHz), Wi-Fi or Ethernet on the other models.
-- **A CARTO API key, to get before running the installation** (free, see below).
+- **A CARTO API key** (free, see below), to enter in webadmin as soon as the installation ends. The automatic installation starts with a supplied map (Bordeaux-Merignac airport), but the key is still needed to build the map of your position and to customize the map style.
 
-## Before you start: get a CARTO API key
+## Get a CARTO API key
 
-**What it is for.** The background map (roads, water, airport runways) is drawn from the vector base map of [CARTO](https://carto.com/basemaps/), built on OpenStreetMap data. CARTO now requires an API key for any direct use of its base maps. In Flight display, the key is only used to build the background image (at installation, then each time the map is rebuilt): it is not used during everyday operation.
+**What it is for.** The background map (roads, water, airport runways) is drawn from the vector base map of [CARTO](https://carto.com/basemaps/), built on OpenStreetMap data. CARTO now requires an API key for any direct use of its base maps. In Flight display, the key is only used to build the background image (each time the map is rebuilt, and for the preview of the "Map style" page): it is not used during everyday operation. The automatic installation supplies a map of Bordeaux-Merignac airport and starts without a key; to display **your** position or change the style, enter the key in webadmin (Settings, Map and position), then rebuild the map.
 
 **How to get it (about one minute, free, no CARTO account).**
 
@@ -49,14 +49,14 @@ This project is not affiliated with Flightradar24 or with any airline. Flight da
 - The attribution "© OpenStreetMap contributors, © CARTO" must remain visible: Flight display always shows it at the bottom right of the screen (and in the "Credits" page of webadmin, link at the top of the interface), do not remove it. The photographer's credit is visible inside the image and repeated under each photo (can be turned off in Settings, Photo panel).
 - You can install without a key: everything is installed except the map, which you will build later.
 
-**Where it is stored.** The installer writes it to `config.ini`, section `[map]`, key `carto_key` (file with 600 permissions). To change it later: webadmin, Settings, Map and position, "CARTO API key" field (hidden), then, at the bottom of the same page, "Rebuild the map".
+**Where it is stored.** In `config.ini`, section `[map]`, key `carto_key` (file with 600 permissions): the manual installation writes it, with the automatic installation you enter it yourself. To enter or change it: webadmin, Settings, Map and position, "CARTO API key" field (hidden), then, at the bottom of the same page, "Rebuild the map".
 
 **Lost or rejected key.** If the map build fails with an HTTP 401 or 403 error, the key is probably wrong or invalid: request a new one on the same page, replace it in webadmin, then rebuild the map.
 
 ## One-command installation
 
 1. With Raspberry Pi Imager, install **Raspberry Pi OS Lite** on the SD card: 32-bit on the Zero and Zero 2 W, 64-bit possible on newer models. In the customization options, set the hostname, a user, the Wi-Fi and enable SSH.
-2. Have your **CARTO API key** ready (previous section).
+2. For a manual installation, have your **CARTO API key** ready (previous section); the automatic installation does not need it at first.
 3. Connect to the Pi over SSH, then type:
 
 ```
