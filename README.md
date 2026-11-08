@@ -19,7 +19,7 @@ C'est fait pour réaliser un **écran tête haute** : un écran posé dans le sa
 
 ## Comment on le règle : une petite interface web
 
-Une fois le Pi installé, il n'y a rien à brancher pour le régler. Le Pi héberge lui-même une **petite interface web** (que ce projet appelle *webadmin*) : une page que vous ouvrez dans le navigateur de votre téléphone, de votre tablette ou de votre ordinateur, **tant que vous êtes sur le même réseau (la même box ou le même Wi-Fi) que le Pi**. Il suffit de saisir son adresse, par exemple `http://flightradarpi.local:8080` (le nom est celui que vous avez choisi pour le Pi dans Raspberry Pi Imager). Il n'y a rien à installer sur le téléphone ou l'ordinateur, et l'interface n'est pas visible depuis Internet. Vous pouvez la protéger par un mot de passe.
+Une fois le Pi installé, il n'y a rien à brancher pour le régler. Le Pi héberge lui-même une **petite interface web** (que ce projet appelle *webadmin*) : une page que vous ouvrez dans le navigateur de votre téléphone, de votre tablette ou de votre ordinateur, **tant que vous êtes sur le même réseau (la même box ou le même Wi-Fi) que le Pi**. Il suffit de saisir son adresse, par exemple `http://flightdisplay.local:8080` (le nom est celui que vous avez choisi pour le Pi dans Raspberry Pi Imager). Il n'y a rien à installer sur le téléphone ou l'ordinateur, et l'interface n'est pas visible depuis Internet. Vous pouvez la protéger par un mot de passe.
 
 Depuis cette page, vous pouvez :
 

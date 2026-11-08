@@ -19,7 +19,7 @@ It is made to build a **head-up display**: a screen standing in the living room,
 
 ## How you set it up: a small web interface
 
-Once the Pi is installed, there is nothing to plug in to set it up. The Pi hosts a **small web interface** itself (called *webadmin* in this project): a page you open in the browser of your phone, tablet or computer, **as long as you are on the same network (the same router or Wi-Fi) as the Pi**. You just type its address, for example `http://flightradarpi.local:8080` (the name is the one you chose for the Pi in Raspberry Pi Imager). Nothing needs to be installed on the phone or computer, and the interface is not visible from the Internet. You can protect it with a password.
+Once the Pi is installed, there is nothing to plug in to set it up. The Pi hosts a **small web interface** itself (called *webadmin* in this project): a page you open in the browser of your phone, tablet or computer, **as long as you are on the same network (the same router or Wi-Fi) as the Pi**. You just type its address, for example `http://flightdisplay.local:8080` (the name is the one you chose for the Pi in Raspberry Pi Imager). Nothing needs to be installed on the phone or computer, and the interface is not visible from the Internet. You can protect it with a password.
 
 From this page, you can:
 
