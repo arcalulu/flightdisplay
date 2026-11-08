@@ -135,6 +135,53 @@ def fps_publish(fps, aircraft=0, ground=0, zone=0):
         os.replace(tmp, FPS_FILE)
     except OSError:
         pass
+
+
+# Types d'avion vus au-dessus de la maison (compteur de passages), lus par webadmin (page Types d'avion).
+TYPES_SEEN_FILE = os.path.join(CACHE, "types_seen.json")
+types_seen = {}
+_ts = {"dirty": False, "last": 0.0}
+try:
+    with open(TYPES_SEEN_FILE, encoding="utf-8") as _fh:
+        types_seen = {str(k).upper(): v for k, v in json.load(_fh).items() if isinstance(v, dict)}
+except (OSError, ValueError):
+    pass
+
+
+def types_note(code):
+    if not code or code == "GRND":
+        return
+    e = types_seen.setdefault(code.upper(), {"n": 0, "t": 0})
+    e["n"] += 1; e["t"] = int(time.time()); _ts["dirty"] = True
+
+
+def types_detail(code, info):
+    """Garde le dernier modele, la derniere immatriculation et la derniere photo vus pour ce type."""
+    if not code or code == "GRND":
+        return
+    e = types_seen.setdefault(code.upper(), {"n": 0, "t": 0})
+    for k, v in (("model", info.get("model")), ("reg", info.get("reg"))):
+        if v and v != "?" and e.get(k) != v:
+            e[k] = v; _ts["dirty"] = True
+    p = info.get("photo_path")
+    if p and e.get("photo") != os.path.basename(p):
+        e["photo"] = os.path.basename(p); _ts["dirty"] = True
+
+
+def types_flush():
+    """Ecrit au plus toutes les 10 minutes (menage la carte SD)."""
+    if not _ts["dirty"] or time.time() - _ts["last"] < 600:
+        return
+    _ts.update(dirty=False, last=time.time())
+    try:
+        tmp = TYPES_SEEN_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(types_seen, fh)
+        os.replace(tmp, TYPES_SEEN_FILE)
+    except OSError:
+        pass
+
+
 rt = {"muted": False, "volume": ALERT_VOL, "seq": 0, "mtime": 0, "checked": 0.0}
 
 
@@ -455,6 +502,8 @@ def poll_loop():
                     if use_ts and not f.on_ground and now - ts > STALE:
                         continue
                     old = states.get(f.id)
+                    if old is None:
+                        types_note(f.aircraft_code)
                     seen.add(f.id)
                     if not (old and ts <= old["t"]):
                         trail = old["trail"] if old else []
@@ -467,6 +516,7 @@ def poll_loop():
                     if (f.id not in details and f.id not in queued
                             and not (f.on_ground and (f.ground_speed or 0) < G_MIN)):
                         queued.add(f.id); q.put(f)
+                types_flush()
                 for k in list(states):
                     s = states[k]
                     if s.get("landed"):
@@ -514,6 +564,7 @@ def details_loop():
             info["t"] = time.time()
             with lock:
                 details[f.id] = info
+                types_detail(f.aircraft_code, info)
             if time.time() - last_save[0] > 60:
                 last_save[0] = time.time()
                 save_details()
@@ -563,41 +614,9 @@ def clean_cache(days=3):
             pass
 
 
-def _build(L, fw, wy, Sp, sweep, tc, rc, ty, T, tsw, tch):
-    nr = L * 0.12
-    R = [(0, -L/2), (fw*0.8, -L/2 + nr), (fw, -L/2 + 2*nr), (fw, wy), (Sp, wy + sweep),
-         (Sp, wy + sweep + tc), (fw, wy + rc), (fw, ty), (T, ty + tsw),
-         (T, ty + tsw + tch), (fw*0.5, ty + tch), (0, L/2)]
-    return R + [(-x, y) for x, y in reversed(R[1:-1])]
-
-
-SHAPES = {
-    "narrow":   _build(26, 1.8, -1, 12, 6, 2.2, 6, 9, 5, 2.5, 2.2),
-    "wide":     _build(34, 2.4, -2, 16, 8, 2.6, 8, 12, 6.5, 3, 2.5),
-    "quad":     _build(38, 3.0, -3, 19, 9, 3.0, 10, 14, 8, 3, 3),
-    "regional": _build(22, 1.6, -0.5, 9.5, 4.5, 2, 5, 7.5, 4.5, 2, 2),
-    "turbo":    _build(22, 1.7, -2, 13, 0.5, 2.8, 3.2, 8, 4.5, 1, 2.2),
-    "light":    _build(14, 1.2, -3, 10, 0, 2.4, 2.4, 5, 3.5, 0, 1.8),
-    "bizjet":   _build(18, 1.4, 0, 8, 4, 1.6, 4, 6, 3.5, 1.5, 1.5),
-    "heli":     [(-2,-4),(2,-4),(2.5,2),(0.7,3),(0.7,12),(2.2,12),(2.2,13),(-2.2,13),(-2.2,12),(-0.7,12),(-0.7,3),(-2.5,2)],
-}
-
-_CATS = {
-    "narrow": "A318 A319 A320 A321 A19N A20N A21N B731 B732 B733 B734 B735 B736 B737 B738 B739 B37M B38M B39M B3XM B752 B753 BCS1 BCS3 MD81 MD82 MD83 MD87 MD88 MD90 B712 B722",
-    "wide": "A306 A310 A332 A333 A338 A339 A359 A35K B762 B763 B764 B772 B77L B77W B773 B788 B789 B78X IL96 DC10 MD11",
-    "quad": "A388 A342 A343 A345 A346 B741 B742 B743 B744 B748 B74S B74R A124 IL76",
-    "regional": "E170 E175 E190 E195 E290 E295 E75L E75S E135 E145 E35L E55P CRJ1 CRJ2 CRJ7 CRJ9 CRJX SU95 RJ85 RJ1H F100 F70 B461 B462 B463",
-    "turbo": "AT43 AT44 AT45 AT46 AT72 AT73 AT75 AT76 DH8A DH8B DH8C DH8D SF34 SB20 JS31 JS32 JS41 D328 F50 F27 E120 B190 BE20 BE9L PC12 C208 TBM7 TBM8 TBM9 AN26 AN12 C130 C30J A400",
-    "light": "C150 C152 C162 C172 C177 C182 C185 C206 C210 PA18 PA28 P28A P28R PA32 PA34 PA44 PA46 SR20 SR22 DR40 DA20 DA40 DA42 DA62 TB10 TB20 TB21 BE33 BE35 BE36 BE58 M20P M20T AA5 RV7 RV8 RV9 GLID PIVI S22T",
-    "bizjet": "C25A C25B C25C C25M C510 C525 C550 C560 C56X C680 C68A C700 C750 CL30 CL35 CL60 CL64 GLF2 GLF3 GLF4 GLF5 GLF6 GL5T GL7T GALX G150 G280 FA50 FA7X FA8X FA6X F900 F2TH LJ35 LJ40 LJ45 LJ60 LJ75 E50P H25B H25C PRM1 SF50 EA50 BE40 ASTR",
-    "heli": "EC20 EC25 EC30 EC35 EC45 EC55 EC75 EC13 AS32 AS35 AS50 AS55 AS65 AS3B H60 H47 H46 H53 H500 H160 H135 H145 H175 H225 R22 R44 R66 B06 B407 B412 B429 B105 B212 A109 A119 A139 A169 A189 S76 S92 S61 AW09 NH90 MI8 MI26 KA32 EXPL",
-}
-CATEGORY = {code: cat for cat, codes in _CATS.items() for code in codes.split()}
-if os.path.exists("types_extra.txt"):
-    for _line in open("types_extra.txt", encoding="utf-8"):
-        _p = _line.split("#")[0].split()
-        if len(_p) == 2 and _p[1] in SHAPES:
-            CATEGORY[_p[0].upper()] = _p[1]
+from aircraft_types import SHAPES, BUILTIN, read_extra
+CATEGORY = dict(BUILTIN)
+CATEGORY.update(read_extra("types_extra.txt"))
 _unknown = set()
 
 

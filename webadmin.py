@@ -301,7 +301,10 @@ SPEC = {(p["file"], p["sec"], p["key"]): p for p in PARAMS}
 SEC_RE = re.compile(r"^\[([^\]]+)\]$")
 KEY_RE = re.compile(r"^(\s*)([^\s#;=:][^=:]*?)\s*[=:]\s*(.*)$")
 NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
-TYPE_CATS = ["narrow", "wide", "quad", "regional", "turbo", "light", "bizjet", "heli"]
+import aircraft_types
+TYPE_CATS = list(aircraft_types.ORDER)
+TYPE_LABELS = {"narrow": "Monocouloir", "wide": "Gros-porteur", "quad": "Quadriréacteur", "regional": "Jet régional",
+               "turbo": "Turbopropulseur", "light": "Avion léger", "bizjet": "Jet d'affaires", "heli": "Hélicoptère"}
 
 
 def read_lines(path):
@@ -657,6 +660,34 @@ def unknown_types(known):
         if code.upper() not in known and code not in found:
             found.append(code)
     return found
+
+
+def seen_photo_file(code):
+    """Nom du fichier de la derniere photo vue pour ce type (valide, present dans le cache) ou leve une erreur."""
+    with open(os.path.join(S.APP_DIR, "cache", "types_seen.json"), encoding="utf-8") as fh:
+        ph = str(json.load(fh)[code].get("photo") or "")
+    if not re.fullmatch(r"[0-9a-f]{32}\.jpg", ph) or not os.path.exists(os.path.join(S.APP_DIR, "cache", ph)):
+        raise OSError(ph)
+    return ph
+
+
+def seen_types():
+    """Types vus au-dessus de la maison (compteur tenu par main.py), du plus frequent au plus rare."""
+    try:
+        with open(os.path.join(S.APP_DIR, "cache", "types_seen.json"), encoding="utf-8") as fh:
+            d = json.load(fh)
+        out = []
+        for k, v in d.items():
+            if not isinstance(v, dict):
+                continue
+            ph = str(v.get("photo") or "")
+            ok = bool(re.fullmatch(r"[0-9a-f]{32}\.jpg", ph)) and os.path.exists(os.path.join(S.APP_DIR, "cache", ph))
+            model = str(v.get("model") or "")[:80]
+            out.append(dict(code=str(k).upper(), n=int(v.get("n", 0)), t=int(v.get("t", 0)), model=model, reg=str(v.get("reg") or "")[:12],
+                            photo=ok, suggest=aircraft_types.suggest(model)))
+    except (OSError, ValueError):
+        return []
+    return sorted(out, key=lambda e: (-e["n"], e["code"]))
 
 
 def read_types():
@@ -1137,8 +1168,24 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(get_settings())
             elif u.path == "/api/types":
                 text = read_types()
-                known = {l.split("#")[0].split()[0].upper() for l in text.splitlines() if l.split("#")[0].split()}
-                self.send_json(dict(text=text, categories=TYPE_CATS, unknown=unknown_types(known)))
+                extra = aircraft_types.read_extra(S.TYPES_FILE)
+                known = set(aircraft_types.BUILTIN) | set(extra)
+                shapes = {c: [[round(x, 2), round(y, 2)] for x, y in aircraft_types.SHAPES[c]] for c in TYPE_CATS}
+                self.send_json(dict(text=text, categories=TYPE_CATS, labels={c: tr(TYPE_LABELS[c]) for c in TYPE_CATS}, shapes=shapes,
+                                    builtin=aircraft_types.BUILTIN, extra=extra, seen=seen_types(), unknown=unknown_types(known)))
+            elif u.path == "/api/types/photo":
+                code = parse_qs(u.query).get("code", [""])[0].upper()
+                try:
+                    with open(os.path.join(S.APP_DIR, "cache", seen_photo_file(code)), "rb") as fh:
+                        data = fh.read()
+                except Exception:
+                    return self.send_json({"error": "photo introuvable"}, 404)
+                self.send_response(200)
+                self.send_header("Content-Type", "image/jpeg")
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header("Cache-Control", "max-age=300")
+                self.end_headers()
+                self.wfile.write(data)
             elif u.path == "/api/logs":
                 n = int(parse_qs(u.query).get("lines", ["300"])[0])
                 self.send_json({"text": journal(max(10, min(n, 2000)))})
@@ -1403,6 +1450,23 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 .tools{display:flex;gap:8px;margin-bottom:8px;align-items:center}.tools>*{flex:1}
 .tools select,.tools input[type=text]{padding:9px 10px;font-size:14px}
 .cols{display:block}
+.tools input[type=search]{padding:9px 10px;font-size:14px;width:100%;border-radius:9px;border:1px solid var(--line);background:#0e141b;color:var(--txt)}
+.tlist{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px}
+.tcode{border:1px solid var(--line);background:var(--card2);color:var(--txt);border-radius:8px;padding:3px 8px;font:12px ui-monospace,Menlo,Consolas,monospace;cursor:pointer}
+.tcode.mod{border-color:var(--acc)}.tcode.on{background:var(--acc);color:#111}
+.tcard{border:1px solid var(--line);background:var(--card);border-radius:12px;margin:8px 0;padding:0 12px}
+.tcard summary{display:flex;align-items:center;gap:10px;padding:10px 0;cursor:pointer;list-style:none}.tcard summary::-webkit-details-marker{display:none}
+.tcard summary small{color:var(--mut);margin-left:auto}.tcard[open]>summary{border-bottom:1px solid var(--line)}.tcard .tlist{margin-bottom:10px}
+.tcard svg,.tcl svg,.tcat svg{color:var(--txt);flex:none}
+.tcl{padding:10px 0;border-top:.5px solid var(--line)}.tcl:first-child{border-top:0}
+.tvh{display:flex;align-items:center;gap:12px;cursor:pointer;flex-wrap:wrap}.tvh .lt{flex:1;min-width:160px}.tacts{display:flex;gap:6px;flex-wrap:wrap}
+.tsug{display:inline-block;margin-top:4px;background:rgba(210,153,34,.18);color:var(--warn);border-radius:8px;padding:2px 8px;font-size:12px}
+.tdet{margin:10px 0 4px}.tdtop{display:flex;gap:14px;flex-wrap:wrap}.tdtx{flex:1;min-width:220px}.tdt{font-weight:600;font-size:16px}
+.tph{width:200px;max-width:100%;height:130px;object-fit:cover;border-radius:8px;border:1px solid var(--line);flex:none}
+.tcats{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin:8px 0}
+.tcat{display:flex;flex-direction:column;align-items:center;gap:4px;border:1px solid var(--line);background:var(--card2);color:var(--txt);border-radius:10px;padding:8px 4px;font-size:12px;cursor:pointer}
+.tcat.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
+.tpick{margin-bottom:12px}
 .tcol{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
 .tcol button{border:1px solid var(--line);background:var(--card2);color:var(--txt);border-radius:99px;padding:5px 12px;font:13px ui-monospace,Menlo,Consolas,monospace}
 #toast{position:fixed;left:50%;top:calc(70px + env(safe-area-inset-top));transform:translateX(-50%);background:#1f2937;border:1px solid var(--line);padding:10px 16px;border-radius:10px;z-index:20;display:none;max-width:90vw;font-size:14px}
@@ -1895,27 +1959,101 @@ async function restartWeb(port) {
 }
 
 /* ---------- Types d'avion ---------- */
+function planeSvg(T, cat, size) {
+  const NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '-20 -20 40 40'); svg.setAttribute('width', size); svg.setAttribute('height', size); svg.setAttribute('class', 'pl');
+  const pg = document.createElementNS(NS, 'polygon'); pg.setAttribute('points', (T.shapes[cat] || T.shapes.narrow).map(p => p.join(',')).join(' ')); pg.setAttribute('fill', 'currentColor'); svg.append(pg);
+  if (cat === 'heli') { const c = document.createElementNS(NS, 'circle'); c.setAttribute('r', 9); c.setAttribute('fill', 'none'); c.setAttribute('stroke', 'currentColor'); c.setAttribute('stroke-width', 1); svg.append(c); }
+  return svg;
+}
 async function renderTypes(box) {
-  box.append(el('p', 'note', "Associe un code de type d'avion (ICAO) à une forme d'icône. Une ligne par règle : le code, puis la catégorie. Les lignes commençant par # sont des commentaires. Pris en compte après relance du programme."));
+  box.append(el('p', 'note', "Chaque type d'avion (code ICAO) est associé à une forme d'icône. Touchez un type pour voir sa fiche et changer son icône. Pris en compte après relance du programme."));
   let T; try { T = await api('/api/types'); } catch (e) { box.append(el('p', 'note', e.message)); return; }
   TYPES = T;
-  const ta = document.createElement('textarea'); ta.value = T.text; ta.spellcheck = false; ta.placeholder = 'WT9 light\nB350 turbo   # exemple';
-  const unk = el('div', 'tcol'); const addrow = el('div', 'tools');
-  const code = document.createElement('input'); code.type = 'text'; code.placeholder = 'Code (ex. WT9)'; code.style.textTransform = 'uppercase';
-  const sel = document.createElement('select'); for (const c of T.categories) { const o = el('option', null, c); o.value = c; sel.append(o); }
-  const add = el('button', 'b s', 'Ajouter'); add.style.flex = 'none';
-  add.onclick = () => { const c = code.value.trim().toUpperCase(); if (!c) return; ta.value = (ta.value.trim() ? ta.value.replace(/\s+$/, '') + '\n' : '') + c + ' ' + sel.value + '\n'; code.value = ''; };
-  addrow.append(code, sel, add);
-  if (T.unknown.length) {
-    box.append(el('h2', 't', 'Types inconnus détectés dans les logs'));
-    for (const u of T.unknown) { const b = el('button', null, u); b.onclick = () => { code.value = u; }; unk.append(b); }
-    box.append(unk);
-  }
-  box.append(el('h2', 't', 'Ajouter une règle'), addrow, el('h2', 't', 'Fichier types_extra.txt'), ta);
-  const bt = el('div', 'grid'); bt.style.marginTop = '10px';
+  const extra = Object.assign({}, T.extra), builtin = T.builtin, info = {};
+  for (const e of T.seen) info[e.code] = e;
+  let dirty = false, sel = null, query = '';
+  const opened = new Set();
+  const catOf = c => extra[c] || builtin[c] || 'narrow';
+  const known = c => !!(extra[c] || builtin[c]);
+  const todo = el('div'), cats = el('div'), bt = el('div', 'grid'); bt.style.marginTop = '10px';
+  const find = document.createElement('input'); find.type = 'search'; find.placeholder = 'Rechercher un code (ex. A320)'; find.style.textTransform = 'uppercase';
+  const bar = el('div', 'tools'); bar.append(find);
   const save = el('button', 'b p', 'Enregistrer'), save2 = el('button', 'b', 'Enregistrer et relancer');
-  const doSave = async relaunch => { try { await api('/api/types', {text: ta.value}); toast('Types enregistrés'); if (relaunch) await svc('restart'); else { pend.app = true; showPending(); } } catch (e) { toast(e.message, true); } };
-  save.onclick = () => doSave(false); save2.onclick = () => doSave(true); bt.append(save, save2); box.append(bt);
+  const web = code => { const i = info[code]; window.open('https://www.google.com/search?q=' + encodeURIComponent('ICAO aircraft type ' + code + (i && i.model ? ' ' + i.model : '')), '_blank', 'noopener'); };
+  const choose = (code, c) => { if (builtin[code] === c) delete extra[code]; else extra[code] = c; dirty = true; draw(); };
+  const detail = code => {
+    const i = info[code] || {}, w = el('div', 'tdet'), top = el('div', 'tdtop');
+    if (i.photo) { const im = document.createElement('img'); im.className = 'tph'; im.alt = code; im.loading = 'lazy'; im.src = '/api/types/photo?code=' + encodeURIComponent(code); im.onerror = () => im.remove(); top.append(im); }
+    const tx = el('div', 'tdtx');
+    tx.append(el('div', 'tdt', code + (i.model ? ' · ' + i.model : '')));
+    const bits = [];
+    if (i.n) bits.push(_t('Vu {0} fois', i.n));
+    if (i.t) bits.push(_t('dernier passage {0}', new Date(i.t * 1000).toLocaleString()));
+    if (i.reg) bits.push(_t('immat. {0}', i.reg));
+    tx.append(el('div', 'note', bits.length ? bits.join(' · ') : "Pas encore vu au-dessus de chez vous"));
+    const row = el('div', 'tcats'), cur = catOf(code);
+    for (const c of T.categories) {
+      const b = el('button', 'tcat' + (c === cur && known(code) ? ' on' : '')); b.append(planeSvg(T, c, 36), el('span', null, T.labels[c])); b.onclick = () => choose(code, c); row.append(b);
+    }
+    tx.append(row);
+    const act = el('div', 'tools'), ws = el('button', 'b s', 'Fiche sur internet ↗'); ws.onclick = () => web(code); act.append(ws);
+    if (extra[code]) { const r = el('button', 'b s', builtin[code] ? "Rétablir l'icône d'origine" : 'Supprimer ce type'); r.onclick = () => { delete extra[code]; if (!builtin[code]) sel = null; dirty = true; draw(); }; act.append(r); }
+    tx.append(act); top.append(tx); w.append(top); return w;
+  };
+  const toggleSel = code => { sel = sel === code ? null : code; draw(); };
+  let inTodo = new Set();
+  function todoList() {
+    todo.replaceChildren(); inTodo = new Set();
+    const list = [];
+    for (const e of T.seen) if (!known(e.code)) list.push(e);
+    for (const u of T.unknown) { const c = u.toUpperCase(); if (!known(c) && !list.some(e => e.code === c)) list.push({code: c, n: 0, t: 0, model: '', suggest: null}); }
+    if (!list.length) return;
+    todo.append(el('h2', 't', 'À classer (types détectés mais inconnus)'));
+    const box = el('div', 'card');
+    for (const e of list) {
+      inTodo.add(e.code);
+      const r = el('div', 'tcl'), head = el('div', 'tvh'), t1 = el('div', 'lt');
+      t1.append(el('b', null, e.code), el('small', null, [e.model, e.n ? _t('{0} passage(s)', e.n) : ''].filter(Boolean).join(' · ') || 'Modèle inconnu'));
+      if (e.suggest) t1.append(el('span', 'tsug', _t('Suggestion : {0}', T.labels[e.suggest])));
+      head.append(planeSvg(T, catOf(e.code), 34), t1); head.onclick = () => toggleSel(e.code);
+      const acts = el('div', 'tacts');
+      if (e.suggest) { const ok = el('button', 'b s', 'Accepter'); ok.onclick = ev => { ev.stopPropagation(); choose(e.code, e.suggest); }; acts.append(ok); }
+      const ws = el('button', 'b s', 'Chercher sur internet ↗'); ws.onclick = ev => { ev.stopPropagation(); web(e.code); }; acts.append(ws);
+      head.append(acts); r.append(head);
+      if (e.code === sel) r.append(detail(e.code));
+      box.append(r);
+    }
+    todo.append(box);
+  }
+  function catCards() {
+    cats.replaceChildren();
+    cats.append(el('h2', 't', 'Types par catégorie'), bar);
+    const all = new Set([...Object.keys(builtin), ...Object.keys(extra)]);
+    if (query && /^[A-Z0-9]{2,6}$/.test(query) && !all.has(query)) {
+      const a = el('button', 'b s', _t('Ajouter le type {0}', query)); a.onclick = () => { extra[query] = 'narrow'; sel = query; dirty = true; find.value = ''; query = ''; draw(); }; cats.append(a);
+    }
+    for (const c of T.categories) {
+      const codes = [...all].filter(k => catOf(k) === c && (!query || k.includes(query))).sort();
+      if (query && !codes.length) continue;
+      const d = document.createElement('details'); d.className = 'tcard'; d.open = !!query || opened.has(c) || (sel && codes.includes(sel));
+      d.ontoggle = () => { if (query) return; if (d.open) opened.add(c); else opened.delete(c); };
+      const sm = document.createElement('summary'); sm.append(planeSvg(T, c, 34), el('b', null, T.labels[c]), el('small', null, _t('{0} types', codes.length))); d.append(sm);
+      const row = el('div', 'tlist');
+      for (const k of codes) { const b = el('button', 'tcode' + (k === sel ? ' on' : '') + (extra[k] ? ' mod' : ''), k); b.onclick = () => toggleSel(k); row.append(b); }
+      d.append(row);
+      if (sel && codes.includes(sel) && !inTodo.has(sel)) d.append(detail(sel));
+      cats.append(d);
+    }
+  }
+  function draw() { todoList(); catCards(); save.disabled = save2.disabled = !dirty; }
+  find.oninput = () => { query = find.value.trim().toUpperCase(); catCards(); };
+  const doSave = async relaunch => {
+    const text = Object.keys(extra).sort().map(k => k + ' ' + extra[k]).join('\n');
+    try { await api('/api/types', {text}); dirty = false; draw(); toast('Types enregistrés'); if (relaunch) await svc('restart'); else { pend.app = true; showPending(); } } catch (e) { toast(e.message, true); }
+  };
+  save.onclick = () => doSave(false); save2.onclick = () => doSave(true); bt.append(save, save2);
+  box.append(todo, cats, bt); draw();
 }
 
 /* ---------- Sauvegarde et restauration ---------- */
