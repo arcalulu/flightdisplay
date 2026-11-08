@@ -629,6 +629,11 @@ def category(code):
     return cat
 
 
+def known_type(code):
+    """False si le type est absent de la liste des types (icone par defaut) : l'avion est alors dessine en orange clair."""
+    return not code or code.upper() in CATEGORY
+
+
 def draw_plane(surf, color, x, y, heading, code):
     cat = category(code)
     t = math.radians(heading); c, s = math.cos(t), math.sin(t)
@@ -909,7 +914,7 @@ def main():
             if len(s["trail"]) > 1:
                 pts = [to_xy(*p) for p in s["trail"]] + [(x, y)]
                 pygame.draw.lines(screen, (170, 80, 80) if hl else (90, 130, 170), False, pts, lw)
-            draw_plane(screen, RED if hl else (255, 210, 80), x, y, s["heading"], s["code"])
+            draw_plane(screen, RED if hl else ((255, 210, 80) if known_type(s["code"]) else (255, 170, 90)), x, y, s["heading"], s["code"])
             txt = label_lines(s, d)
             if not txt:
                 continue
