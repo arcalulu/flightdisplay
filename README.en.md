@@ -2,7 +2,7 @@
 
 [🇫🇷 Français](README.md) · 🇬🇧 **English**
 
-Flight display turns a Raspberry Pi and a screen into a **display board of the aircraft flying around your home**, in real time: a map of your neighborhood, the aircraft moving across it, and, for each one, its photo, airline, model, route, altitude and speed. When an aircraft comes close to your home, at a distance and an altitude that you choose, an audible alert sounds (and the screen turns red): you can follow it on the screen, or step outside and look up at the sky to spot it.
+Flight display turns a Raspberry Pi and a screen into a **display board of the aircraft flying around your home**, in real time: a map of your neighborhood, the aircraft moving across it, and, for each one, its photo, airline, model, route, altitude and speed. When an aircraft comes close to your home, within a distance and below an altitude that you choose, an audible alert sounds and the screen focuses on that aircraft: you can follow it on the screen, or step outside and look up at the sky to spot it.
 
 It is meant for aviation enthusiasts, for those who would rather look up at the sky than cover their ears when a plane goes by.
 
