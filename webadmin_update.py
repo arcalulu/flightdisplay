@@ -23,8 +23,9 @@ CHECK_EVERY = 12 * 3600
 MIN_FREE_MB = 100
 BRANCH_RE = re.compile(r"^[A-Za-z0-9._/-]+$")
 # Fichiers lus par le programme d'affichage (main.py) : si la mise a jour n'en touche aucun, inutile de le relancer.
+# Les fichiers de langue (lang/*.json) sont examines a part : presque tous les commits les modifient (textes de webadmin).
 DISPLAY_FILES = {"main.py", "aircraft_types.py", "i18n.py", "requirements.txt"}
-DISPLAY_DIRS = ("lang/",)
+DISPLAY_DIRS = ()
 STABLE_TAG_RE = re.compile(r"^v\d+(\.\d+)*$")  # versions publiees (pas de pre-version type v1.3.0-rc1)
 
 # Dependances importees par build_map_vector.py et absentes du venv (meme analyse que install.sh).
@@ -216,6 +217,23 @@ class Updater:
         if rc != 0:
             raise UpdateError("git " + args[0] + " a échoué : " + (err or out or "erreur inconnue"))
         return out
+
+    def _lang_affects_display(self, old, new, files):
+        """True si un texte de lang/*.json qui figure dans main.py (donc affiche a l'ecran) a change entre deux versions."""
+        try:
+            with open(os.path.join(self.S.APP_DIR, "main.py"), encoding="utf-8-sig") as fh:
+                src = fh.read()
+            for f in files:
+                try:
+                    a = json.loads(self._git_ok("show", "%s:%s" % (old, f))).get("strings", {})
+                except UpdateError:
+                    a = {}  # nouvelle langue
+                b = json.loads(self._git_ok("show", "%s:%s" % (new, f))).get("strings", {})
+                if any(a.get(k) != b.get(k) and k in src for k in set(a) | set(b)):
+                    return True
+            return False
+        except Exception:
+            return True  # dans le doute, on relance
 
     def _branch(self):
         rc, out, _ = self._git("rev-parse", "--abbrev-ref", "HEAD")
@@ -518,7 +536,8 @@ class Updater:
 
             # 6. affichage
             self._begin(5)
-            if changed and not display_affected(changed):
+            lang = [f for f in changed if f.startswith("lang/") and f.endswith(".json")]
+            if changed and not display_affected(changed) and not (lang and self._lang_affects_display(old, latest["hash"], lang)):
                 self._log("Le programme d'affichage n'est pas concerné par cette mise à jour : il continue sans interruption.")
                 self._end(5, "skipped", "non concerné par cette mise à jour : pas de relance")
             elif was_active and not self.screen_off():
