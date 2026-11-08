@@ -642,6 +642,7 @@
   "code de type invalide": "invalid type code",
   "base OACI : {0}": "ICAO database: {0}",
   "Type introuvable dans la base OACI": "Type not found in the ICAO database",
-  "La sauvegarde contient config.ini (réglages, avec ou sans les secrets), la liste des types d'avion, l'état du son et la carte déjà construite (background.png et map_meta.json). Les photos ne sont pas incluses.": "The backup contains config.ini (settings, with or without the secrets), the aircraft type list, the sound state and the map already built (background.png and map_meta.json). Photos are not included."
+  "La sauvegarde contient config.ini (réglages, avec ou sans les secrets), la liste des types d'avion, l'état du son et la carte déjà construite (background.png et map_meta.json). Les photos ne sont pas incluses.": "The backup contains config.ini (settings, with or without the secrets), the aircraft type list, the sound state and the map already built (background.png and map_meta.json). Photos are not included.",
+  "Modifier le type": "Change the type"
  }
 }

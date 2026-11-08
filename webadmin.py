@@ -1549,6 +1549,7 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 .hint{background:#2a2108;border:1px solid #5a4410;color:#f0d78c;padding:10px 12px;border-radius:10px;margin-bottom:12px;display:none;font-size:14px}
 .hint .btns{display:flex;gap:8px;margin-top:8px}.hint .btns button{flex:1}
 .tools{display:flex;gap:8px;margin-bottom:8px;align-items:center}.tools>*{flex:1}
+.tools.v{flex-direction:column;align-items:stretch;margin-top:8px}
 .tools select,.tools input[type=text]{padding:9px 10px;font-size:14px}
 .cols{display:block}
 .tools input[type=search]{padding:9px 10px;font-size:14px;width:100%;border-radius:9px;border:1px solid var(--line);background:#0e141b;color:var(--txt)}
@@ -2074,7 +2075,7 @@ async function renderTypes(box) {
   TYPES = T;
   const extra = Object.assign({}, T.extra), builtin = T.builtin, info = {};
   for (const e of T.seen) info[e.code] = e;
-  let sel = null, query = '';
+  let sel = null, query = '', editing = null;
   const sug = {}, busy = new Set();
   const opened = new Set();
   const catOf = c => extra[c] || builtin[c] || 'narrow';
@@ -2088,7 +2089,7 @@ async function renderTypes(box) {
     try { await api('/api/types', {text}); pend.app = true; showPending(); } catch (e) { toast(e.message, true); }
   };
   const web = code => { const i = info[code]; window.open('https://www.google.com/search?q=' + encodeURIComponent('ICAO aircraft type ' + code + (i && i.model ? ' ' + i.model : '')), '_blank', 'noopener'); };
-  const choose = (code, c) => { if (builtin[code] === c) delete extra[code]; else extra[code] = c; draw(); persist(); };
+  const choose = (code, c) => { if (builtin[code] === c) delete extra[code]; else extra[code] = c; editing = null; draw(); persist(); };
   const ask = async (code, quiet) => {
     busy.add(code); draw();
     try { sug[code] = await api('/api/types/suggest?code=' + encodeURIComponent(code)); }
@@ -2106,16 +2107,20 @@ async function renderTypes(box) {
     if (i.t) bits.push(_t('dernier passage {0}', new Date(i.t * 1000).toLocaleString()));
     if (i.reg) bits.push(_t('immat. {0}', i.reg));
     tx.append(el('div', 'note', bits.length ? bits.join(' · ') : "Pas encore vu au-dessus de chez vous"));
-    const row = el('div', 'tcats'), cur = catOf(code);
-    for (const c of T.categories) {
-      const b = el('button', 'tcat' + (c === cur && known(code) ? ' on' : '')); b.append(planeSvg(T, c, 36), el('span', null, T.labels[c])); b.onclick = () => choose(code, c); row.append(b);
+    const cur = catOf(code);
+    if (editing === code) {
+      const row = el('div', 'tcats');
+      for (const c of T.categories) {
+        const b = el('button', 'tcat' + (c === cur && known(code) ? ' on' : '')); b.append(planeSvg(T, c, 36), el('span', null, T.labels[c])); b.onclick = () => choose(code, c); row.append(b);
+      }
+      tx.append(row);
     }
-    tx.append(row);
-    const act = el('div', 'tools'), ws = el('button', 'b s', 'Fiche sur internet ↗'); ws.onclick = () => web(code); act.append(ws);
+    const act = el('div', 'tools v'), ed = el('button', 'b s' + (editing === code ? ' on' : ''), 'Modifier le type'); ed.onclick = () => { editing = editing === code ? null : code; draw(); }; act.append(ed);
+    const ws = el('button', 'b s', 'Fiche sur internet ↗'); ws.onclick = () => web(code); act.append(ws);
     if (extra[code]) { const r = el('button', 'b s', builtin[code] ? "Rétablir l'icône d'origine" : 'Supprimer ce type'); r.onclick = () => { delete extra[code]; if (!builtin[code]) sel = null; draw(); persist(); }; act.append(r); }
     tx.append(act); top.append(tx); w.append(top); return w;
   };
-  const toggleSel = code => { sel = sel === code ? null : code; draw(); };
+  const toggleSel = code => { sel = sel === code ? null : code; editing = null; draw(); };
   let inTodo = new Set();
   function todoList() {
     todo.replaceChildren(); inTodo = new Set();
