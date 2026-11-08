@@ -651,7 +651,8 @@ PLANE_UNKNOWN = cfg_color("plane_color_unknown", (255, 170, 90))
 RING_COL = cfg_color("color", (45, 55, 70), "rings")
 RING_W = max(1, min(8, cfg.getint("rings", "width", fallback=1)))
 RING_LABELS = cfg.getboolean("rings", "show_labels", fallback=False)
-RING_TXT = tuple(min(255, (c + 150) // 2 + 20) for c in RING_COL)
+RING_TXT = tuple(min(255, (c + 255) // 2) for c in RING_COL)  # texte plus clair que le trait, lisible sur la carte
+print("cercles de distance : %d de %g km, ecart %g km, distances affichees : %s" % (RING_N, RING_FIRST, RING_STEP, "oui" if RING_LABELS else "non"))
 TRAIL_PANEL = tuple((c + g) // 2 for c, g in zip(PLANE_PANEL, (85, 90, 90)))
 
 
@@ -849,9 +850,13 @@ def main():
                 break
             rr = int(km * 1000 / MPP)
             pygame.draw.circle(screen, RING_COL, (int(hx), int(hy)), rr, RING_W)
-            if RING_LABELS and hy - rr > f_small.get_height():
+            if RING_LABELS:
                 tx = f_small.render("%g km" % round(km, 2), True, RING_TXT)
-                screen.blit(tx, (int(hx) - tx.get_width() // 2, int(hy) - rr - tx.get_height() - 2))
+                ty = int(hy) - rr - tx.get_height() - 2
+                if ty >= 0:  # au sommet du cercle ; sinon (cercle qui touche le haut de l'ecran) sur le cote droit
+                    screen.blit(tx, (int(hx) - tx.get_width() // 2, ty))
+                elif int(hx) + rr + 4 + tx.get_width() < W:
+                    screen.blit(tx, (int(hx) + rr + 4, int(hy) - tx.get_height() // 2))
         if alert_visible:
             pygame.draw.circle(screen, RED, (int(hx), int(hy)), ar, lw)
         pygame.draw.circle(screen, (255, 200, 60), (int(hx), int(hy)), S(5))
