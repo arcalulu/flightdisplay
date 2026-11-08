@@ -150,6 +150,7 @@ Le mot de passe de webadmin, la clé CARTO et les identifiants MQTT sont stocké
 |---|---|
 | `main.py` | Programme d'affichage (pygame, sortie directe KMS/DRM, sans bureau graphique). |
 | `build_map_vector.py` | Génère la carte `background.png` et `map_meta.json` à partir de `config.ini` (position, rayon, taille, clé CARTO). |
+| `mapstyle.py` | Thèmes, couches et couleurs du fond de carte, partagé par `build_map_vector.py` et webadmin (page « Style de la carte »). |
 | `config.ini` | Tous les réglages : programme (dont `[general]` pour la langue et `[label]` pour les étiquettes), plus les sections `[server]`, `[app]`, `[screen]`, `[build]`, `[update]` et `[mqtt]` de l'interface web. Modèle : `config.ini.example`. |
 | `types_extra.txt` | Optionnel : associe des types d'avion inconnus à une forme d'icône. |
 | `webadmin.py` | Serveur web d'administration (bibliothèque standard Python). |
@@ -695,6 +696,23 @@ Modifier l'une de ces trois valeurs oblige à reconstruire la carte (webadmin l'
 | `carto_key` | obligatoire pour construire la carte | Clé API CARTO utilisée par `build_map_vector.py` pour télécharger le fond de carte vectoriel. Dans webadmin, le champ est masqué comme un mot de passe (carte). |
 
 La clé n'est lue que par `build_map_vector.py`, pas par `main.py`. Elle est stockée en clair dans `config.ini` : gardez le fichier en droits 600 et ne le publiez jamais.
+
+**Style du fond de carte** (webadmin, Réglages, « Style de la carte » ; toutes ces options demandent de reconstruire la carte). Sans ces options, la carte garde son apparence d'origine (thème Sombre : eau, rivières, aéroports et pistes).
+
+| Option | Défaut | Description |
+|---|---|---|
+| `[mapstyle] preset` | `dark` | Thème : `dark` (Sombre), `black` (Noir), `light` (Clair), `voyager`, `radar`. |
+| `[mapstyle] show_water`, `show_rivers`, `show_aerodromes`, `show_runways` | `true` | Eau, rivières et canaux, aéroports, pistes. |
+| `[mapstyle] show_taxiways`, `show_parks`, `show_roads_major`, `show_roads_minor`, `show_rail`, `show_buildings`, `show_boundaries` | `false` | Voies de circulation, parcs, routes principales et autoroutes, petites routes, voies ferrées, bâtiments, frontières. |
+| `[map] forest` | `false` | Forêts (clé historique, aussi lue depuis `[mapstyle] show_forest`). |
+| `[mapstyle] road_width` | `1.0` | Multiplicateur d'épaisseur des routes (0,3 à 4). |
+| `[mapstyle] color_<nom>` | vide | Couleur `#rrggbb` qui remplace celle du thème : `land`, `water`, `forest`, `park`, `aero`, `building`, `road_minor`, `road_major`, `road_high`, `rail`, `taxiway`, `runway`, `boundary`, `label`. |
+| `[cities] show` | `true` | Afficher les noms de lieux. |
+| `[cities] kinds` | `city,town` | Types de lieux : `city`, `town`, `village`. |
+| `[cities] max_labels` | `25` | Nombre maximum de noms. |
+| `[cities] font_size` | `20` | Taille du texte (pixels). |
+
+La page de webadmin propose des miniatures des cinq thèmes, des interrupteurs pour les éléments, un sélecteur de couleurs et les réglages des noms de lieux. L'**aperçu** est dessiné par `build_map_vector.py --preview` (même programme que la construction, image réduite à 640 px de large, zone et ratio de la page « Carte et position », réglages non enregistrés compris) : il nécessite la clé CARTO et internet. Les tuiles téléchargées sont gardées dans `cache/mapprev/` pour accélérer les aperçus suivants. Les thèmes clairs rendent les avions jaunes moins lisibles.
 
 ### 8.4 `[api]` — catégorie « Flightradar24 »
 

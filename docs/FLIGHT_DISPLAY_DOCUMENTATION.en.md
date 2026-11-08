@@ -150,6 +150,7 @@ The webadmin password, the CARTO key and the MQTT credentials are stored in `con
 |---|---|
 | `main.py` | Display program (pygame, direct KMS/DRM output, no desktop environment). |
 | `build_map_vector.py` | Generates the map `background.png` and `map_meta.json` from `config.ini` (position, radius, size, CARTO key). |
+| `mapstyle.py` | Themes, layers and colors of the base map, shared by `build_map_vector.py` and webadmin ("Map style" page). |
 | `config.ini` | All the settings: the program (including `[general]` for the language and `[label]` for the labels), plus the web interface sections `[server]`, `[app]`, `[screen]`, `[build]`, `[update]` and `[mqtt]`. Template: `config.ini.example`. |
 | `types_extra.txt` | Optional: maps unknown aircraft types to an icon shape. |
 | `webadmin.py` | Web administration server (Python standard library). |
@@ -695,6 +696,23 @@ Changing one of these three values requires rebuilding the map (webadmin says so
 | `carto_key` | required to build the map | CARTO API key used by `build_map_vector.py` to download the vector base map. In webadmin, the field is hidden like a password (map). |
 
 The key is only read by `build_map_vector.py`, not by `main.py`. It is stored in clear text in `config.ini`: keep the file at permissions 600 and never publish it.
+
+**Base map style** (webadmin, Settings, "Map style"; all these options require rebuilding the map). Without these options, the map keeps its original look (Dark theme: water, rivers, airports and runways).
+
+| Option | Default | Description |
+|---|---|---|
+| `[mapstyle] preset` | `dark` | Theme: `dark`, `black`, `light`, `voyager`, `radar`. |
+| `[mapstyle] show_water`, `show_rivers`, `show_aerodromes`, `show_runways` | `true` | Water, rivers and canals, airports, runways. |
+| `[mapstyle] show_taxiways`, `show_parks`, `show_roads_major`, `show_roads_minor`, `show_rail`, `show_buildings`, `show_boundaries` | `false` | Taxiways, parks, main roads and motorways, minor roads, railways, buildings, borders. |
+| `[map] forest` | `false` | Forests (historical key, also read from `[mapstyle] show_forest`). |
+| `[mapstyle] road_width` | `1.0` | Road thickness multiplier (0.3 to 4). |
+| `[mapstyle] color_<name>` | empty | `#rrggbb` color that replaces the theme's: `land`, `water`, `forest`, `park`, `aero`, `building`, `road_minor`, `road_major`, `road_high`, `rail`, `taxiway`, `runway`, `boundary`, `label`. |
+| `[cities] show` | `true` | Show place names. |
+| `[cities] kinds` | `city,town` | Place types: `city`, `town`, `village`. |
+| `[cities] max_labels` | `25` | Maximum number of names. |
+| `[cities] font_size` | `20` | Text size (pixels). |
+
+The webadmin page offers thumbnails of the five themes, switches for the elements, a color picker and the place name settings. The **preview** is drawn by `build_map_vector.py --preview` (same program as the build, image reduced to 640 px wide, area and ratio of the "Map and position" page, unsaved settings included): it needs the CARTO key and internet. Downloaded tiles are kept in `cache/mapprev/` to speed up the next previews. Light themes make the yellow aircraft less readable.
 
 ### 8.4 `[api]` — category "Flightradar24"
 

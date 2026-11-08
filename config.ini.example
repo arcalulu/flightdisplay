@@ -16,6 +16,25 @@ radius_km = 20
 ; Clé API CARTO, nécessaire pour construire la carte (lue par build_map_vector.py)
 carto_key =
 
+[mapstyle]
+; Style du fond de carte (modifiable depuis webadmin, Réglages, Style de la carte). Demande de reconstruire la carte.
+; Thème : dark, black, light, voyager, radar
+preset = dark
+; Éléments affichés (true ou false)
+show_roads_major = false
+show_roads_minor = false
+show_rail = false
+show_buildings = false
+; Couleur personnalisée (#rrggbb) : vide = couleur du thème, par exemple color_water = #1a3a5c
+color_water =
+
+[cities]
+; Noms de lieux sur la carte
+show = true
+kinds = city,town
+max_labels = 25
+font_size = 20
+
 [api]
 poll_seconds = 10
 details_pause_seconds = 4

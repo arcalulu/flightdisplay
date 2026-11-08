@@ -1,22 +1,39 @@
-import configparser, gzip, json, math, struct, sys
+import configparser, gzip, hashlib, json, math, os, struct, sys
 from collections import Counter
 import requests
 from PIL import Image, ImageDraw, ImageFont
+import mapstyle
 
 cfg = configparser.ConfigParser(); cfg.read("config.ini")
 KEY = cfg.get("map", "carto_key")
-FOREST = cfg.getboolean("map", "forest", fallback=False)
 OFFSET = cfg.getint("map", "vector_zoom_offset", fallback=0)
 LAT = cfg.getfloat("position", "latitude"); LON = cfg.getfloat("position", "longitude")
 RADIUS_M = cfg.getfloat("position", "radius_km") * 1000
 W = cfg.getint("display", "width"); H = cfg.getint("display", "height")
+STYLE = mapstyle.from_config(cfg)
+# Mode apercu (webadmin) : "--preview DOSSIER" + un JSON sur l'entree standard {lat, lon, radius_km, width, height, style, presets}.
+# Image reduite, tuiles gardees dans DOSSIER/tiles, un fichier par theme demande plus "current.png".
+PREVIEW = "--preview" in sys.argv
+if PREVIEW:
+    OUT = sys.argv[sys.argv.index("--preview") + 1]
+    REQ = json.load(sys.stdin)
+    LAT = float(REQ.get("lat", LAT)); LON = float(REQ.get("lon", LON))
+    RADIUS_M = float(REQ.get("radius_km", RADIUS_M / 1000)) * 1000
+    W0, H0 = int(REQ.get("width", W)), int(REQ.get("height", H))
+    W = min(W0, 640); H = max(1, round(W * H0 / W0))
+    STYLE = mapstyle.merge(STYLE, REQ.get("style"))
+    CREQ = REQ.get("cities") or {}
 MPP = 2 * RADIUS_M / H
 S, TILE = 2, 512
-LAND, WATER, AERO, RUNWAY, WOOD = (21, 25, 28), (44, 50, 54), (70, 73, 76), (105, 110, 115), (17, 21, 23)
 CITIES = cfg.getboolean("cities", "show", fallback=True)
 KINDS = [k.strip() for k in cfg.get("cities", "kinds", fallback="city,town").split(",")]
 MAXN = cfg.getint("cities", "max_labels", fallback=25)
 FSIZE = cfg.getint("cities", "font_size", fallback=20)
+if PREVIEW:
+    CITIES = bool(CREQ.get("show", CITIES))
+    if isinstance(CREQ.get("kinds"), list): KINDS = [str(k) for k in CREQ["kinds"]]
+    MAXN = int(CREQ.get("max_labels", MAXN)); FSIZE = int(CREQ.get("font_size", FSIZE))
+    FSIZE = max(9, round(FSIZE * W / W0))
 places = []
 
 def varint(b, i):
@@ -115,11 +132,22 @@ ty0, ty1 = int(y0 // TILE), int((y0 + ch) // TILE)
 sess = requests.Session(); sess.headers["User-Agent"] = "flight-display-perso/0.1"
 def get_tile(tx, ty):
     url = tmpl.replace("{z}", str(Z)).replace("{x}", str(tx % n)).replace("{y}", str(ty))
+    cache = None
+    if PREVIEW:  # les tuiles sont gardees : un nouvel apercu ne les retelecharge pas
+        os.makedirs(os.path.join(OUT, "tiles"), exist_ok=True)
+        cache = os.path.join(OUT, "tiles", hashlib.md5(url.split("key=")[0].encode()).hexdigest() + ".pbf")
+        if os.path.exists(cache):
+            with open(cache, "rb") as fh:
+                return decode(fh.read()) if os.path.getsize(cache) else {}
     r = sess.get(url, timeout=30)
-    if r.status_code == 404: return {}
+    if r.status_code == 404:
+        if cache: open(cache, "wb").close()
+        return {}
     r.raise_for_status()
     d = r.content
     if d[:2] == b"\x1f\x8b": d = gzip.decompress(d)
+    if cache:
+        with open(cache, "wb") as fh: fh.write(d)
     return decode(d)
 
 if "--inspect" in sys.argv:
@@ -133,7 +161,9 @@ if "--inspect" in sys.argv:
 
 def area(r): return sum(r[i][0] * r[(i + 1) % len(r)][1] - r[(i + 1) % len(r)][0] * r[i][1] for i in range(len(r))) / 2
 
-draw_list = {"wood": [], "aero": [], "water": [], "river": [], "runway": []}
+# L'apercu garde toutes les categories (les themes se dessinent a partir des memes tuiles) ; la construction seulement celles qui seront dessinees.
+KEEP = set(mapstyle._ENABLE) if PREVIEW else mapstyle.wanted(STYLE)
+draw_list = {k: [] for k in mapstyle._ENABLE}
 for tx in range(tx0, tx1 + 1):
     for ty in range(ty0, ty1 + 1):
         for name, (ext, feats) in get_tile(tx, ty).items():
@@ -152,13 +182,8 @@ for tx in range(tx0, tx1 + 1):
                         px_, py_ = conv(parts[0])[0]
                         places.append((cat, -pop, str(nm), px_, py_))
                     continue
-                target = None
-                if name == "water":
-                    target = "water" if gt == 3 else ("river" if gt == 2 and kind in ("river", "canal") else None)
-                elif name == "landuse" and kind == "aerodrome" and gt == 3: target = "aero"
-                elif name in ("landuse", "natural") and FOREST and gt == 3 and kind in ("forest", "wood"): target = "wood"
-                elif name == "roads" and gt == 2 and (kd == "runway" or kind == "runway"): target = "runway"
-                if target is None: continue
+                target = mapstyle.classify(name, gt, kind, kd)
+                if target is None or target not in KEEP: continue
                 if gt == 3:
                     rings = [r for r in parts if len(r) >= 3]
                     pos = [area(r) > 0 for r in rings]
@@ -168,27 +193,16 @@ for tx in range(tx0, tx1 + 1):
                     for line in parts:
                         if len(line) >= 2: draw_list[target].append([(conv(line), True)])
 
-img = Image.new("RGB", (W * S, H * S), LAND)
-d = ImageDraw.Draw(img)
-for k, col in (("wood", WOOD), ("aero", AERO), ("water", WATER)):
-    for feat in draw_list[k]:
-        for pts, ex in feat:
-            if ex: d.polygon(pts, fill=col)
-        for pts, ex in feat:
-            if not ex: d.polygon(pts, fill=LAND)
-for feat in draw_list["river"]:
-    d.line(feat[0][0], fill=WATER, width=2 * S, joint="curve")
-for feat in draw_list["runway"]:
-    d.line(feat[0][0], fill=RUNWAY, width=3 * S)
 def load_font(size):
     for f in ("arial.ttf", "segoeui.ttf", "DejaVuSans.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"):
         try: return ImageFont.truetype(f, size)
         except Exception: pass
     return ImageFont.load_default()
 
-if CITIES and places:
+def draw_labels(img, col):
+    if not (CITIES and places): return 0
+    d = ImageDraw.Draw(img)
     font = load_font(FSIZE * S)
-    col = (150, 165, 185)
     order = {"city": 0, "town": 1, "village": 2}
     seen, taken, count = set(), [], 0
     for cat, negpop, nm, px_, py_ in sorted(places, key=lambda t: (order.get(t[0], 3), t[1])):
@@ -202,8 +216,24 @@ if CITIES and places:
         d.ellipse((px_ - 3 * S, py_ - 3 * S, px_ + 3 * S, py_ + 3 * S), fill=col)
         d.text((px_ + 9 * S, py_), nm, font=font, fill=col, anchor="lm")
         taken.append(rect); seen.add(nm); count += 1
-    print(count, "noms de lieux dessinés")
+    return count
 
+def make(style):
+    img, pal = mapstyle.render(draw_list, style, (W, H), S)
+    return img, draw_labels(img, pal["label"])
+
+if PREVIEW:
+    os.makedirs(OUT, exist_ok=True)
+    jobs = [("current", STYLE)] + [("preset_" + k, dict(STYLE, preset=k, colors={})) for k in REQ.get("presets", []) if k in mapstyle.PRESETS]
+    for name, st in jobs:
+        img, cnt = make(st)
+        img.resize((W, H), Image.LANCZOS).save(os.path.join(OUT, name + ".png"), optimize=True)
+    json.dump({"lat": LAT, "lon": LON, "w": W, "h": H, "zoom": Z, "files": [n + ".png" for n, _ in jobs]}, open(os.path.join(OUT, "preview.json"), "w"))
+    print("OK apercu, zoom", Z, {k: len(v) for k, v in draw_list.items() if v})
+    raise SystemExit
+
+img, cnt = make(STYLE)
+print(cnt, "noms de lieux dessinés")
 img.resize((W, H), Image.LANCZOS).save("background.png", optimize=True)
 json.dump({"lat": LAT, "lon": LON, "mpp": MPP, "w": W, "h": H, "zoom": Z}, open("map_meta.json", "w"))
-print("OK, zoom", Z, {k: len(v) for k, v in draw_list.items()})
+print("OK, zoom", Z, {k: len(v) for k, v in draw_list.items() if v})

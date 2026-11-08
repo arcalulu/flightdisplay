@@ -6,6 +6,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 import i18n
+import mapstyle
 import webadmin_mqtt
 import webadmin_update
 from i18n import tr
@@ -122,6 +123,7 @@ def path_of(f):
 CATS = [
     ("language", "Langue", "Général"),
     ("position", "Carte et position", "Programme"),
+    ("mapstyle", "Style de la carte", "Programme"),
     ("api", "Flightradar24", "Programme"),
     ("display", "Affichage", "Programme"),
     ("label", "Étiquettes des avions", "Programme"),
@@ -142,6 +144,7 @@ CAT_NOTES = {
     "language": "Langue de webadmin (immédiat) et du texte affiché à l'écran par le programme (après sa relance : « Enregistrer et appliquer »). Pour ajouter une langue, déposez un fichier dans le dossier lang (voir la documentation).",
     "label": "Petits panneaux affichés à côté de chaque avion sur la carte. Réordonnez les éléments avec les flèches, choisissez ceux à afficher, leur taille, gras et italique, et s'ils partagent la ligne de l'élément précédent. Si tout est masqué, aucun panneau n'est affiché. Pris en compte après relance du programme.",
     "position": "Modifier ces valeurs oblige à reconstruire la carte (section Reconstruction de la carte, en bas de cette page).",
+    "mapstyle": "Personnalisez le fond de carte : thème, éléments affichés, couleurs et noms de lieux. L'aperçu est dessiné avec le même programme que la carte. Il faut ensuite enregistrer puis reconstruire la carte.",
     "server": "Le port et l'adresse d'écoute demandent un redémarrage de webadmin. L'identifiant et le mot de passe s'appliquent immédiatement.",
     "paths": "Réglages avancés. Une valeur vide utilise le comportement par défaut.",
     "backup": "Exporte la configuration du Raspberry Pi dans un fichier, et la restaure (par exemple sur une nouvelle carte SD après une panne).",
@@ -297,6 +300,27 @@ PARAMS = [
     W("mqtt", "mqtt", "device_name", "text", "Flight display", "Nom de l'appareil", "", "Sujets et découverte", apply="mqtt"),
     W("mqtt", "mqtt", "interval", "float", 30, "Republication complète (s)", "Les changements sont publiés dans les 5 secondes.", "Sujets et découverte", apply="mqtt", min=5, max=3600),
 ]
+
+
+def _style_params():
+    out = [C("mapstyle", "mapstyle", "preset", "choice", mapstyle.DEFAULT_PRESET, "Thème", "", "Thème", needs_map=True,
+             options=list(mapstyle.PRESETS), labels={k: v["label"] for k, v in mapstyle.PRESETS.items()})]
+    for k, (d, label) in mapstyle.LAYERS.items():
+        if k == "forest":  # cle historique
+            out.append(C("mapstyle", "map", "forest", "bool", d, label, "", "Éléments", needs_map=True))
+        else:
+            out.append(C("mapstyle", "mapstyle", "show_" + k, "bool", d, label, "", "Éléments", needs_map=True))
+    out.append(C("mapstyle", "mapstyle", "road_width", "float", 1.0, "Épaisseur des routes", "", "Éléments", needs_map=True, min=0.3, max=4))
+    for k in mapstyle.COLOR_KEYS:
+        out.append(C("mapstyle", "mapstyle", "color_" + k, "color", "", mapstyle.COLOR_LABELS[k], "Vide : couleur du thème.", "Couleurs", needs_map=True))
+    out += [C("mapstyle", "cities", "show", "bool", True, "Afficher les noms de lieux", "", "Noms de lieux", needs_map=True),
+            C("mapstyle", "cities", "kinds", "text", "city,town", "Types de lieux", "", "Noms de lieux", needs_map=True),
+            C("mapstyle", "cities", "max_labels", "int", 25, "Nombre maximum de noms", "", "Noms de lieux", needs_map=True, min=0, max=200),
+            C("mapstyle", "cities", "font_size", "int", 20, "Taille du texte", "", "Noms de lieux", needs_map=True, min=8, max=60)]
+    return out
+
+
+PARAMS += _style_params()
 SPEC = {(p["file"], p["sec"], p["key"]): p for p in PARAMS}
 SEC_RE = re.compile(r"^\[([^\]]+)\]$")
 KEY_RE = re.compile(r"^(\s*)([^\s#;=:][^=:]*?)\s*[=:]\s*(.*)$")
@@ -366,6 +390,9 @@ def get_settings():
     cats["backup"].update(kind="backup", groups=[], file=None)
     cats["label"].update(kind="fields", editor=field_editor("label", LABEL_FIELDS, "label"))
     cats["panel"].update(kind="fields", editor=dict(field_editor("panel_content", PANEL_FIELDS, "panel", PANEL_SHOW_KEYS), note=tr(PANEL_NOTE)))
+    cats["mapstyle"].update(kind="mapstyle", presets={k: dict(label=tr(v["label"]), colors=v["colors"]) for k, v in mapstyle.PRESETS.items()},
+                            color_labels={k: tr(v) for k, v in mapstyle.COLOR_LABELS.items()}, color_keys=mapstyle.COLOR_KEYS,
+                            layers=[dict(id=k, label=tr(v[1])) for k, v in mapstyle.LAYERS.items()], city_kinds=mapstyle.CITY_KINDS)
     cats["schedule"]["kind"] = "schedule"
     cats["storage"]["kind"] = "storage"
     menu = []
@@ -408,6 +435,10 @@ def norm_value(p, v):
         if p.get("max") is not None and n > p["max"]:
             raise ValueError("maximum " + str(p["max"]))
         return str(n) if t == "int" else v
+    if t == "color":
+        if v and not mapstyle.color_ok(v):
+            raise ValueError("couleur attendue, au format #rrggbb")
+        return v.lower()
     if t == "choice":
         if v not in p["options"]:
             raise ValueError("choix possibles : " + ", ".join(p["options"]))
@@ -1098,6 +1129,69 @@ def cancel_build():
     p.terminate()
 
 
+mapprev = dict(running=False, error="", t=0.0, files=[], w=0, h=0, lines="")
+mapprev_lock = threading.Lock()
+
+
+def mapprev_dir():
+    return os.path.join(S.APP_DIR, "cache", "mapprev")
+
+
+def _mapprev_worker(req):
+    d = mapprev_dir()
+    err, info = "", {}
+    try:
+        os.makedirs(d, exist_ok=True)
+        tiles = os.path.join(d, "tiles")
+        if os.path.isdir(tiles) and len(os.listdir(tiles)) > 300:  # le cache de tuiles ne doit pas grossir sans limite
+            shutil.rmtree(tiles, ignore_errors=True)
+        r = subprocess.run([S.PYTHON, "-u", S.BUILD_SCRIPT, "--preview", d], input=json.dumps(req), cwd=S.APP_DIR, capture_output=True,
+                           text=True, errors="replace", timeout=300)
+        out = (r.stdout + r.stderr).strip()
+        if r.returncode != 0:
+            last = [l for l in out.splitlines() if l.strip()][-3:]
+            err = "L'aperçu n'a pas pu être généré : " + " / ".join(last)[-300:]
+        else:
+            with open(os.path.join(d, "preview.json"), encoding="utf-8") as fh:
+                info = json.load(fh)
+    except subprocess.TimeoutExpired:
+        err = "L'aperçu a pris trop de temps (réseau lent ?)."
+    except Exception as e:
+        err = "L'aperçu n'a pas pu être généré : " + str(e)
+    with mapprev_lock:
+        mapprev.update(running=False, error=err, t=time.time(), files=info.get("files", []), w=info.get("w", 0), h=info.get("h", 0))
+
+
+def start_mapprev(body):
+    def num(k, lo, hi, cast=float):
+        try:
+            v = cast(body.get(k))
+        except (TypeError, ValueError):
+            raise ValueError("valeur invalide : " + k)
+        if not (lo <= v <= hi) or (cast is float and not math.isfinite(v)):
+            raise ValueError("valeur invalide : " + k)
+        return v
+    req = dict(lat=num("lat", -90, 90), lon=num("lon", -180, 180), radius_km=num("radius_km", 1, 200), width=num("width", 320, 7680, int),
+               height=num("height", 240, 4320, int))
+    style = body.get("style") if isinstance(body.get("style"), dict) else {}
+    req["style"] = {k: style[k] for k in ("preset", "colors", "show", "road_width") if k in style}
+    c = body.get("cities") if isinstance(body.get("cities"), dict) else {}
+    req["cities"] = dict(show=bool(c.get("show", True)), kinds=[k for k in (c.get("kinds") or []) if k in mapstyle.CITY_KINDS],
+                         max_labels=max(0, min(200, int(c.get("max_labels", 25)))), font_size=max(8, min(60, int(c.get("font_size", 20)))))
+    req["presets"] = [k for k in (body.get("presets") or []) if k in mapstyle.PRESETS]
+    if not os.path.exists(os.path.join(S.APP_DIR, S.BUILD_SCRIPT)):
+        raise ValueError(S.BUILD_SCRIPT + " introuvable dans " + S.APP_DIR)
+    if build["running"] or UPD.running():
+        raise ValueError("une construction de la carte ou une mise à jour est en cours")
+    if not parse(read_lines(INI_PATH))[0].get(("map", "carto_key"), {}).get("value"):
+        raise ValueError("La clé API CARTO n'est pas renseignée (Carte et position, Fond de carte) : l'aperçu en a besoin.")
+    with mapprev_lock:
+        if mapprev["running"]:
+            raise ValueError("un aperçu est déjà en cours de génération")
+        mapprev.update(running=True, error="")
+    threading.Thread(target=_mapprev_worker, args=(req,), daemon=True).start()
+
+
 def journal(lines):
     ok, out = run([S.JOURNALCTL, "-u", S.SERVICE, "-n", str(lines), "--no-pager", "-o", "short-iso", "-q"], 15)
     if not ok and not out:
@@ -1287,6 +1381,24 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_header("Cache-Control", "max-age=300")
                 self.end_headers()
                 self.wfile.write(data)
+            elif u.path == "/api/mapstyle/preview":
+                with mapprev_lock:
+                    self.send_json(dict(mapprev, error=tr(mapprev["error"]) if mapprev["error"] else ""))
+            elif u.path == "/api/mapstyle/img":
+                name = parse_qs(u.query).get("name", [""])[0]
+                if not re.fullmatch(r"(current|preset_[a-z]+)\.png", name):
+                    return self.send_json({"error": "image introuvable"}, 404)
+                try:
+                    with open(os.path.join(mapprev_dir(), name), "rb") as fh:
+                        data = fh.read()
+                except OSError:
+                    return self.send_json({"error": "image introuvable"}, 404)
+                self.send_response(200)
+                self.send_header("Content-Type", "image/png")
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(data)
             elif u.path == "/api/logs":
                 n = int(parse_qs(u.query).get("lines", ["300"])[0])
                 self.send_json({"text": journal(max(10, min(n, 2000)))})
@@ -1360,6 +1472,9 @@ class Handler(BaseHTTPRequestHandler):
                                            else "Extinction en cours..."))
             if path == "/api/build":
                 start_build(bool(body.get("stop_display")))
+                return self.send_json(dict(ok=True))
+            if path == "/api/mapstyle/preview":
+                start_mapprev(body)
                 return self.send_json(dict(ok=True))
             if path == "/api/build/cancel":
                 cancel_build()
@@ -1555,6 +1670,18 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 .mpprev{width:100%;height:100%}.mpprev .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.72) saturate(.5)}
 .mppin i{display:block;width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#ffd250;border:2px solid #111;box-sizing:border-box}
 .leaflet-container{font:12px/1.4 inherit}
+.msprev{width:100%;max-width:760px;aspect-ratio:16/9;border-radius:10px;border:1px solid var(--line);overflow:hidden;background:#0e141b;margin:8px 0}
+.msimg{width:100%;height:100%;display:block;object-fit:cover}
+.msthemes{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:8px 0}
+.mscard{display:flex;flex-direction:column;gap:6px;text-align:left;border:1px solid var(--line);background:var(--card2);color:var(--txt);border-radius:12px;padding:8px;cursor:pointer;font-size:13px}
+.mscard.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
+.msth{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:8px;display:block}
+.msw{display:flex;gap:3px}.msw i{flex:1;height:8px;border-radius:3px;display:block}
+.kinds{display:flex;gap:6px;flex-wrap:wrap}.kinds .tcode{padding:5px 12px;font:13px inherit}
+.mscolors{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin:8px 0 12px}
+.mscol{display:flex;align-items:center;gap:8px;font-size:13px}.mscol input[type=color]{width:34px;height:28px;padding:0;border:1px solid var(--line);border-radius:6px;background:none;flex:none}.mscol span{flex:1}
+.mscol .b{padding:2px 8px;flex:none}
+.note.err{color:var(--bad)}
 .tools.v{flex-direction:column;align-items:stretch;margin-top:8px}
 .tools select,.tools input[type=text]{padding:9px 10px;font-size:14px}
 .cols{display:block}
@@ -1973,7 +2100,7 @@ function renderCat() {
   const mb = $('#mapBuild'), holder = $('#mapHolder');
   if (mb && holder && mb.parentNode !== holder) holder.appendChild(mb);
   renderCatBase();
-  if (curCat === 'position' && mb) { const box = $('#catbox'); box.appendChild(el('h2', 't', 'Reconstruction de la carte')); box.appendChild(mb); pollBuild(); }
+  if ((curCat === 'position' || curCat === 'mapstyle') && mb) { const box = $('#catbox'); box.appendChild(el('h2', 't', 'Reconstruction de la carte')); box.appendChild(mb); pollBuild(); }
 }
 function renderGroups(box, cat) {
   for (const g of cat.groups) {
@@ -1993,11 +2120,12 @@ function renderGroups(box, cat) {
 }
 let fieldTab = {};
 function renderCatBase() {
-  const box = $('#catbox'); box.innerHTML = ''; box.oninput = null; mapPickDestroy();
+  const box = $('#catbox'); box.innerHTML = ''; box.oninput = null; mapPickDestroy(); msAlive = false;
   const cat = SET.cats[curCat]; if (!cat) return;
   const head = el('div', 'catt'); head.append(el('h3', null, cat.title)); box.append(head);
   if (cat.kind === 'types') return renderTypes(box);
   if (cat.kind === 'backup') { if (cat.note) box.append(el('p', 'note', cat.note)); return renderBackup(box); }
+  if (cat.kind === 'mapstyle') { if (cat.note) box.append(el('p', 'note', cat.note)); return renderMapStyle(box, cat); }
   if (cat.kind === 'storage') renderStorage(box);
   if (cat.kind === 'schedule') { if (cat.note) box.append(el('p', 'note', cat.note)); return renderSchedule(box); }
   if (cat.kind === 'fields') {
@@ -2282,6 +2410,127 @@ function renderMapPicker(box) {
     refresh(true);
     setTimeout(() => { if (st.alive) { st.big.invalidateSize(); refresh(true); } }, 150);
   }).catch(() => { big.className = 'note'; big.textContent = _t("La carte n'a pas pu être chargée (accès à internet nécessaire depuis ce navigateur). Vous pouvez toujours saisir les valeurs dans les champs ci-dessous."); pvw.remove(); });
+}
+
+/* ---------- Style de la carte : thème, éléments, couleurs, noms de lieux, aperçu réel ---------- */
+let msAlive = false;
+function renderMapStyle(box, cat) {
+  msAlive = true;
+  const P = (sec, key) => allParams().find(p => p.id === 'config:' + sec + '.' + key);
+  const V = (sec, key) => pval(P(sec, key));
+  const layerParam = id => id === 'forest' ? P('map', 'forest') : P('mapstyle', 'show_' + id);
+  const presets = cat.presets, colorKeys = cat.color_keys;
+  const chg = (p, el_) => { if (el_) el_.classList.toggle('chg', p.id in edits); };
+  const styleNow = () => {
+    const show = {}; for (const l of cat.layers) show[l.id] = String(pval(layerParam(l.id))) === 'true';
+    const colors = {}; for (const k of colorKeys) { const v = V('mapstyle', 'color_' + k); if (v) colors[k] = v; }
+    return {preset: V('mapstyle', 'preset'), show, colors, road_width: parseFloat(V('mapstyle', 'road_width')) || 1};
+  };
+  const citiesNow = () => ({show: String(V('cities', 'show')) === 'true', kinds: String(V('cities', 'kinds')).split(',').map(x => x.trim()).filter(Boolean), max_labels: parseInt(V('cities', 'max_labels')) || 0, font_size: parseInt(V('cities', 'font_size')) || 20});
+  const geo = () => ({lat: parseFloat(V('position', 'latitude')), lon: parseFloat(V('position', 'longitude')), radius_km: parseFloat(V('position', 'radius_km')), width: parseInt(V('display', 'width')), height: parseInt(V('display', 'height'))});
+
+  /* aperçu */
+  box.append(el('h2', 't', 'Aperçu'));
+  const pvw = el('div', 'msprev'), img = document.createElement('img'); img.alt = ''; img.className = 'msimg'; pvw.append(img);
+  const msg = el('p', 'note'), again = el('button', 'b s', "Mettre à jour l'aperçu"); again.style.marginTop = '4px';
+  box.append(pvw, msg, again);
+  box.append(el('p', 'note', "Aperçu réel : il est dessiné par le même programme que la carte, pour la zone et le ratio de la page Carte et position (modifications non enregistrées comprises). Les polices peuvent différer légèrement."));
+
+  /* thèmes */
+  box.append(el('h2', 't', 'Thème'));
+  const grid = el('div', 'msthemes'), cards = {};
+  for (const [id, pr] of Object.entries(presets)) {
+    const c = el('button', 'mscard'), th = document.createElement('img'); th.alt = ''; th.className = 'msth';
+    th.style.background = pr.colors.land; th.onerror = () => { th.style.visibility = 'hidden'; };
+    const sw = el('div', 'msw'); for (const k of ['water', 'forest', 'aero', 'road_high', 'runway', 'label']) { const i = el('i'); i.style.background = pr.colors[k]; sw.append(i); }
+    c.append(th, el('span', null, pr.label), sw);
+    c.onclick = () => {
+      setEdit(P('mapstyle', 'preset'), id);
+      for (const k of colorKeys) if (V('mapstyle', 'color_' + k)) setEdit(P('mapstyle', 'color_' + k), '');
+      syncAll(); schedule();
+    };
+    cards[id] = {c, th}; grid.append(c);
+  }
+  box.append(grid);
+
+  /* éléments */
+  box.append(el('h2', 't', 'Éléments affichés'));
+  const lst = el('div', 'list'), tgs = {};
+  for (const l of cat.layers) {
+    const p = layerParam(l.id), row = el('div', 'li'), t = el('div', 'lt'); t.append(el('b', null, l.label));
+    const tg = toggle(String(pval(p)) === 'true', on => { setEdit(p, on ? 'true' : 'false'); chg(p, tg.label); schedule(); });
+    chg(p, tg.label); tgs[l.id] = tg; row.append(t, tg.label); lst.append(row);
+  }
+  box.append(lst);
+  const rwp = P('mapstyle', 'road_width'), rrow = el('div', 'li'), rt = el('div', 'lt'), rwc = el('div', 'sl'), rw = document.createElement('input'), rwl = el('span');
+  rt.append(el('b', null, 'Épaisseur des routes'));
+  rw.type = 'range'; rw.min = 0.5; rw.max = 3; rw.step = 0.1; rw.value = V('mapstyle', 'road_width'); rwl.textContent = '× ' + rw.value;
+  rw.oninput = () => { rwl.textContent = '× ' + rw.value; setEdit(rwp, String(rw.value)); chg(rwp, rwc); schedule(); };
+  rwc.append(rw, rwl); rrow.append(rt, rwc); lst.append(rrow);
+
+  /* noms de lieux */
+  box.append(el('h2', 't', 'Noms de lieux'));
+  const cl = el('div', 'list'), cshow = P('cities', 'show'), ck = P('cities', 'kinds'), cmax = P('cities', 'max_labels'), cfs = P('cities', 'font_size');
+  const r1 = el('div', 'li'), t1 = el('div', 'lt'); t1.append(el('b', null, 'Afficher les noms de lieux'));
+  const tgc = toggle(String(pval(cshow)) === 'true', on => { setEdit(cshow, on ? 'true' : 'false'); chg(cshow, tgc.label); schedule(); }); r1.append(t1, tgc.label); cl.append(r1);
+  const r2 = el('div', 'li full'), t2 = el('div', 'lt'); t2.append(el('b', null, 'Types de lieux'));
+  const seg = el('div', 'kinds'), kindLabel = {city: 'Villes', town: 'Petites villes', village: 'Villages'};
+  const setKinds = () => { const k = cat.city_kinds.filter(x => seg.querySelector('[data-k="' + x + '"]').classList.contains('on')); setEdit(ck, k.join(',')); schedule(); };
+  const nowKinds = String(pval(ck)).split(',').map(x => x.trim());
+  for (const k of cat.city_kinds) { const b = el('button', 'tcode' + (nowKinds.includes(k) ? ' on' : ''), kindLabel[k] || k); b.dataset.k = k; b.onclick = () => { b.classList.toggle('on'); setKinds(); }; seg.append(b); }
+  r2.append(t2, seg); cl.append(r2);
+  const slider = (p, label, min, max, step, fmt) => {
+    const row = el('div', 'li'), t = el('div', 'lt'), c = el('div', 'sl'), r = document.createElement('input'), l = el('span');
+    t.append(el('b', null, label)); r.type = 'range'; r.min = min; r.max = max; r.step = step; r.value = pval(p); l.textContent = fmt(r.value);
+    r.oninput = () => { l.textContent = fmt(r.value); setEdit(p, String(r.value)); chg(p, c); schedule(); };
+    c.append(r, l); row.append(t, c); return row;
+  };
+  cl.append(slider(cmax, 'Nombre maximum de noms', 0, 100, 1, v => v), slider(cfs, 'Taille du texte', 10, 40, 1, v => v + ' px'));
+  box.append(cl);
+
+  /* couleurs */
+  const det = document.createElement('details'); det.className = 'tcard';
+  const sm = document.createElement('summary'); sm.append(el('b', null, 'Couleurs personnalisées'), el('small', null, 'optionnel')); det.append(sm);
+  det.append(el('p', 'note', "Par défaut, les couleurs du thème choisi. Une couleur modifiée ici remplace celle du thème ; choisir un autre thème les remet à zéro."));
+  const cg = el('div', 'mscolors'), cin = {};
+  for (const k of colorKeys) {
+    const p = P('mapstyle', 'color_' + k), w = el('label', 'mscol'), i = document.createElement('input'), rs = el('button', 'b s', '↺');
+    i.type = 'color'; rs.title = 'Couleur du thème'; rs.style.display = 'none';
+    i.oninput = () => { setEdit(p, i.value); sync(k); schedule(); };
+    rs.onclick = ev => { ev.preventDefault(); setEdit(p, ''); sync(k); schedule(); };
+    w.append(i, el('span', null, cat.color_labels[k]), rs); cin[k] = {i, rs}; cg.append(w);
+  }
+  det.append(cg); box.append(det);
+  function sync(k) { const v = V('mapstyle', 'color_' + k); cin[k].i.value = v || presets[V('mapstyle', 'preset')].colors[k]; cin[k].rs.style.display = v ? '' : 'none'; }
+  function syncAll() { for (const k of colorKeys) sync(k); for (const id in cards) cards[id].c.classList.toggle('on', id === V('mapstyle', 'preset')); }
+  syncAll();
+  box.append(el('p', 'note', "Les noms de lieux, les routes et les autres éléments proviennent du fond vectoriel CARTO. Avec un fond clair, les avions jaunes ressortent moins : préférez un thème sombre pour un écran lisible de loin."));
+
+  /* génération de l'aperçu */
+  let busy = false, redo = false, timer = null, thumbsFor = '';
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  function schedule() { clearTimeout(timer); timer = setTimeout(refresh, 1300); }
+  async function refresh() {
+    if (!msAlive || !box.isConnected) return;
+    if (busy) { redo = true; return; }
+    busy = true; redo = false;
+    const g = geo(), gkey = JSON.stringify(g), thumbs = gkey !== thumbsFor;
+    msg.textContent = _t("Génération de l'aperçu…"); msg.classList.remove('err'); again.disabled = true;
+    if (isFinite(g.width) && isFinite(g.height) && g.height > 0) pvw.style.aspectRatio = g.width + ' / ' + g.height;
+    try {
+      await api('/api/mapstyle/preview', Object.assign({}, g, {style: styleNow(), cities: citiesNow(), presets: thumbs ? Object.keys(presets) : []}));
+      let st; for (let n = 0; n < 200; n++) { await sleep(1500); if (!msAlive) return; st = await api('/api/mapstyle/preview'); if (!st.running) break; }
+      if (st.error) throw new Error(st.error);
+      const t = '&t=' + Date.now();
+      img.src = '/api/mapstyle/img?name=current.png' + t;
+      if (thumbs) { for (const id in cards) { cards[id].th.style.visibility = ''; cards[id].th.src = '/api/mapstyle/img?name=preset_' + id + '.png' + t; } thumbsFor = gkey; }
+      msg.textContent = '';
+    } catch (e) { msg.textContent = e.message; msg.classList.add('err'); }
+    busy = false; again.disabled = false;
+    if (redo && msAlive) refresh();
+  }
+  again.onclick = () => { thumbsFor = ''; refresh(); };
+  refresh();
 }
 
 /* ---------- Sauvegarde et restauration ---------- */
