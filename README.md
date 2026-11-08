@@ -43,9 +43,9 @@ Ce projet n'est affilié ni à Flightradar24 ni à aucune compagnie. Les donnée
 
 ## Ce qu'il vous faut
 
-- **N'importe quel Raspberry Pi** : Zero, Zero 2 W, 3, 4, 5 ou Compute Module. Le Zero reste le plus économique ; à partir du Pi 3, l'affichage est plus fluide et la carte se construit beaucoup plus vite, mais les réglages ne changent pas.
+- **N'importe quel Raspberry Pi** : Zero W, Zero 2 W, 3, 4, 5 ou Compute Module. Le Zero W reste le plus économique ; à partir du Pi 3, l'affichage est plus fluide et la carte se construit beaucoup plus vite, mais les réglages ne changent pas.
 - Une carte microSD de 16 Go ou plus, un écran HDMI. Pour le son : haut-parleurs de l'écran, sortie casque si le modèle en a une, ou carte son USB (le Pi Zero n'a pas de prise jack).
-- Un accès Internet : Wi-Fi 2,4 GHz sur les Zero et Zero 2 W (pas de 5 GHz), Wi-Fi ou Ethernet sur les autres modèles.
+- **Un accès Internet, indispensable** : le Pi charge les positions des avions et les photos en ligne, et l'interface web se consulte à travers votre réseau. Wi-Fi 2,4 GHz sur les Zero W et Zero 2 W (pas de 5 GHz), Wi-Fi ou Ethernet sur les autres modèles. Le Pi Zero « simple », sans le W, n'a pas de Wi-Fi : il ne convient pas.
 - **Une clé API CARTO** (gratuite, voir ci-dessous), à saisir dans webadmin dès l'installation terminée. L'installation automatique démarre avec une carte fournie (aéroport de Bordeaux-Mérignac), mais la clé reste nécessaire pour construire la carte de votre position et pour personnaliser le style de la carte.
 
 ## Obtenir une clé API CARTO
@@ -71,7 +71,7 @@ Ce projet n'est affilié ni à Flightradar24 ni à aucune compagnie. Les donnée
 
 ## Installation en une commande
 
-1. Avec Raspberry Pi Imager, installez **Raspberry Pi OS Lite** sur la carte SD : 32-bit sur Zero et Zero 2 W, 64-bit possible sur les modèles plus récents. Dans la personnalisation, renseignez le nom d'hôte, un utilisateur, le Wi-Fi et activez SSH.
+1. Avec Raspberry Pi Imager, installez **Raspberry Pi OS Lite** sur la carte SD : 32-bit sur Zero W et Zero 2 W, 64-bit possible sur les modèles plus récents. Dans la personnalisation, renseignez le nom d'hôte, un utilisateur, le Wi-Fi et activez SSH.
 2. Pour une installation manuelle, munissez-vous de votre **clé API CARTO** (section précédente) ; l'installation automatique n'en a pas besoin au départ.
 3. Connectez-vous au Pi en SSH, puis tapez :
 

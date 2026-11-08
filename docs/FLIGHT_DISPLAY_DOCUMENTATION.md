@@ -242,7 +242,7 @@ Les sections 3 à 7 décrivent pas à pas ce que l'installeur automatique (secti
 ### 3.1 Flasher la carte SD
 
 1. Installer Raspberry Pi Imager sur votre ordinateur.
-2. Choisir l'appareil : Raspberry Pi Zero (ou Zero W).
+2. Choisir l'appareil : Raspberry Pi Zero W (le Pi Zero sans W n'a pas de Wi-Fi et ne convient pas).
 3. Choisir le système : Raspberry Pi OS (other), puis Raspberry Pi OS Lite (32-bit). Le Zero W n'a pas de processeur 64 bits.
 4. Choisir la carte SD.
 5. Dans la personnalisation (Edit Settings), renseigner :

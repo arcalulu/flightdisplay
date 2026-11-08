@@ -43,9 +43,9 @@ This project is not affiliated with Flightradar24 or with any airline. Flight da
 
 ## What you need
 
-- **Any Raspberry Pi**: Zero, Zero 2 W, 3, 4, 5 or Compute Module. The Zero is the cheapest; from the Pi 3 on, the display is smoother and the map builds much faster, but the settings do not change.
+- **Any Raspberry Pi**: Zero W, Zero 2 W, 3, 4, 5 or Compute Module. The Zero W is the cheapest; from the Pi 3 on, the display is smoother and the map builds much faster, but the settings do not change.
 - A microSD card of 16 GB or more, and an HDMI screen. For sound: the screen's speakers, the headphone jack if your model has one, or a USB sound card (the Pi Zero has no jack).
-- An Internet connection: 2.4 GHz Wi-Fi on the Zero and Zero 2 W (no 5 GHz), Wi-Fi or Ethernet on the other models.
+- **An Internet connection, required**: the Pi fetches aircraft positions and photos online, and the web interface is reached through your network. 2.4 GHz Wi-Fi on the Zero W and Zero 2 W (no 5 GHz), Wi-Fi or Ethernet on the other models. The plain Pi Zero, without the W, has no Wi-Fi: it is not suitable.
 - **A CARTO API key** (free, see below), to enter in webadmin as soon as the installation ends. The automatic installation starts with a supplied map (Bordeaux-Merignac airport), but the key is still needed to build the map of your position and to customize the map style.
 
 ## Get a CARTO API key
@@ -71,7 +71,7 @@ This project is not affiliated with Flightradar24 or with any airline. Flight da
 
 ## One-command installation
 
-1. With Raspberry Pi Imager, install **Raspberry Pi OS Lite** on the SD card: 32-bit on the Zero and Zero 2 W, 64-bit possible on newer models. In the customization options, set the hostname, a user, the Wi-Fi and enable SSH.
+1. With Raspberry Pi Imager, install **Raspberry Pi OS Lite** on the SD card: 32-bit on the Zero W and Zero 2 W, 64-bit possible on newer models. In the customization options, set the hostname, a user, the Wi-Fi and enable SSH.
 2. For a manual installation, have your **CARTO API key** ready (previous section); the automatic installation does not need it at first.
 3. Connect to the Pi over SSH, then type:
 
