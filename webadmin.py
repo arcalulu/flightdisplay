@@ -3101,7 +3101,7 @@ buildHome();
 setInterval(pollStatus, 4000);
 setInterval(tickClock, 1000);
 setInterval(() => { if (cur === 'log' && $('#logAuto').checked) loadLogs(); }, 3000);
-setInterval(() => { if (cur === 'cfg' && curCat === 'position') pollBuild(); }, 2000);
+setInterval(() => { if (cur === 'cfg' && (curCat === 'position' || curCat === 'mapstyle')) pollBuild(); }, 2000);
 setInterval(() => { if (updWasRunning || (cur === 'upd' && ++updTick % 7 === 0)) pollUpd(); }, 1500);
 pollStatus(); pollBuild();
 loadSettings().catch(e => toast(e.message, true));
