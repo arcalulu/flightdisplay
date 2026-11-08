@@ -1132,7 +1132,7 @@ def cancel_build():
     p.terminate()
 
 
-mapprev = dict(running=False, error="", t=0.0, files=[], w=0, h=0, lines="")
+mapprev = dict(running=False, error="", t=0.0, files=[], w=0, h=0, started=0.0, proc=None, cancel=False, lines=collections.deque(maxlen=200))
 mapprev_lock = threading.Lock()
 
 
@@ -1140,29 +1140,55 @@ def mapprev_dir():
     return os.path.join(S.APP_DIR, "cache", "mapprev")
 
 
+def mapprev_state():
+    with mapprev_lock:
+        m = mapprev
+        return dict(running=m["running"], error=tr(m["error"]) if m["error"] else "", files=list(m["files"]), w=m["w"], h=m["h"], t=m["t"],
+                    elapsed=int(time.time() - m["started"]) if m["running"] else 0, lines=list(m["lines"])[-60:])
+
+
 def _mapprev_worker(req):
     d = mapprev_dir()
     err, info = "", {}
+    log = mapprev["lines"].append
     try:
         os.makedirs(d, exist_ok=True)
         tiles = os.path.join(d, "tiles")
         if os.path.isdir(tiles) and len(os.listdir(tiles)) > 300:  # le cache de tuiles ne doit pas grossir sans limite
             shutil.rmtree(tiles, ignore_errors=True)
-        r = subprocess.run([S.PYTHON, "-u", S.BUILD_SCRIPT, "--preview", d], input=json.dumps(req), cwd=S.APP_DIR, capture_output=True,
-                           text=True, errors="replace", timeout=300)
-        out = (r.stdout + r.stderr).strip()
-        if r.returncode != 0:
-            last = [l for l in out.splitlines() if l.strip()][-3:]
+        p = subprocess.Popen([S.PYTHON, "-u", S.BUILD_SCRIPT, "--preview", d], cwd=S.APP_DIR, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                             stderr=subprocess.STDOUT, text=True, bufsize=1, errors="replace")
+        mapprev["proc"] = p
+        p.stdin.write(json.dumps(req))
+        p.stdin.close()
+        watchdog = threading.Timer(900, p.kill)  # filet de securite : un aperçu ne doit jamais rester bloque
+        watchdog.start()
+        try:
+            for line in p.stdout:
+                log(line.rstrip())
+            rc = p.wait()
+        finally:
+            watchdog.cancel()
+        if mapprev["cancel"]:
+            err = "Aperçu annulé."
+        elif rc != 0:
+            last = [l for l in list(mapprev["lines"])[-6:] if l.strip()][-3:]
             err = "L'aperçu n'a pas pu être généré : " + " / ".join(last)[-300:]
         else:
             with open(os.path.join(d, "preview.json"), encoding="utf-8") as fh:
                 info = json.load(fh)
-    except subprocess.TimeoutExpired:
-        err = "L'aperçu a pris trop de temps (réseau lent ?)."
     except Exception as e:
         err = "L'aperçu n'a pas pu être généré : " + str(e)
     with mapprev_lock:
-        mapprev.update(running=False, error=err, t=time.time(), files=info.get("files", []), w=info.get("w", 0), h=info.get("h", 0))
+        mapprev.update(running=False, error=err, t=time.time(), files=info.get("files", []), w=info.get("w", 0), h=info.get("h", 0), proc=None)
+
+
+def cancel_mapprev():
+    p = mapprev.get("proc")
+    if not mapprev["running"] or p is None:
+        raise ValueError("aucun aperçu en cours")
+    mapprev["cancel"] = True
+    p.terminate()
 
 
 def start_mapprev(body):
@@ -1191,7 +1217,8 @@ def start_mapprev(body):
     with mapprev_lock:
         if mapprev["running"]:
             raise ValueError("un aperçu est déjà en cours de génération")
-        mapprev.update(running=True, error="")
+        mapprev.update(running=True, error="", started=time.time(), cancel=False)
+        mapprev["lines"].clear()
     threading.Thread(target=_mapprev_worker, args=(req,), daemon=True).start()
 
 
@@ -1385,8 +1412,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(data)
             elif u.path == "/api/mapstyle/preview":
-                with mapprev_lock:
-                    self.send_json(dict(mapprev, error=tr(mapprev["error"]) if mapprev["error"] else ""))
+                self.send_json(mapprev_state())
             elif u.path == "/api/mapstyle/img":
                 name = parse_qs(u.query).get("name", [""])[0]
                 if not re.fullmatch(r"(current|preset_[a-z]+)\.png", name):
@@ -1478,6 +1504,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(dict(ok=True))
             if path == "/api/mapstyle/preview":
                 start_mapprev(body)
+                return self.send_json(dict(ok=True))
+            if path == "/api/mapstyle/cancel":
+                cancel_mapprev()
                 return self.send_json(dict(ok=True))
             if path == "/api/build/cancel":
                 cancel_build()
@@ -1685,6 +1714,7 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 .mscol{display:flex;align-items:center;gap:8px;font-size:13px}.mscol input[type=color]{width:34px;height:28px;padding:0;border:1px solid var(--line);border-radius:6px;background:none;flex:none}.mscol span{flex:1}
 .mscol .b{padding:2px 8px;flex:none}
 .note.err{color:var(--bad)}
+.mslogbox{margin:6px 0}.mslogbox summary{cursor:pointer;color:var(--mut);font-size:13px}.mslog{max-height:200px;overflow:auto;font:12px ui-monospace,Menlo,Consolas,monospace;background:#0b1118;border:1px solid var(--line);border-radius:8px;padding:8px;white-space:pre-wrap;margin:6px 0}
 .colpick{display:flex;align-items:center;gap:8px}.colpick input[type=color]{width:44px;height:32px;padding:0;border:1px solid var(--line);border-radius:6px;background:none}.colpick .b{padding:2px 8px}
 .tools.v{flex-direction:column;align-items:stretch;margin-top:8px}
 .tools select,.tools input[type=text]{padding:9px 10px;font-size:14px}
@@ -2447,8 +2477,10 @@ function renderMapStyle(box, cat) {
   /* aperçu */
   box.append(el('h2', 't', 'Aperçu'));
   const pvw = el('div', 'msprev'), img = document.createElement('img'); img.alt = ''; img.className = 'msimg'; pvw.append(img);
-  const msg = el('p', 'note'), again = el('button', 'b s', "Mettre à jour l'aperçu"); again.style.marginTop = '4px';
-  box.append(pvw, msg, again);
+  const msg = el('p', 'note'), again = el('button', 'b s', "Mettre à jour l'aperçu"), stop = el('button', 'b s', 'Annuler'); again.style.marginTop = '4px'; stop.style.display = 'none';
+  const lg = document.createElement('details'), lgs = document.createElement('summary'), log = document.createElement('pre'); lg.className = 'mslogbox'; lgs.textContent = _t('Suivi en direct'); log.className = 'mslog'; lg.append(lgs, log);
+  const bar = el('div', 'tools'); bar.append(again, stop);
+  box.append(pvw, msg, bar, lg);
   box.append(el('p', 'note', "Aperçu réel : il est dessiné par le même programme que la carte, pour la zone et le ratio de la page Carte et position (modifications non enregistrées comprises). Les polices peuvent différer légèrement."));
 
   /* thèmes */
@@ -2525,25 +2557,34 @@ function renderMapStyle(box, cat) {
   let busy = false, redo = false, timer = null, thumbsFor = '';
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   function schedule() { clearTimeout(timer); timer = setTimeout(refresh, 1300); }
+  const showLog = st => { log.textContent = st.lines.join('\n'); log.scrollTop = log.scrollHeight; };
   async function refresh() {
     if (!msAlive || !box.isConnected) return;
     if (busy) { redo = true; return; }
     busy = true; redo = false;
     const g = geo(), gkey = JSON.stringify(g), thumbs = gkey !== thumbsFor;
-    msg.textContent = _t("Génération de l'aperçu…"); msg.classList.remove('err'); again.disabled = true;
+    msg.classList.remove('err'); again.disabled = true; stop.style.display = ''; lg.open = true;
     if (isFinite(g.width) && isFinite(g.height) && g.height > 0) pvw.style.aspectRatio = g.width + ' / ' + g.height;
     try {
-      await api('/api/mapstyle/preview', Object.assign({}, g, {style: styleNow(), cities: citiesNow(), presets: thumbs ? Object.keys(presets) : []}));
-      let st; for (let n = 0; n < 200; n++) { await sleep(1500); if (!msAlive) return; st = await api('/api/mapstyle/preview'); if (!st.running) break; }
+      let st = await api('/api/mapstyle/preview');
+      if (st.running) redo = true;  // un aperçu était déjà en cours : on le suit, puis on relance avec les réglages actuels
+      else await api('/api/mapstyle/preview', Object.assign({}, g, {style: styleNow(), cities: citiesNow(), presets: thumbs ? Object.keys(presets) : []}));
+      for (;;) {
+        await sleep(1000); if (!msAlive) return;
+        st = await api('/api/mapstyle/preview'); showLog(st);
+        msg.textContent = _t("Génération de l'aperçu… {0} s", st.elapsed);
+        if (!st.running) break;
+      }
       if (st.error) throw new Error(st.error);
       const t = '&t=' + Date.now();
       img.src = '/api/mapstyle/img?name=current.png' + t;
-      if (thumbs) { for (const id in cards) { cards[id].th.style.visibility = ''; cards[id].th.src = '/api/mapstyle/img?name=preset_' + id + '.png' + t; } thumbsFor = gkey; }
-      msg.textContent = '';
+      if (thumbs && !redo) { for (const id in cards) { cards[id].th.style.visibility = ''; cards[id].th.src = '/api/mapstyle/img?name=preset_' + id + '.png' + t; } thumbsFor = gkey; }
+      msg.textContent = ''; lg.open = false;
     } catch (e) { msg.textContent = e.message; msg.classList.add('err'); }
-    busy = false; again.disabled = false;
+    busy = false; again.disabled = false; stop.style.display = 'none';
     if (redo && msAlive) refresh();
   }
+  stop.onclick = async () => { try { await api('/api/mapstyle/cancel', {}); redo = false; } catch (e) { toast(e.message, true); } };
   again.onclick = () => { thumbsFor = ''; refresh(); };
   refresh();
 }

@@ -693,7 +693,6 @@
   "Personnalisez le fond de carte : thème, éléments affichés, couleurs et noms de lieux. L'aperçu est dessiné avec le même programme que la carte. Il faut ensuite enregistrer puis reconstruire la carte.": "Customize the base map: theme, displayed elements, colors and place names. The preview is drawn by the same program as the map. Then save and rebuild the map.",
   "Aperçu réel : il est dessiné par le même programme que la carte, pour la zone et le ratio de la page Carte et position (modifications non enregistrées comprises). Les polices peuvent différer légèrement.": "Real preview: it is drawn by the same program as the map, for the area and ratio of the Map and position page (including unsaved changes). Fonts may differ slightly.",
   "Mettre à jour l'aperçu": "Refresh the preview",
-  "Génération de l'aperçu…": "Generating the preview…",
   "Éléments affichés": "Displayed elements",
   "Villes": "Cities",
   "Petites villes": "Towns",
@@ -717,6 +716,10 @@
   "Avions dont le type d'avion est connu.": "Aircraft whose type is known.",
   "Avions de type inconnu": "Unknown-type aircraft",
   "Types absents de la liste (voir Types d'avion).": "Types missing from the list (see Aircraft types).",
-  "Couleur par défaut": "Default color"
+  "Couleur par défaut": "Default color",
+  "Génération de l'aperçu… {0} s": "Generating the preview… {0} s",
+  "Suivi en direct": "Live progress",
+  "Aperçu annulé.": "Preview cancelled.",
+  "aucun aperçu en cours": "no preview in progress"
  }
 }

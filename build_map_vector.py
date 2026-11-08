@@ -1,4 +1,4 @@
-import configparser, gzip, hashlib, json, math, os, struct, sys
+import configparser, gzip, hashlib, json, math, os, struct, sys, time
 from collections import Counter
 import requests
 from PIL import Image, ImageDraw, ImageFont
@@ -108,6 +108,7 @@ def decode(b):
     return layers
 
 cosl = math.cos(math.radians(LAT))
+print("Connexion a CARTO...", flush=True)
 tj = requests.get(f"https://tiles.basemaps.cartocdn.com/vector/carto.streets/v2/tiles.json?key={KEY}", timeout=30)
 tj.raise_for_status(); tj = tj.json()
 tmpl = tj["tiles"][0].replace("{s}", "a")
@@ -161,12 +162,18 @@ if "--inspect" in sys.argv:
 
 def area(r): return sum(r[i][0] * r[(i + 1) % len(r)][1] - r[(i + 1) % len(r)][0] * r[i][1] for i in range(len(r))) / 2
 
-# L'apercu garde toutes les categories (les themes se dessinent a partir des memes tuiles) ; la construction seulement celles qui seront dessinees.
-KEEP = set(mapstyle._ENABLE) if PREVIEW else mapstyle.wanted(STYLE)
+# Seules les categories cochees sont lues (les themes de l'apercu se dessinent a partir des memes objets).
+KEEP = mapstyle.wanted(STYLE)
 draw_list = {k: [] for k in mapstyle._ENABLE}
+NT, done = (tx1 - tx0 + 1) * (ty1 - ty0 + 1), 0
+print(f"Zoom {Z} : {NT} tuile(s) a lire, categories : {', '.join(sorted(KEEP)) or 'aucune'}", flush=True)
 for tx in range(tx0, tx1 + 1):
     for ty in range(ty0, ty1 + 1):
-        for name, (ext, feats) in get_tile(tx, ty).items():
+        t_start = time.time()
+        tile_layers = get_tile(tx, ty)
+        done += 1
+        print(f"Tuile {done}/{NT} recue en {time.time() - t_start:.1f} s, lecture...", flush=True)
+        for name, (ext, feats) in tile_layers.items():
             def conv(r):
                 return [((tx * TILE + px / ext * TILE - x0) / cw * W * S,
                          (ty * TILE + py / ext * TILE - y0) / ch * H * S) for px, py in r]
@@ -226,6 +233,7 @@ if PREVIEW:
     os.makedirs(OUT, exist_ok=True)
     jobs = [("current", STYLE)] + [("preset_" + k, dict(STYLE, preset=k, colors={})) for k in REQ.get("presets", []) if k in mapstyle.PRESETS]
     for name, st in jobs:
+        print("Dessin : " + name, flush=True)
         img, cnt = make(st)
         img.resize((W, H), Image.LANCZOS).save(os.path.join(OUT, name + ".png"), optimize=True)
     json.dump({"lat": LAT, "lon": LON, "w": W, "h": H, "zoom": Z, "files": [n + ".png" for n, _ in jobs]}, open(os.path.join(OUT, "preview.json"), "w"))
