@@ -735,6 +735,9 @@
   "Petit texte « 5 km » au sommet du cercle.": "Small \"5 km\" text at the top of the circle.",
   "Utiliser la distance du premier cercle": "Use the distance of the first circle",
   "Le rayon d'alerte prend la distance du premier cercle (Carte et position, Cercles de distance). Désactivez pour fixer une autre distance.": "The alert radius takes the distance of the first circle (Map and position, Distance circles). Turn off to set another distance.",
-  "0 désactive toute l'alerte. Ignoré quand la distance du premier cercle est utilisée (option ci-dessous).": "0 turns the whole alert off. Ignored when the distance of the first circle is used (option below)."
+  "0 désactive toute l'alerte. Ignoré quand la distance du premier cercle est utilisée (option ci-dessous).": "0 turns the whole alert off. Ignored when the distance of the first circle is used (option below).",
+  "Revenir à cette version": "Go back to this version",
+  "version de secours": "fallback version",
+  "Cette version n'est pas une version de secours.": "This version is not a fallback version."
  }
 }

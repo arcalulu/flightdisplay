@@ -1541,7 +1541,7 @@ class Handler(BaseHTTPRequestHandler):
                 UPD.check()
                 return self.send_json(UPD.state())
             if path == "/api/update/rollback":
-                UPD.rollback()
+                UPD.rollback(body.get("hash"))
                 return self.send_json(dict(ok=True))
             if path == "/api/update/start":
                 UPD.start()
@@ -1634,7 +1634,7 @@ button.b:disabled{opacity:.45}
 @keyframes spin{to{transform:rotate(360deg)}}
 .stp.running .ic{display:inline-block;animation:spin 1s linear infinite}
 .cm{display:flex;gap:10px;padding:8px 14px;border-top:1px solid var(--line);font-size:14px}
-.cm:first-child{border-top:0}.cm code{white-space:nowrap;color:var(--mut);font:12px ui-monospace,Menlo,Consolas,monospace;flex:none;padding-top:2px}.cm span:nth-child(2){flex:1;min-width:0}.cm .chip{flex:none;align-self:flex-start}
+.cm:first-child{border-top:0}.cm code{white-space:nowrap;color:var(--mut);font:12px ui-monospace,Menlo,Consolas,monospace;flex:none;padding-top:2px}.cm span:nth-child(2){flex:1;min-width:0}.cm .chip{flex:none;align-self:flex-start}.cm .b{flex:none;align-self:flex-start;padding:3px 10px;font-size:12px}
 .lprev.sticky{z-index:4}
 .lprev{display:inline-block;background:#0a0e14;border:1px solid var(--line);border-radius:6px;padding:6px 10px;margin:4px 4px 10px;line-height:1.3}
 .lrow{padding:10px 14px;border-top:1px solid var(--line)}.lrow:first-child{border-top:0}
@@ -2954,10 +2954,10 @@ async function pollUpd() {
 async function quickUpdate() {
   try { await api('/api/update/start', {}); updWasRunning = true; updQuick = true; await pollUpd(); pollStatus(); } catch (e) { toast(e.message, true); }
 }
-async function startRollback() {
-  const pv = UPD && UPD.previous; if (!pv) return;
+async function startRollback(pv) {
+  if (!pv) return;
   if (!confirm(_t("Revenir à la version {0} ? L'affichage sera relancé, puis webadmin redémarrera.", pv.label))) return;
-  try { await api('/api/update/rollback', {}); updWasRunning = true; updQuick = false; await pollUpd(); } catch (e) { toast(e.message, true); }
+  try { await api('/api/update/rollback', {hash: pv.short}); updWasRunning = true; updQuick = false; await pollUpd(); } catch (e) { toast(e.message, true); }
 }
 async function checkUpd() {
   updBusy = true; renderUpd();
@@ -3020,8 +3020,7 @@ function renderUpd(lost) {
     last.style.display = 'flex'; last.className = 'ulast' + (bad ? ' bad' : ''); last.innerHTML = '';
     const txt = bad ? _t('Dernière tentative en échec : {0}', u.error) : (from && to && from !== to ? _t(u.mode === 'rollback' ? 'Retour arrière : {0} → {1}, {2}' : 'Dernière mise à jour : {0} → {1}, {2}', from, to, ago(u.finished)) : (u.done_msg || ''));
     last.append(el('span', 'ic', bad ? '✕' : '✓'), el('span', null, txt));
-    if (u.previous) { const rb = el('button', 'b s', _t('Revenir à {0}', u.previous.label)); rb.style.marginLeft = 'auto'; rb.onclick = e => { e.stopPropagation(); startRollback(); }; last.append(rb); }
-    const more = el('span', 'more'); more.style.marginLeft = u.previous ? '0' : 'auto'; more.append(el('span', 'chev' + (idleOpen ? '' : ' shut'), '▾'), el('span', null, 'Détails')); more.firstChild.style.cssText = 'display:inline-block;transition:transform .15s;margin-right:4px' + (idleOpen ? '' : ';transform:rotate(-90deg)');
+    const more = el('span', 'more'); more.style.marginLeft = 'auto'; more.append(el('span', 'chev' + (idleOpen ? '' : ' shut'), '▾'), el('span', null, 'Détails')); more.firstChild.style.cssText = 'display:inline-block;transition:transform .15s;margin-right:4px' + (idleOpen ? '' : ';transform:rotate(-90deg)');
     last.append(more); last.onclick = () => { updDetailsOpen = !idleOpen; renderUpd(); };
     det.style.display = idleOpen ? 'block' : 'none'; showOut = idleOpen;
     det.innerHTML = '';
@@ -3044,6 +3043,8 @@ function renderUpd(lost) {
       else if (!groups.length) groups.push({key: '_dev', title: 'En développement', sub: 'non publiée', items: []});
       groups[groups.length - 1].items.push(m);
     }
+    const isCur = m => u.current && m.short === u.current.short;
+    const fbOf = m => (m.new || isCur(m)) ? null : (u.fallbacks || []).find(f => m.short.startsWith(f.short) || f.short.startsWith(m.short));
     groups.forEach((g, gi) => {
       const shut = g.key in histShut ? histShut[g.key] : gi > 0;
       const head = el('div', 'vh' + (shut ? ' shut' : ''));
@@ -3051,6 +3052,7 @@ function renderUpd(lost) {
       if (g.sub) head.append(el('span', 'chip', g.sub));
       if (g.items.some(m => m.new)) head.append(el('span', 'chip ok', 'nouveau'));
       if (g.items.some(m => u.current && m.short === u.current.short)) head.append(el('span', 'chip', 'installée'));
+      if (g.items.some(m => fbOf(m))) head.append(el('span', 'chip', 'version de secours'));
       head.append(el('small', null, (g.date ? g.date + ' · ' : '') + _t(g.items.length > 1 ? '{0} commits' : '{0} commit', g.items.length)));
       const body = el('div', 'vb'); body.style.display = shut ? 'none' : 'block';
       head.onclick = () => { const s = body.style.display !== 'none'; body.style.display = s ? 'none' : 'block'; head.classList.toggle('shut', s); histShut[g.key] = s; };
@@ -3059,6 +3061,8 @@ function renderUpd(lost) {
         d.append(el('code', null, 'n°' + m.num + ' · ' + m.short + ' · ' + m.date), t);
         if (m.new) d.append(el('span', 'chip ok', 'nouveau'));
         if (u.current && m.short === u.current.short) d.append(el('span', 'chip', 'installé'));
+        const fb = fbOf(m);
+        if (fb) { const rb = el('button', 'b s', 'Revenir à cette version'); rb.title = fb.label; rb.onclick = () => startRollback(fb); d.append(rb); }
         body.append(d);
       }
       cl.append(head, body);

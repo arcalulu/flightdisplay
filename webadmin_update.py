@@ -20,6 +20,7 @@ STEPS = [  # (identifiant, libelle, poids dans la barre de progression)
     ("web", "Redémarrage de webadmin", 15),
 ]
 CHECK_EVERY = 12 * 3600
+MAX_FALLBACKS = 8
 MIN_FREE_MB = 100
 BRANCH_RE = re.compile(r"^[A-Za-z0-9._/-]+$")
 # Fichiers lus par le programme d'affichage (main.py) : si la mise a jour n'en touche aucun, inutile de le relancer.
@@ -76,6 +77,8 @@ class Updater:
         self.hist = []
         self.current = None
         self.previous = None  # version quittee par la derniere operation (pour le retour arriere)
+        self.fallbacks = []   # versions de secours : les versions quittees par les dernieres mises a jour (la plus recente d'abord)
+        self.rb_target = ""
         self._load()
         self._refresh_history()
 
@@ -93,7 +96,7 @@ class Updater:
             d = dict(ok=self.st["ok"], error=self.st["error"], done_msg=self.st["done_msg"], started=self.st["started"],
                      finished=self.st["finished"], from_label=self.st["from_label"], to_label=self.st["to_label"],
                      steps=self.st["steps"], lines=list(self.st["lines"]), check=self.st["check"],
-                     restarting=self.st["restarting"], running=self.st["running"], mode=self.st["mode"], previous=self.previous)
+                     restarting=self.st["restarting"], running=self.st["running"], mode=self.st["mode"], previous=self.previous, fallbacks=self.fallbacks)
         try:
             path = self._state_file()
             os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -119,6 +122,10 @@ class Updater:
                 st[k] = d[k]
         if isinstance(d.get("previous"), dict):
             self.previous = d["previous"]
+        if isinstance(d.get("fallbacks"), list):
+            self.fallbacks = [x for x in d["fallbacks"] if isinstance(x, dict) and x.get("hash")][:MAX_FALLBACKS]
+        elif self.previous and self.previous.get("hash"):
+            self.fallbacks = [self.previous]  # etat enregistre avant l'existence des versions de secours
         if isinstance(d.get("steps"), list) and len(d["steps"]) == len(STEPS):
             st["steps"] = d["steps"]
         st["lines"].extend(d.get("lines") or [])
@@ -149,6 +156,14 @@ class Updater:
             return None
         return dict(label=p.get("label", ""), date=p.get("date", ""), short=str(p.get("hash", ""))[:7])
 
+    def _push_fallback(self, h, label, date):
+        self.fallbacks = [dict(hash=h, label=label, date=date)] + [f for f in self.fallbacks if f.get("hash") != h]
+        del self.fallbacks[MAX_FALLBACKS:]
+
+    def _fallbacks_info(self):
+        cur = (self.current or {}).get("hash")
+        return [dict(label=f.get("label", ""), date=f.get("date", ""), short=str(f["hash"])[:7]) for f in self.fallbacks if f["hash"] != cur]
+
     def can_update(self):
         c = self.st.get("check")
         return bool(c and c.get("ok") and c.get("can_update"))
@@ -167,7 +182,7 @@ class Updater:
             return dict(running=st["running"], ok=st["ok"], error=tr(st["error"]), done_msg=tr(st["done_msg"]), started=st["started"],
                         finished=st["finished"], from_label=st["from_label"], to_label=st["to_label"], steps=steps,
                         pct=self._pct(), lines=[tr(l) for l in list(st["lines"])[-400:]], live=st["live"], check=check,
-                        restarting=st["restarting"], mode=st.get("mode", "update"), channel=self.S.UPDATE_CHANNEL, previous=self._previous_info(), auto=self.S.UPDATE_AUTO, history=[] if st["running"] or st["restarting"] else self.hist, current=self.current)
+                        restarting=st["restarting"], mode=st.get("mode", "update"), channel=self.S.UPDATE_CHANNEL, previous=self._previous_info(), fallbacks=self._fallbacks_info(), auto=self.S.UPDATE_AUTO, history=[] if st["running"] or st["restarting"] else self.hist, current=self.current)
 
     def _pct(self):
         total = sum(w for _, _, w in STEPS)
@@ -393,11 +408,18 @@ class Updater:
             self._log(text)
 
     # ------------------------------------------------------------ mise a jour
-    def rollback(self):
-        """Revient a la version quittee par la derniere mise a jour."""
-        info = self._previous_info()
-        if not info:
-            raise UpdateError("Aucune version précédente à restaurer.")
+    def rollback(self, target=None):
+        """Revient a une version de secours (par defaut, la version quittee par la derniere mise a jour)."""
+        if target:
+            target = str(target)
+            fb = next((f for f in self.fallbacks if len(target) >= 7 and str(f["hash"]).startswith(target)), None)
+            if not fb or fb["hash"] == (self.current or {}).get("hash"):
+                raise UpdateError("Cette version n'est pas une version de secours.")
+            self.rb_target = fb["hash"]
+        else:
+            if not self._previous_info():
+                raise UpdateError("Aucune version précédente à restaurer.")
+            self.rb_target = ""
         self.start("rollback")
 
     def start(self, mode="update"):
@@ -454,7 +476,7 @@ class Updater:
             self._begin(1)
             remote_ref = "origin/" + branch
             if back:
-                prev = (self.previous or {}).get("hash", "")
+                prev = self.rb_target or (self.previous or {}).get("hash", "")
                 if not prev or self._git("cat-file", "-e", prev + "^{commit}")[0] != 0:
                     raise UpdateError("Version précédente introuvable dans le dépôt local.")
                 latest = self._info(prev)
@@ -567,6 +589,7 @@ class Updater:
             self._begin(6)
             self._log("Redémarrage de webadmin pour charger la nouvelle version...")
             self.previous = dict(hash=old, label=cur["label"], date=cur["date"])
+            self._push_fallback(old, cur["label"], cur["date"])
             with self.mu:
                 self.st.update(running=False, restarting=True)
             self._save()
