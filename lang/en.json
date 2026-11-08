@@ -643,6 +643,8 @@
   "base OACI : {0}": "ICAO database: {0}",
   "Type introuvable dans la base OACI": "Type not found in the ICAO database",
   "La sauvegarde contient config.ini (réglages, avec ou sans les secrets), la liste des types d'avion, l'état du son et la carte déjà construite (background.png et map_meta.json). Les photos ne sont pas incluses.": "The backup contains config.ini (settings, with or without the secrets), the aircraft type list, the sound state and the map already built (background.png and map_meta.json). Photos are not included.",
-  "Modifier le type": "Change the type"
+  "Modifier le type": "Change the type",
+  "Le programme d'affichage n'est pas concerné par cette mise à jour : il continue sans interruption.": "The display program is not affected by this update: it keeps running without interruption.",
+  "non concerné par cette mise à jour : pas de relance": "not affected by this update: no restart"
  }
 }

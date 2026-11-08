@@ -22,6 +22,9 @@ STEPS = [  # (identifiant, libelle, poids dans la barre de progression)
 CHECK_EVERY = 12 * 3600
 MIN_FREE_MB = 100
 BRANCH_RE = re.compile(r"^[A-Za-z0-9._/-]+$")
+# Fichiers lus par le programme d'affichage (main.py) : si la mise a jour n'en touche aucun, inutile de le relancer.
+DISPLAY_FILES = {"main.py", "aircraft_types.py", "i18n.py", "requirements.txt"}
+DISPLAY_DIRS = ("lang/",)
 STABLE_TAG_RE = re.compile(r"^v\d+(\.\d+)*$")  # versions publiees (pas de pre-version type v1.3.0-rc1)
 
 # Dependances importees par build_map_vector.py et absentes du venv (meme analyse que install.sh).
@@ -45,6 +48,11 @@ for name in sorted(names):
     if importlib.util.find_spec(name) is None:
         print(name, alias.get(name, name))
 '''
+
+
+def display_affected(changed):
+    """True si l'un des fichiers modifies concerne le programme d'affichage."""
+    return any(f in DISPLAY_FILES or f.startswith(DISPLAY_DIRS) for f in changed)
 
 
 class UpdateError(ValueError):
@@ -510,7 +518,10 @@ class Updater:
 
             # 6. affichage
             self._begin(5)
-            if was_active and not self.screen_off():
+            if changed and not display_affected(changed):
+                self._log("Le programme d'affichage n'est pas concerné par cette mise à jour : il continue sans interruption.")
+                self._end(5, "skipped", "non concerné par cette mise à jour : pas de relance")
+            elif was_active and not self.screen_off():
                 self._log("Relance du programme d'affichage...")
                 ok, out = self._sudo_restart()
                 if not ok:
