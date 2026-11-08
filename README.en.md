@@ -4,7 +4,9 @@
 
 Real-time display of the aircraft flying around your home on a Raspberry Pi: vector map, photo cards, proximity alert (sound and red tint), a list of aircraft on the ground, and a web administration interface to set everything up from a phone or a computer (settings, map, logs, sound, screen sleep, MQTT / Home Assistant).
 
-<!-- Add a screenshot here: ![Flight display](docs/capture.png) -->
+![Flight display running: map, aircraft, photo card, distance circles and the list of aircraft on the ground](docs/flightdisplay.png)
+
+*Flight display on screen, around Bordeaux-Merignac airport. The photo credit (© its author, via JetPhotos) and the © OpenStreetMap contributors and © CARTO attributions are shown in the image.*
 
 ## Features
 

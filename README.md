@@ -4,7 +4,9 @@
 
 Affichage temps réel des avions autour de chez vous sur un Raspberry Pi : carte vectorielle, fiches photo, alerte de proximité (son et teinte rouge), liste des avions au sol, et une interface web d'administration pour tout régler depuis un téléphone ou un ordinateur (réglages, carte, logs, son, veille d'écran, MQTT / Home Assistant).
 
-<!-- Ajoutez ici une capture d'écran : ![Flight display](docs/capture.png) -->
+![Flight display en fonctionnement : carte, avions, fiche photo, cercles de distance et liste des avions au sol](docs/flightdisplay.png)
+
+*Flight display à l'écran, autour de l'aéroport de Bordeaux-Mérignac. Le crédit de la photo (© son auteur, via JetPhotos) et les attributions © OpenStreetMap contributors et © CARTO sont affichés dans l'image.*
 
 ## Fonctionnalités
 
