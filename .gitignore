@@ -10,6 +10,10 @@ types_extra.txt
 background.png
 map_meta.json
 cache/
+# ...sauf les copies fournies avec le logiciel (installation automatique, voir defaults/)
+!defaults/background.png
+!defaults/map_meta.json
+!defaults/types_extra.txt
 
 # Python
 venv/

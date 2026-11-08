@@ -7,10 +7,10 @@ language = fr
 
 [position]
 ; Coordonnées de votre domicile, en degrés décimaux (exemple : Paris, à remplacer)
-latitude = 48.8566
-longitude = 2.3522
+latitude = 44.82946
+longitude = -0.71531
 ; Rayon couvert par la carte (km)
-radius_km = 20
+radius_km = 30
 
 [map]
 ; Clé API CARTO, nécessaire pour construire la carte (lue par build_map_vector.py)
@@ -42,7 +42,7 @@ stale_seconds = 30
 
 [display]
 fullscreen = true
-fps = 3
+fps = 10
 altitude_unit = ft
 speed_unit = kmh
 max_altitude_ft = 0
@@ -70,15 +70,27 @@ corner_bottom_right = true
 [panel_content]
 ; Texte du panneau photo : ordre, affichage (show_*), taille (small, medium, large), gras, italique, même ligne
 ; Réglage conseillé depuis webadmin (Réglages, Panneau photo, onglet Contenu du texte). Le crédit du photographe se masque avec show_credit dans [panel].
-order = model,registration,callsign,airline,route,altitude,speed,credit
-show_callsign = false
+order = model,callsign,registration,airline,route,altitude,speed,credit
+show_callsign = true
+callsign_same_line = false
+callsign_size = medium
+registration_size = medium
+model_size = medium
+route_same_line = true
 
 [label]
 ; Étiquettes à côté des avions : ordre, affichage (show_*), taille (small, medium, large), gras, italique, même ligne
 ; Réglage conseillé depuis webadmin (Réglages, Étiquettes des avions). Seules les valeurs modifiées sont utiles.
-order = model,registration,callsign,airline,route,altitude,speed
-show_registration = false
-show_callsign = false
+show_registration = true
+order = model,callsign,registration,airline,route,altitude,speed
+registration_same_line = true
+model_bold = true
+registration_bold = true
+registration_size = small
+show_callsign = true
+callsign_size = small
+callsign_bold = true
+callsign_same_line = false
 
 [ground]
 show_list = true
@@ -93,7 +105,7 @@ landed_keep_minutes = 10
 [rings]
 ; Cercles de distance autour de la maison (tracés par le programme, sans reconstruire la carte)
 show = true
-count = 4
+count = 3
 first_km = 5
 step_km = 5
 width = 1

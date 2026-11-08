@@ -59,7 +59,7 @@ Ce projet n'est affilié ni à Flightradar24 ni à aucune compagnie. Les donnée
 bash <(curl -fsSL https://raw.githubusercontent.com/arcalulu/flightdisplay/main/install.sh)
 ```
 
-L'installeur pose toutes ses questions au début, mot de passe `sudo` compris (adresse ou coordonnées, clé API CARTO, mot de passe de l'interface web, MQTT facultatif, correctif d'écran, redémarrage final). Les saisies restent visibles, mots de passe compris. Il installe ensuite tout le nécessaire en affichant sa progression sur une seule ligne, construit la carte et démarre l'affichage et l'interface web. À la fin, un résumé donne l'adresse de l'interface (`http://<nom-du-pi>.local:8080`), l'identifiant et le mot de passe.
+Par défaut, l'installation est **automatique** : après un compte à rebours de 15 secondes (une touche ou Ctrl+C pour passer en manuel, ou `--manual`), elle s'installe seule avec une configuration d'exemple (aéroport de Bordeaux-Mérignac) et une carte fournie, sans MQTT ni mot de passe ; le programme démarre à la fin et vous réglez tout depuis webadmin. En manuel, l'installeur pose toutes ses questions au début, mot de passe `sudo` compris (adresse ou coordonnées, clé API CARTO, mot de passe de l'interface web, MQTT facultatif, correctif d'écran, redémarrage final). Les saisies restent visibles, mots de passe compris. Il installe ensuite tout le nécessaire en affichant sa progression sur une seule ligne, construit la carte et démarre l'affichage et l'interface web. À la fin, un résumé donne l'adresse de l'interface (`http://<nom-du-pi>.local:8080`), l'identifiant et le mot de passe.
 
 Sans `curl` : `sudo apt update && sudo apt install -y git && git clone https://github.com/arcalulu/flightdisplay.git ~/flightdisplay && bash ~/flightdisplay/install.sh`.
 

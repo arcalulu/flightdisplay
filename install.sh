@@ -5,7 +5,8 @@
 #  bash <(curl -fsSL https://raw.githubusercontent.com/arcalulu/flightdisplay/main/install.sh)
 #  ou / or : git clone https://github.com/arcalulu/flightdisplay.git ~/flightdisplay && bash ~/flightdisplay/install.sh
 #
-#  Options : --help  --dry-run  --lang fr|en  --yes (sans questions / no questions)   (voir --help)
+#  Par defaut / by default : installation automatique apres 15 s (configuration par defaut) / automatic install after 15 s
+#  Options : --help  --manual  --auto  --dry-run  --lang fr|en  --yes (sans questions / no questions)   (voir --help)
 #  Relancer le script met a jour le logiciel et conserve votre configuration.
 # =============================================================================
 set -uo pipefail
@@ -32,11 +33,19 @@ WARNINGS=()
 YES="${FD_YES:-}"
 LANG_UI="${FD_LANG:-}"
 HELP=""
+MANUAL="${FD_MANUAL:-}"     # installation classique : les questions sont posees
+FORCE_AUTO="${FD_AUTO:-}"   # installation automatique tout de suite, sans le delai de 15 s
+COUNTDOWN="${FD_COUNTDOWN:-15}"
+AUTO=""                     # positionne plus bas : installation automatique avec la configuration par defaut
+LANG_GUESS=""
+HAVE_TTY=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) DRY=1 ;;
     -y|--yes|--non-interactive) YES=1 ;;
+    --manual|--manuel) MANUAL=1 ;;
+    --auto) FORCE_AUTO=1 ;;
     --lang) LANG_UI="${2:-}"; [ $# -gt 1 ] && shift ;;
     --lang=*) LANG_UI="${1#--lang=}" ;;
     -h|--help) HELP=1 ;;
@@ -58,9 +67,16 @@ Flight display installer for Raspberry Pi OS Lite
 Options:
   --help              this help
   --dry-run           simulation: nothing is installed
-  --lang fr|en        language of the installer, of webadmin and of the screen (default: asked, else fr)
+  --manual            classic installation: the questions are asked one by one (position, map, CARTO key...)
+  --auto              automatic installation right away, without the 15-second wait
+  --lang fr|en        language of the installer, of webadmin and of the screen (default: the system language)
   --yes               no questions (also --non-interactive or FD_YES=1): answers come from the FD_* variables
                       and sudo must work without a password (sudo -n)
+
+Default: AUTOMATIC installation, with no question. A 15-second countdown lets you press a key (or Ctrl+C)
+to switch to the manual installation. Without a terminal (script), it starts immediately.
+It uses the sample configuration (airport of Bordeaux-Merignac), the ready-made map, no MQTT and no
+webadmin password. You then set everything from webadmin, and the program starts at the end.
 
 Variables for --yes (first installation; all optional except the position):
   FD_ADDRESS          your address (converted to coordinates)       or  FD_LAT and FD_LON
@@ -72,7 +88,7 @@ Variables for --yes (first installation; all optional except the position):
   FD_MQTT_HOST, FD_MQTT_PORT, FD_MQTT_USER, FD_MQTT_PASS   optional MQTT server
   FD_HDMI_FIX         1 (default) or 0: screen sleep fix      FD_AUTO_REBOOT   1 or 0 (default): reboot at the end
   FD_KEEP             1 (default) or 0: keep an existing config.ini
-Other: FD_DIR (folder), FD_BRANCH, FD_REPO_URL, FD_LOG, NO_COLOR=1.
+Other: FD_DIR (folder), FD_BRANCH, FD_REPO_URL, FD_LOG, FD_COUNTDOWN (seconds of the automatic mode wait, 0 = none), NO_COLOR=1.
 Running the script again later updates the software and keeps your configuration.
 USAGE_EN
   else cat <<'USAGE_FR'
@@ -83,9 +99,17 @@ Installeur de Flight display pour Raspberry Pi OS Lite
 Options :
   --help              cette aide
   --dry-run           simulation : rien n'est installé
-  --lang fr|en        langue de l'installeur, de webadmin et de l'écran (défaut : demandée, sinon fr)
+  --manual            installation classique : les questions sont posées une à une (position, carte, clé CARTO...)
+  --auto              installation automatique tout de suite, sans l'attente de 15 secondes
+  --lang fr|en        langue de l'installeur, de webadmin et de l'écran (défaut : la langue du système)
   --yes               sans questions (aussi --non-interactive ou FD_YES=1) : les réponses viennent des variables FD_*
                       et sudo doit fonctionner sans mot de passe (sudo -n)
+
+Par défaut : installation AUTOMATIQUE, sans aucune question. Un compte à rebours de 15 secondes permet
+d'appuyer sur une touche (ou Ctrl+C) pour passer à l'installation manuelle. Sans terminal (script), elle
+démarre tout de suite. Elle utilise la configuration d'exemple (aéroport de Bordeaux-Mérignac), la carte
+fournie, sans MQTT et sans mot de passe webadmin. Vous réglez ensuite tout depuis webadmin, et le
+programme démarre à la fin de l'installation.
 
 Variables pour --yes (première installation ; toutes facultatives sauf la position) :
   FD_ADDRESS          votre adresse (convertie en coordonnées)       ou  FD_LAT et FD_LON
@@ -97,7 +121,7 @@ Variables pour --yes (première installation ; toutes facultatives sauf la posit
   FD_MQTT_HOST, FD_MQTT_PORT, FD_MQTT_USER, FD_MQTT_PASS   serveur MQTT facultatif
   FD_HDMI_FIX         1 (défaut) ou 0 : correctif de veille d'écran      FD_AUTO_REBOOT   1 ou 0 (défaut) : redémarrer à la fin
   FD_KEEP             1 (défaut) ou 0 : conserver un config.ini existant
-Autres : FD_DIR (dossier), FD_BRANCH, FD_REPO_URL, FD_LOG, NO_COLOR=1.
+Autres : FD_DIR (dossier), FD_BRANCH, FD_REPO_URL, FD_LOG, FD_COUNTDOWN (secondes d'attente du mode automatique, 0 = aucune), NO_COLOR=1.
 Relancer le script plus tard met à jour le logiciel et conserve votre configuration.
 USAGE_FR
   fi
@@ -240,7 +264,27 @@ run_step() {  # libelle commande...
 soft() { SOFT=1 run_step "$@"; local rc=$?; SOFT=""; return $rc; }
 
 # ------------------------------------------------------------------ questions
-if [ -z "$YES" ]; then { exec 3<"$INPUT"; } 2>/dev/null || die "Aucun terminal interactif disponible (lancez la commande depuis une session SSH, ou utilisez --yes)."; fi
+if { exec 3<"$INPUT"; } 2>/dev/null; then HAVE_TTY=1; fi
+
+sys_lang() {  # langue du systeme : fr si le Pi est en francais, sinon en
+  case "$(printf '%s' "${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}" | tr '[:upper:]' '[:lower:]')" in fr*) echo fr ;; *) echo en ;; esac
+}
+
+countdown() {  # secondes : l'installation automatique demarre seule ; une touche ou Ctrl+C donne MANUAL=1
+  local n="$1" i key old
+  old=$(trap -p INT)
+  trap 'MANUAL=1' INT
+  pt '  %s%s%s\n' "$B" "$(L "Installation automatique : configuration par défaut (aéroport de Bordeaux-Mérignac, carte fournie, MQTT désactivé).")" "$R"
+  pt '  %s%s%s\n\n' "$DIM" "$(L "Appuyez sur une touche (ou Ctrl+C) pour passer à l'installation manuelle ; sinon elle démarre toute seule.")" "$R"
+  i="$n"
+  while [ "$i" -gt 0 ] && [ -z "$MANUAL" ]; do
+    printf '\r  %s%s%s' "$YEL" "$(Lf "Démarrage automatique dans %s s..." "$i")" "$R"
+    if IFS= read -r -s -n 1 -t 1 key <&3 2>/dev/null; then MANUAL=1; fi
+    i=$((i - 1))
+  done
+  eval "${old:-trap - INT}"
+  printf '\r\033[K'
+}
 
 ask() {  # variable "question" "defaut" [secret]
   local var="$1" q def="${3:-}" secret="${4:-}" ans
@@ -382,6 +426,19 @@ ask_webpw() {
       if [ "$p1" = "$p2" ]; then WEBPW="$p1"; ok "$(Lf 'Mot de passe retenu (%s caractères).' "${#WEBPW}")"; else warn "Les deux saisies diffèrent."; fi
     fi
   done
+}
+
+collect_auto() {  # installation automatique : aucune question, configuration d'exemple (Bordeaux-Merignac)
+  title "Installation automatique"
+  WEBPW=""; MQTT_ON=""; AUTO_REBOOT=""; HDMI_FIX=1
+  if [ -n "$KEEP" ]; then
+    info "Votre configuration est conservée : seul le logiciel est mis à jour."
+    return 0
+  fi
+  info "Position et réglages : configuration d'exemple (aéroport de Bordeaux-Mérignac)"
+  info "Fond de carte : la carte fournie avec le logiciel (aucune clé CARTO nécessaire pour démarrer)"
+  info "MQTT désactivé ; vous réglerez tout depuis webadmin à la fin de l'installation"
+  warn "Aucun mot de passe n'est défini pour webadmin : toute personne de votre réseau local peut le piloter. Définissez-en un dans webadmin (Réglages, Serveur web)."
 }
 
 collect_keep() {  # configuration conservée : on ne demande que ce qui manque
@@ -673,6 +730,24 @@ webadmin.py introuvable dans %s	webadmin.py not found in %s
 webadmin_mqtt.py introuvable dans %s	webadmin_mqtt.py not found in %s
 webadmin_update.py introuvable dans %s	webadmin_update.py not found in %s
 i18n.py introuvable dans %s	i18n.py not found in %s
+Installation automatique : configuration par défaut (aéroport de Bordeaux-Mérignac, carte fournie, MQTT désactivé).	Automatic installation: default configuration (Bordeaux-Merignac airport, ready-made map, MQTT disabled).
+Appuyez sur une touche (ou Ctrl+C) pour passer à l'installation manuelle ; sinon elle démarre toute seule.	Press a key (or Ctrl+C) to switch to the manual installation; otherwise it starts by itself.
+Démarrage automatique dans %s s...	Automatic start in %s s...
+Installation automatique sans terminal : sudo doit fonctionner sans mot de passe (sudo -n).	Automatic installation without a terminal: sudo must work without a password (sudo -n).
+Installation automatique	Automatic installation
+Votre configuration est conservée : seul le logiciel est mis à jour.	Your configuration is kept: only the software is updated.
+Position et réglages : configuration d'exemple (aéroport de Bordeaux-Mérignac)	Position and settings: sample configuration (Bordeaux-Merignac airport)
+Fond de carte : la carte fournie avec le logiciel (aucune clé CARTO nécessaire pour démarrer)	Base map: the map supplied with the software (no CARTO key needed to start)
+MQTT désactivé ; vous réglerez tout depuis webadmin à la fin de l'installation	MQTT disabled; you will set everything from webadmin at the end of the installation
+Aucun mot de passe n'est défini pour webadmin : toute personne de votre réseau local peut le piloter. Définissez-en un dans webadmin (Réglages, Serveur web).	No webadmin password is set: anyone on your local network can control it. Set one in webadmin (Settings, Web server).
+Dossier defaults/ introuvable : la carte devra être construite depuis webadmin	defaults/ folder not found: the map will have to be built from webadmin
+Carte de Bordeaux-Mérignac installée	Bordeaux-Merignac map installed
+Règles de types d'avion installées	Aircraft type rules installed
+  %sL'installation se déroule seule (plusieurs minutes, selon votre Pi et votre connexion).%s\n	  %sThe installation runs by itself (several minutes, depending on your Pi and your connection).%s\n
+Carte fournie (aéroport de Bordeaux-Mérignac) : aucune construction nécessaire	Supplied map (Bordeaux-Merignac airport): no build needed
+Carte fournie introuvable : construisez la carte depuis webadmin (Réglages, Carte et position) avec une clé CARTO.	Supplied map not found: build the map from webadmin (Settings, Map and position) with a CARTO key.
+  %sMot de passe%s   aucun : définissez-en un dans webadmin (Réglages, Serveur web)\n	  %sPassword%s       none: set one in webadmin (Settings, Web server)\n
+\n  %sPosition%s       aéroport de Bordeaux-Mérignac : réglez la vôtre dans webadmin (Réglages, Carte et position)\n	\n  %sPosition%s       Bordeaux-Merignac airport: set yours in webadmin (Settings, Map and position)\n
 EN_TABLE
 }
 
@@ -699,6 +774,7 @@ preflight() {
 need_sudo() {
   [ -n "$DRY" ] && return 0
   if [ -n "$YES" ]; then sudo -n true 2>/dev/null || die "Mode sans questions : sudo doit fonctionner sans mot de passe (sudo -n)."
+  elif [ -n "$AUTO" ] && [ -z "$HAVE_TTY" ]; then sudo -n true 2>/dev/null || die "Installation automatique sans terminal : sudo doit fonctionner sans mot de passe (sudo -n)."
   else
   pt '  %sLe mot de passe sudo peut vous être demandé une fois.%s\n' "$DIM" "$R"
   sudo -v || die "sudo est nécessaire."
@@ -774,10 +850,26 @@ PY
   done <<<"$list"
 }
 
+install_defaults() {  # carte et regles de types fournies (dossier defaults/) : copiees seulement si absentes
+  local d="$APP_DIR/defaults"
+  if [ ! -d "$d" ]; then echo "$(L 'Dossier defaults/ introuvable : la carte devra être construite depuis webadmin')"; return 0; fi
+  if [ ! -f background.png ] && [ ! -f map_meta.json ] && [ -f "$d/background.png" ] && [ -f "$d/map_meta.json" ]; then
+    cp "$d/background.png" "$d/map_meta.json" . && echo "$(L 'Carte de Bordeaux-Mérignac installée')"
+  fi
+  if [ ! -f types_extra.txt ] && [ -f "$d/types_extra.txt" ]; then
+    cp "$d/types_extra.txt" . && echo "$(L "Règles de types d'avion installées")"
+  fi
+}
+
 write_configs() {
   cd "$APP_DIR" || return 1
   [ -f config.ini ] || cp config.ini.example config.ini
-  if [ -z "$KEEP" ]; then
+  if [ -z "$KEEP" ] && [ -n "$AUTO" ]; then
+    # installation automatique : on garde les valeurs du modele (position, rayon, taille...), seule la langue suit le systeme
+    ini_set config.ini general language "${LANG_UI:-fr}"
+    ini_set config.ini display fullscreen true
+    install_defaults
+  elif [ -z "$KEEP" ]; then
     ini_set config.ini position latitude "$LAT"
     ini_set config.ini position longitude "$LON"
     ini_set config.ini position radius_km "$RADIUS"
@@ -1047,15 +1139,26 @@ check_web() {
 if [ -n "$UI" ]; then clear; fi
 if [ -z "$LANG_UI" ]; then
   if [ -n "$YES" ]; then LANG_UI=fr
-  else
-    printf '\n  Langue / Language :   1) Français   2) English   [1] : '
-    IFS= read -r _l <&3 || _l=""
-    case "$_l" in 2|en|EN|English|english) LANG_UI=en ;; *) LANG_UI=fr ;; esac
-    if [ -n "$UI" ]; then clear; fi
-  fi
+  else LANG_UI=$(sys_lang); LANG_GUESS=1; fi  # langue du systeme ; demandee seulement en installation manuelle
 fi
 if [ "$LANG_UI" = en ]; then load_en; fi
 banner
+if [ -z "$YES" ] && [ -z "$MANUAL" ]; then
+  # Installation automatique par defaut ; un delai laisse la possibilite de passer en manuel
+  if [ -n "$HAVE_TTY" ] && [ -z "$FORCE_AUTO" ] && [ "$COUNTDOWN" -gt 0 ] 2>/dev/null; then countdown "$COUNTDOWN"; fi
+  [ -n "$MANUAL" ] || AUTO=1
+fi
+if [ -n "$MANUAL" ]; then
+  [ -n "$HAVE_TTY" ] || die "Aucun terminal interactif disponible (lancez la commande depuis une session SSH, ou utilisez --yes)."
+  if [ -n "$LANG_GUESS" ]; then
+    printf '\n  Langue / Language :   1) Français   2) English   [%s] : ' "$([ "$LANG_UI" = en ] && echo 2 || echo 1)"
+    IFS= read -r _l <&3 || _l=""
+    case "$_l" in 2|en|EN|English|english) LANG_UI=en ;; 1|fr|FR|Français|francais) LANG_UI=fr ;; esac
+    if [ "$LANG_UI" = en ]; then load_en; fi
+    if [ -n "$UI" ]; then clear; fi
+    banner
+  fi
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
 if [ -f "$SCRIPT_DIR/main.py" ] && [ -f "$SCRIPT_DIR/build_map_vector.py" ]; then
@@ -1074,14 +1177,17 @@ KEEP=""
 if [ -f "$APP_DIR/config.ini" ]; then
   printf '\n'; warn "$(Lf 'Une configuration existe déjà dans %s.' "$APP_DIR")"
   if [ -n "$YES" ]; then [ "${FD_KEEP:-1}" = 1 ] && KEEP=1
+  elif [ -n "$AUTO" ]; then KEEP=1
   elif yesno "La conserver et ne mettre à jour que le logiciel ?" o; then KEEP=1; fi
 fi
 GENPW=""; LAT=""; LON=""; RADIUS=""; MAPW=""; MAPH=""; AIRPORT=""; CARTO_KEY=""; WEBPW=""; MQTT_ON=""; HDMI_FIX=""; NAME=""
 MQTT_HOST=""; MQTT_PORT=""; MQTT_USER=""; MQTT_PASS=""
-if [ -z "$KEEP" ]; then if [ -n "$YES" ]; then collect_env; else collect_answers; fi; else collect_keep; fi
+if [ -n "$AUTO" ]; then collect_auto
+elif [ -z "$KEEP" ]; then if [ -n "$YES" ]; then collect_env; else collect_answers; fi; else collect_keep; fi
 
 title "Installation"
-pt '  %sToutes les questions sont posées : l'"'"'installation se déroule maintenant sans intervention.%s\n' "$DIM" "$R"
+if [ -n "$AUTO" ]; then pt '  %sL'"'"'installation se déroule seule (plusieurs minutes, selon votre Pi et votre connexion).%s\n' "$DIM" "$R"
+else pt '  %sToutes les questions sont posées : l'"'"'installation se déroule maintenant sans intervention.%s\n' "$DIM" "$R"; fi
 
 step "Mise à jour de la liste des paquets"
 run_step "Téléchargement de la liste des paquets" apt_update
@@ -1109,6 +1215,12 @@ fi
 step "Construction de la carte"
 if [ -f "$APP_DIR/background.png" ] && [ -f "$APP_DIR/map_meta.json" ] && [ -n "$KEEP" ]; then
   ok "Carte déjà construite"; MAP_OK=1
+elif [ -n "$AUTO" ]; then
+  if [ -f "$APP_DIR/background.png" ] && [ -f "$APP_DIR/map_meta.json" ]; then
+    ok "Carte fournie (aéroport de Bordeaux-Mérignac) : aucune construction nécessaire"; MAP_OK=1
+  else
+    warn "Carte fournie introuvable : construisez la carte depuis webadmin (Réglages, Carte et position) avec une clé CARTO."
+  fi
 elif [ -z "$KEEP" ] && [ -z "$CARTO_KEY" ]; then
   warn "Clé CARTO absente : étape ignorée. Construisez la carte plus tard depuis webadmin (Réglages, Carte et position)."
 else
@@ -1150,9 +1262,14 @@ printf '  ║%*s%s%*s║
 printf '  ╚══════════════════════════════════════════════════════════╝%s\n\n' "$R"
 pt '  %sInterface web%s  http://%s.local:%s   ou   http://%s:%s\n' "$B" "$R" "$HOST" "$PORT" "${IP:-$(L adresse-ip)}" "$PORT"
 pt '  %sIdentifiant%s    %s\n' "$B" "$R" "$WEBUSER"
-if [ -n "$WEBPW" ]; then
+if [ -n "$AUTO" ] && [ -z "$KEEP" ]; then
+  pt '  %sMot de passe%s   aucun : définissez-en un dans webadmin (Réglages, Serveur web)\n' "$B" "$R"
+elif [ -n "$WEBPW" ]; then
   if [ -n "$GENPW" ]; then pt '  %sMot de passe%s   %s%s%s   (notez-le, il ne sera plus affiché)\n' "$B" "$R" "$YEL" "$WEBPW" "$R"
   else pt '  %sMot de passe%s   celui que vous avez saisi\n' "$B" "$R"; fi
+fi
+if [ -n "$AUTO" ] && [ -z "$KEEP" ]; then
+  pt '\n  %sPosition%s       aéroport de Bordeaux-Mérignac : réglez la vôtre dans webadmin (Réglages, Carte et position)\n' "$B" "$R"
 fi
 pt '\n  %sCommandes utiles%s  fd logs   fd status   fd restart\n' "$B" "$R"
 pt '  %sRéglages%s          tout se règle depuis l'"'"'interface web (onglet Réglages)\n' "$B" "$R"

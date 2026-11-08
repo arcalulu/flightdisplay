@@ -28,12 +28,12 @@ Cette documentation couvre l'installation automatique en une commande, l'install
 
 ## 0. Démarrage rapide : installation automatique
 
-L'installeur `install.sh` fait tout le travail des sections 3 à 7 : il pose quelques questions, installe les paquets, récupère le projet, construit la carte, crée les services et démarre l'affichage et webadmin. C'est la méthode recommandée.
+L'installeur `install.sh` fait tout le travail des sections 3 à 7 : il installe les paquets, récupère le projet, installe la carte, crée les services et démarre l'affichage et webadmin. Par défaut, il s'installe **tout seul**, avec une configuration d'exemple (aéroport de Bordeaux-Mérignac) que vous réglez ensuite depuis webadmin ; en mode manuel (`--manual`), il pose d'abord quelques questions. C'est la méthode recommandée.
 
 ### 0.1 Avant de commencer
 
 1. Avec Raspberry Pi Imager, installez Raspberry Pi OS Lite (32-bit) sur la carte SD (voir 3.1). Dans la personnalisation, renseignez le nom d'hôte, un utilisateur, le Wi-Fi et activez SSH.
-2. Tenez prêts : votre adresse (ou vos coordonnées), votre clé API CARTO (gratuite, voir 2 et le README), et si vous le souhaitez les identifiants de votre serveur MQTT.
+2. Pour une installation manuelle, tenez prêts : votre adresse (ou vos coordonnées), votre clé API CARTO (gratuite, voir 2 et le README), et si vous le souhaitez les identifiants de votre serveur MQTT. L'installation automatique n'a besoin de rien.
 3. Connectez-vous au Pi en SSH : `ssh <utilisateur>@<nom-du-pi>.local`.
 
 ### 0.2 La commande
@@ -52,7 +52,22 @@ bash ~/flightdisplay/install.sh
 
 Ne lancez pas le script avec `sudo` : il utilise votre utilisateur normal et demande le mot de passe sudo au début, avant la première étape. Il fonctionne avec n'importe quel nom d'utilisateur.
 
+**Installation automatique (par défaut).** Au lancement, un compte à rebours de 15 secondes s'affiche. Appuyez sur une touche (ou Ctrl+C) pour passer à l'installation manuelle ; sinon l'installation démarre seule, sans aucune question :
+
+- la configuration est celle de `config.ini.example` (aéroport de Bordeaux-Mérignac, rayon 30 km) ;
+- la carte est fournie : `defaults/background.png` et `defaults/map_meta.json` sont copiés à la racine, sans clé CARTO ni construction. Les règles de types d'avion de `defaults/types_extra.txt` sont copiées aussi. Les fichiers déjà présents ne sont jamais écrasés ;
+- MQTT est désactivé et **aucun mot de passe webadmin n'est défini** (l'installeur le signale : définissez-en un dans Réglages, Serveur web) ;
+- le correctif de veille d'écran est appliqué, sans redémarrage automatique ;
+- le programme d'affichage démarre dès la fin de l'installation ; vous réglez ensuite votre position (carte de choix dans Réglages, Carte et position), la clé CARTO, le style et le reste depuis webadmin ;
+- la langue est celle du système (français si le Pi est en français, sinon anglais) ; `--lang fr` ou `--lang en` la force ;
+- sans terminal (installation lancée par un script), elle démarre immédiatement, et `sudo` doit alors fonctionner sans mot de passe ;
+- si une configuration existe déjà, elle est conservée : seul le logiciel est mis à jour.
+
+`--manual` lance l'installation classique (les questions ci-dessous) ; `--auto` démarre l'installation automatique sans attendre les 15 secondes.
+
 ### 0.3 Les questions
+
+Ces questions ne sont posées qu'en installation manuelle : avec `--manual`, ou si vous interrompez le compte à rebours de l'installation automatique.
 
 | Question | Détail |
 |---|---|
@@ -105,11 +120,14 @@ Si `config.ini` existe déjà, l'installeur propose de le conserver : il met alo
 |---|---|
 | `--dry-run` | Simulation : le script déroule toutes les étapes sans rien installer. Utile pour voir ce qu'il va faire. |
 | `--help` | Affiche l'aide. |
+| `--manual`, `FD_MANUAL=1` | Installation classique : les questions sont posées (0.3). |
+| `--auto`, `FD_AUTO=1` | Installation automatique tout de suite, sans le compte à rebours. |
+| `FD_COUNTDOWN` | Durée du compte à rebours de l'installation automatique, en secondes (15 par défaut, `0` = aucun). |
 | `FD_DIR` | Dossier d'installation (par défaut `~/flightdisplay`, ou le dossier du script s'il est lancé depuis un clone). |
 | `FD_REPO_URL`, `FD_BRANCH` | Dépôt et branche à cloner. |
 | `FD_LOG` | Fichier journal (par défaut `~/flightdisplay-install.log`). |
 | `NO_COLOR=1` | Désactive les couleurs. |
-| `--lang fr\|en`, `FD_LANG` | Langue de l'installeur, de webadmin et de l'écran. Sans option, l'installeur la demande au début (français par défaut). Écrite dans `[general] language`. |
+| `--lang fr\|en`, `FD_LANG` | Langue de l'installeur, de webadmin et de l'écran. Sans option : la langue du système en installation automatique, une question au début en installation manuelle. Écrite dans `[general] language`. |
 | `--yes`, `--non-interactive`, `FD_YES=1` | Mode sans questions (voir ci-dessous). |
 
 **Mode sans questions.** Avec `--yes`, l'installeur ne lit rien au clavier : il prend ses réponses dans des variables d'environnement et utilise `sudo -n` (sudo doit fonctionner sans mot de passe, ce qui est le cas par défaut sur Raspberry Pi OS). Exemple :
