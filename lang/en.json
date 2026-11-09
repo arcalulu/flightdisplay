@@ -460,6 +460,7 @@
   "Version {0}": "Version {0}",
   "En développement": "In development",
   "non publiée": "unreleased",
+  "non publiée · après {0}": "unreleased · after {0}",
   "nouveau": "new",
   "installée": "installed",
   "installé": "installed",

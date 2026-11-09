@@ -3098,10 +3098,11 @@ function renderUpd(lost) {
   if (u.history && u.history.length && !busy) {
     nw.style.display = 'block';
     // Une version = une étiquette git (vX.Y.Z) : elle regroupe son commit et les commits plus anciens jusqu'à l'étiquette précédente.
-    const groups = [];
+    const groups = [], newest = u.history.find(m => m.tag);  // version publiée la plus récente : les commits qui la suivent sont numérotés v1.5.2-1, -2...
+    const vlab = m => m.tag ? m.tag : (newest && m.num > newest.num ? newest.tag + '-' + (m.num - newest.num) : '');
     for (const m of u.history) {
       if (m.tag) groups.push({key: m.tag, title: _t('Version {0}', m.tag.replace(/^v/, '')), date: m.date, items: []});
-      else if (!groups.length) groups.push({key: '_dev', title: 'En développement', sub: 'non publiée', items: []});
+      else if (!groups.length) groups.push({key: '_dev', title: 'En développement', sub: newest ? _t('non publiée · après {0}', newest.tag) : 'non publiée', items: []});
       groups[groups.length - 1].items.push(m);
     }
     const isCur = m => u.current && m.short === u.current.short;
@@ -3119,7 +3120,7 @@ function renderUpd(lost) {
       head.onclick = () => { const s = body.style.display !== 'none'; body.style.display = s ? 'none' : 'block'; head.classList.toggle('shut', s); histShut[g.key] = s; };
       for (const m of g.items) {
         const d = el('div', 'cm'), t = el('span', null, m.subject);
-        d.append(el('code', null, 'n°' + m.num + ' · ' + m.short + ' · ' + m.date), t);
+        const vl = vlab(m); d.append(el('code', null, (vl ? vl + ' · ' : '') + m.short + ' · ' + m.date), t);
         if (m.new) d.append(el('span', 'chip ok', 'nouveau'));
         if (u.current && m.short === u.current.short) d.append(el('span', 'chip', 'installé'));
         const fb = fbOf(m);
