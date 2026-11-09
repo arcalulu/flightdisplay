@@ -2429,7 +2429,7 @@ function renderMapPicker(box) {
   if (!pLat || !pLon || !pRad || !pW || !pH) return;
   const num = (p, d) => { const v = parseFloat(String(pval(p)).replace(',', '.')); return isFinite(v) ? v : d; };
   box.append(el('h2', 't', 'Position et zone affichée'));
-  box.append(el('p', 'note', "Cliquez sur la carte ou faites glisser le repère pour placer votre position. Le rectangle jaune est la zone que le programme affichera ; les cercles gris sont les cercles de distance, le cercle rouge la distance d'alerte. Les valeurs sont écrites dans les champs plus bas ; il faut ensuite enregistrer puis reconstruire la carte."));
+  box.append(el('p', 'note', "Cliquez sur la carte ou faites glisser le repère pour placer votre position. Le rectangle jaune est la zone que le programme affichera ; les cercles gris sont les cercles de distance. Les valeurs sont écrites dans les champs plus bas ; il faut ensuite enregistrer puis reconstruire la carte."));
   const sr = el('div', 'tools'), q = document.createElement('input'); q.type = 'text'; q.placeholder = 'Rechercher une adresse ou un lieu'; q.autocomplete = 'off';
   const go = el('button', 'b s', 'Chercher'); go.style.flex = 'none'; sr.append(q, go); box.append(sr);
   const res = el('p', 'note'); res.style.display = 'none'; box.append(res);
@@ -2461,7 +2461,6 @@ function renderMapPicker(box) {
     st.rings.clearLayers(); st.ringsPv.clearLayers();
     const on = String(pval(RP('rings.show'))) === 'true', n = parseInt(pval(RP('rings.count'))) || 0, f = parseFloat(pval(RP('rings.first_km'))) || 5, stp = parseFloat(pval(RP('rings.step_km'))) || 5;
     const w = parseInt(pval(RP('rings.width'))) || 1, col = pval(RP('rings.color')) || '#2d3746', lab = String(pval(RP('rings.show_labels'))) === 'true';
-    const link = String(pval(RP('alert.link_first_ring'))) === 'true', ak = link ? f : (parseFloat(pval(RP('alert.radius_km'))) || 0);
     if (on) for (let i = 0; i < n; i++) {
       const km = f + i * stp; if (km > R) break;
       for (const [grp, color, wt] of [[st.rings, '#8aa0bd', 1], [st.ringsPv, col, w]]) {
@@ -2469,7 +2468,6 @@ function renderMapPicker(box) {
         if (lab && grp === st.rings) L.marker(L.latLng(ll.lat + km / 110.574, ll.lng), {interactive: false, icon: L.divIcon({className: 'mpring', html: '<span>' + (Math.round(km * 100) / 100) + ' km</span>', iconSize: [50, 14], iconAnchor: [25, 14]})}).addTo(grp);
       }
     }
-    if (ak > 0) L.circle(ll, {radius: ak * 1000, color: '#ff4646', weight: 2, fillColor: '#ff4646', fillOpacity: 0.08, interactive: false}).addTo(st.rings);
   }
   function refresh(fit) {
     if (!st.alive || !st.big) return;

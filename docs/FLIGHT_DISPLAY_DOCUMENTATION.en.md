@@ -723,7 +723,7 @@ Changing one of these three values requires rebuilding the map (webadmin says so
 | `color` | `#2d3746` | `#rrggbb` | Circle color. |
 | `show_labels` | `false` | `true` / `false` | Writes the distance ("5 km") at the top of each circle. |
 
-The position picker map in webadmin draws these circles (gray) and the alert circle (red): they move live when you change the values.
+The position picker map in webadmin draws these circles (gray): they move live when you change the values.
 
 ### 8.3 `[map]` — category "Map and position", group "Base map"
 

@@ -723,7 +723,7 @@ Modifier l'une de ces trois valeurs oblige à reconstruire la carte (webadmin l'
 | `color` | `#2d3746` | `#rrggbb` | Couleur des cercles. |
 | `show_labels` | `false` | `true` / `false` | Écrit la distance (« 5 km ») au sommet de chaque cercle. |
 
-La carte de choix de la position de webadmin dessine ces cercles (gris) et le cercle d'alerte (rouge) : ils bougent en direct quand vous changez les valeurs.
+La carte de choix de la position de webadmin dessine ces cercles (gris) : ils bougent en direct quand vous changez les valeurs.
 
 ### 8.3 `[map]` — catégorie « Carte et position », groupe « Fond de carte »
 
