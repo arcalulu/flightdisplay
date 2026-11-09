@@ -227,8 +227,8 @@ LANGS = i18n.languages()
 PARAMS = [
     C("language", "general", "language", "choice", "fr", "Langue", "", "Langue", options=[l["code"] for l in LANGS],
       labels={l["code"]: l["name"] for l in LANGS}),
-    C("position", "position", "latitude", "float", "", "Latitude", "Degrés décimaux (ex. 44.8378).", "Maison", min=-90, max=90, needs_map=True),
-    C("position", "position", "longitude", "float", "", "Longitude", "Degrés décimaux (ex. -0.5792).", "Maison", min=-180, max=180, needs_map=True),
+    C("position", "position", "latitude", "float", "", "Latitude", "Degrés décimaux (ex. 44.8378).", "Coordonnées GPS", min=-90, max=90, needs_map=True),
+    C("position", "position", "longitude", "float", "", "Longitude", "Degrés décimaux (ex. -0.5792).", "Coordonnées GPS", min=-180, max=180, needs_map=True),
     C("position", "position", "radius_km", "float", 20, "Rayon de la carte (km)", "Distance couverte par la carte.", "Carte", min=1, max=200, needs_map=True),
     C("position", "map", "carto_key", "secret", "", "Clé API CARTO", "Nécessaire pour construire la carte (lue par build_map_vector.py).", "Fond de carte", needs_map=True),
     
@@ -1727,7 +1727,9 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 .hint .btns{display:flex;gap:8px;margin-top:8px}.hint .btns button{flex:1}
 .tools{display:flex;gap:8px;margin-bottom:8px;align-items:center}.tools>*{flex:1}
 .mpbig{height:380px;border-radius:12px;border:1px solid var(--line);margin:10px 0;overflow:hidden;background:#0e141b}
-.mprad{margin:8px 0}.mprad b{flex:none;margin-right:10px}.mprad input{flex:1}
+.mpbig .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.8) saturate(.55)}
+.mprad{margin:8px 0}.mprad b{flex:none;margin-right:10px;min-width:84px;font-weight:500}.mprad input{flex:1}
+.mpcnt{display:flex;align-items:center;gap:6px}.mpcnt button{width:34px;height:34px;padding:0;border-radius:8px;border:1px solid var(--line);background:#1b2431;color:var(--txt);font-size:18px;line-height:1}.mpcnt span{min-width:30px;text-align:center;font-variant-numeric:tabular-nums}
 .mppv{width:100%;max-width:640px;border-radius:10px;border:1px solid var(--line);overflow:hidden;background:#0e141b;margin:8px 0}
 .mpprev{width:100%;height:100%}.mpprev .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.72) saturate(.5)}
 .mpring span{display:block;text-align:center;font:11px/14px inherit;color:#e6edf3;text-shadow:0 0 3px #000,0 0 3px #000}
@@ -2425,6 +2427,12 @@ function renderMapPicker(box) {
   const big = el('div', 'mpbig'); box.append(big);
   const rw = el('div', 'sl mprad'), rl = el('b', null, 'Rayon'), rr = document.createElement('input'), rv = el('span');
   rr.type = 'range'; rr.min = 1; rr.max = 200; rr.step = 1; rr.value = Math.max(1, Math.min(200, Math.round(num(pRad, 20)))); rw.append(rl, rr, rv); box.append(rw);
+  // cercles de distance : 1er cercle et nombre (visibles seulement si les cercles sont affichés)
+  const fw = el('div', 'sl mprad'), fl = el('b', null, '1er cercle'), fr = document.createElement('input'), fv = el('span');
+  fr.type = 'range'; fr.min = 0.5; fr.step = 0.5; fw.append(fl, fr, fv);
+  const cw = el('div', 'sl mprad'), cl = el('b', null, 'Cercles'), cnt = el('div', 'mpcnt'), cm = el('button', null, '−'), cv = el('span'), cp = el('button', null, '+');
+  cm.type = cp.type = 'button'; cm.title = tl('Moins de cercles'); cp.title = tl('Plus de cercles'); cnt.append(cm, cv, cp); cw.append(cl, cnt);
+  box.append(fw, cw);
   const info = el('p', 'note'); box.append(info);
   box.append(el('h2', 't', "Aperçu sur l'écran"));
   const pvw = el('div', 'mppv'), pv = el('div', 'mpprev'); pvw.append(pv); box.append(pvw);
@@ -2456,6 +2464,12 @@ function renderMapPicker(box) {
     if (!st.alive || !st.big) return;
     const g = bounds(), W = num(pW, 1920), H = num(pH, 1080), R = num(pRad, 20);
     rv.textContent = Math.round(R * 10) / 10 + ' km';
+    const rp = RP('rings.show');
+    if (rp) {
+      const on = String(pval(rp)) === 'true', f0 = num(RP('rings.first_km'), 5), n0 = parseInt(pval(RP('rings.count'))) || 0;
+      fw.style.display = cw.style.display = on ? '' : 'none';
+      fr.max = Math.max(1, Math.round(R)); fr.value = Math.max(0.5, Math.min(+fr.max, f0)); fv.textContent = Math.round(f0 * 10) / 10 + ' km'; cv.textContent = n0;
+    }
     if (W > 0 && H > 0) { pvw.style.aspectRatio = W + ' / ' + H; const d = gcd(Math.round(W), Math.round(H)) || 1; var ratio = Math.round(W / d) + ':' + Math.round(H / d); }
     if (!g) { info.textContent = _t('Choisissez une position sur la carte.'); return; }
     const kmW = 2 * g.R * g.W / g.H, kmH = 2 * g.R;
@@ -2473,6 +2487,9 @@ function renderMapPicker(box) {
     syncInput(pLat); syncInput(pLon); refresh(fit);
   }
   rr.oninput = () => { setEdit(pRad, String(rr.value)); syncInput(pRad); refresh(false); };
+  fr.oninput = () => { const p = RP('rings.first_km'); setEdit(p, String(fr.value)); syncInput(p); refresh(false); };
+  const stepCount = d => { const p = RP('rings.count'), n = Math.max(0, Math.min(30, (parseInt(pval(p)) || 0) + d)); setEdit(p, String(n)); syncInput(p); refresh(false); };
+  cm.onclick = () => stepCount(-1); cp.onclick = () => stepCount(1);
   rr.onchange = () => refresh(true);
   box.oninput = box.onchange = ev => { const t = ev.target; if (t && t.dataset && t.dataset.pid) { if (!st.alive) return; refresh(false); const sl = Math.round(num(pRad, 20)); if (String(sl) !== rr.value && sl >= 1 && sl <= 200) rr.value = sl; } };
   const search = async () => {
@@ -2493,8 +2510,8 @@ function renderMapPicker(box) {
     st.pv = L.map(pv, {zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false, zoomSnap: 0, attributionControl: true});
     tiles().addTo(st.pv); st.pv.attributionControl.setPrefix('');
     st.mk = L.marker([0, 0], {draggable: true, icon: L.divIcon({className: 'mppin', html: '<i></i>', iconSize: [22, 22], iconAnchor: [11, 11]})});
-    st.circle = L.circle([0, 0], {radius: 1, color: '#ffd250', weight: 2, dashArray: '6 6', fill: false, interactive: false});
-    st.rect = L.rectangle([[0, 0], [1, 1]], {color: '#ffd250', weight: 2, fillColor: '#ffd250', fillOpacity: 0.06, interactive: false});
+    st.circle = L.circle([0, 0], {radius: 1, color: '#ffd250', weight: 3, dashArray: '8 6', fill: false, interactive: false});
+    st.rect = L.rectangle([[0, 0], [1, 1]], {color: '#ffd250', weight: 3, fillColor: '#ffd250', fillOpacity: 0.08, interactive: false});
     st.home = L.circleMarker([0, 0], {radius: 5, color: '#ffc83c', fillColor: '#ffc83c', fillOpacity: 1, weight: 1, interactive: false});
     st.rings = L.layerGroup().addTo(st.big); st.ringsPv = L.layerGroup().addTo(st.pv);
     st.mk.on('dragend', () => { const l = st.mk.getLatLng(); setPos(l.lat, l.lng, false); });
