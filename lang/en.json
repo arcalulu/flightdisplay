@@ -414,6 +414,7 @@
   "il y a {0} h": "{0} h ago",
   "il y a {0} j": "{0} d ago",
   "Version installée": "Installed version",
+  "commit": "commit",
   "1er cercle": "1st circle",
   "Cercles": "Circles",
   "Moins de cercles": "Fewer circles",

@@ -1691,6 +1691,7 @@ button.b:disabled{opacity:.45}
 .uver{font-size:22px;font-weight:600}.uver.new{color:var(--ok)}.uarr{color:var(--mut);margin:0 8px;font-size:18px}
 .usub{font-size:12px;color:var(--mut);margin-top:4px}
 .ubtns{display:flex;gap:8px}
+.ucm{display:inline-flex;flex-direction:column;align-items:flex-start;gap:2px}.ucm small{font-size:10px;line-height:1;color:var(--mut);margin-left:7px;letter-spacing:.03em}.ucm .chip{font-family:ui-monospace,Consolas,monospace;font-size:11px;padding:2px 8px}
 .ulab{margin:0 0 2px}.uvr{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.ubig{font-size:28px;font-weight:600;line-height:1.1}
 .ustat{font-size:14px;margin-top:8px;display:flex;gap:7px;align-items:baseline}.ustat.new{color:var(--ok)}.ustat.bad{color:#ffb4ae}
 .uside{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
@@ -2986,7 +2987,7 @@ async function quickUpdate() {
 }
 async function startRollback(pv) {
   if (!pv) return;
-  if (!confirm(_t("Revenir à la version {0} ? L'affichage sera relancé, puis webadmin redémarrera.", pv.label))) return;
+  if (!confirm(_t("Revenir à la version {0} ? L'affichage sera relancé, puis webadmin redémarrera.", vbase(pv.label)))) return;
   try { await api('/api/update/rollback', {hash: pv.short}); updWasRunning = true; updQuick = false; await pollUpd(); } catch (e) { toast(e.message, true); }
 }
 async function checkUpd() {
@@ -2998,6 +2999,7 @@ async function startUpd() {
   try { await api('/api/update/start', {}); updWasRunning = true; await pollUpd(); } catch (e) { toast(e.message, true); }
 }
 let updDetailsOpen = null, updLogOpen = false, updQuick = false;
+const vbase = l => String(l || '').replace(/-g[0-9a-f]{7,}$/, '');  // v1.5.2-2-g43d42dd -> v1.5.2-2 (le commit est affiché à part)
 function renderUpd(lost) {
   if (!UPD) return;
   const u = UPD, c = u.check, busy = u.running || u.restarting;
@@ -3006,18 +3008,19 @@ function renderUpd(lost) {
   const sm = $('#updSummary'); sm.innerHTML = '';
   const row = el('div', 'urow'), left = el('div'), side = el('div', 'uside'); row.style.alignItems = 'flex-start'; left.style.cssText = 'flex:1 1 240px;min-width:0';
   left.append(el('div', 'usub ulab', 'Version installée'));
-  const vr = el('div', 'uvr'); vr.append(el('span', 'ubig', cur ? cur.label : '-'), chip(u.channel === 'stable' ? 'canal stable' : 'canal développement'));
+  const vr = el('div', 'uvr'); vr.append(el('span', 'ubig', cur ? vbase(cur.label) : '-'), chip(u.channel === 'stable' ? 'canal stable' : 'canal développement'));
+  if (u.channel !== 'stable' && cur && cur.short && vbase(cur.label) !== cur.short) { const cm = el('span', 'ucm'); cm.append(el('small', null, 'commit'), el('span', 'chip', cur.short)); vr.append(cm); }
   left.append(vr);
   const stat = el('div', 'ustat');
   if (behind) {
     stat.classList.add('new');
-    stat.append(el('span', null, '●'), el('span', null, _t('Une mise à jour est disponible : {0}', c.latest.label) + ' · ' + _t(behind > 1 ? '{0} nouveautés' : '{0} nouveauté', behind)));
+    stat.append(el('span', null, '●'), el('span', null, _t('Une mise à jour est disponible : {0}', vbase(c.latest.label)) + ' · ' + _t(behind > 1 ? '{0} nouveautés' : '{0} nouveauté', behind)));
   } else if (c && c.ok) stat.append(el('span', null, '✓'), el('span', null, 'Vous avez la dernière version'));
   else if (c && !c.ok) { stat.classList.add('bad'); stat.append(el('span', null, '✕'), el('span', null, 'Vérification impossible')); }
   else stat.append(el('span', null, '○'), el('span', null, 'Pas encore vérifié'));
   left.append(stat);
   const bc = el('button', behind ? 'ulink' : 'b s', updBusy ? 'Vérification...' : (behind ? 'Vérifier maintenant' : 'Vérifier les mises à jour')); bc.disabled = updBusy || busy; bc.onclick = checkUpd;
-  if (behind) { const bu = el('button', 'b p s', _t('Mettre à jour vers {0}', c.latest.label)); bu.disabled = busy || updBusy || !c.can_update; bu.onclick = startUpd; side.append(bu); }
+  if (behind) { const bu = el('button', 'b p s', _t('Mettre à jour vers {0}', vbase(c.latest.label))); bu.disabled = busy || updBusy || !c.can_update; bu.onclick = startUpd; side.append(bu); }
   side.append(bc);
   row.append(left, side); sm.append(row);
   const meta = el('div', 'umeta'), up = s => s.charAt(0).toUpperCase() + s.slice(1);
@@ -3045,7 +3048,7 @@ function renderUpd(lost) {
   const idleOpen = updDetailsOpen === null ? u.ok === false : updDetailsOpen;
   let showOut = false;
   if (busy) {
-    $('#runT').textContent = u.to_label ? _t(u.mode === 'rollback' ? 'Retour à la version {0}' : 'Mise à jour vers {0}', u.to_label) : tl(u.mode === 'rollback' ? 'Retour à la version précédente' : 'Mise à jour en cours');
+    $('#runT').textContent = u.to_label ? _t(u.mode === 'rollback' ? 'Retour à la version {0}' : 'Mise à jour vers {0}', vbase(u.to_label)) : tl(u.mode === 'rollback' ? 'Retour à la version précédente' : 'Mise à jour en cours');
     $('#runP').textContent = (u.pct || 0) + ' %';
     $('#updBar').firstElementChild.style.width = (u.pct || 0) + '%';
     const sg = $('#updSegs'); sg.innerHTML = ''; for (const s of u.steps) sg.append(el('i', s.status));
@@ -3055,7 +3058,7 @@ function renderUpd(lost) {
     showOut = updLogOpen;
     last.style.display = 'none'; det.style.display = 'none';
   } else if (u.started) {
-    const bad = u.ok === false, from = u.from_label, to = u.to_label;
+    const bad = u.ok === false, from = vbase(u.from_label), to = vbase(u.to_label);
     last.style.display = 'flex'; last.className = 'ulast' + (bad ? ' bad' : ''); last.innerHTML = '';
     const txt = bad ? _t('Dernière tentative en échec : {0}', u.error) : (from && to && from !== to ? _t(u.mode === 'rollback' ? 'Retour arrière : {0} → {1}, {2}' : 'Dernière mise à jour : {0} → {1}, {2}', from, to, ago(u.finished)) : (u.done_msg || ''));
     last.append(el('span', 'ic', bad ? '✕' : '✓'), el('span', null, txt));
