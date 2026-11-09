@@ -1004,7 +1004,7 @@ La touche `M` du clavier connecté au Pi coupe ou réactive aussi le son. L'éta
 
 ### 9.8 Types d'avion inconnus
 
-Quand un type d'avion n'a pas d'icône dédiée, une forme monocouloir est utilisée et le journal indique `type inconnu (icone par defaut) : XXXX`. Pour lui associer la bonne forme, utilisez webadmin, Réglages, « Types d'avion » : les types détectés dans les logs sont proposés, avec un champ pour ajouter une règle et l'éditeur du fichier `types_extra.txt`. Le fichier est vérifié à l'enregistrement et pris en compte au prochain démarrage du programme.
+Quand un type d'avion n'a pas d'icône dédiée, une forme monocouloir est utilisée et le journal indique `type inconnu (icone par defaut) : XXXX`. Pour lui associer la bonne forme, utilisez webadmin, Réglages, « Types d'avion » : les types détectés dans les logs sont proposés, avec un champ pour ajouter une règle et l'éditeur du fichier `types_extra.txt`. Les changements s'enregistrent avec le bouton en bas de page (« Enregistrer et relancer le programme ») : le fichier est vérifié, puis le programme est relancé pour les prendre en compte.
 
 Format du fichier (une règle par ligne, `#` pour les commentaires) :
 
@@ -1090,10 +1090,10 @@ Quand une modification est prise en compte :
 
 | Réglages | Prise en compte |
 |---|---|
-| `config.ini` (toutes les catégories du menu Programme) | Au prochain lancement du programme (relance proposée). La carte doit en plus être reconstruite pour les réglages de carte. |
-| Types d'avion | Au prochain lancement du programme. |
-| Langue | Immédiate pour webadmin (la page se recharge) ; au prochain lancement du programme pour le texte affiché à l'écran. |
-| Serveur web : adresse et port | Au redémarrage de webadmin (proposé : la page se rouvre toute seule, sur le nouveau port si besoin). |
+| `config.ini` (toutes les catégories du menu Programme) | À l'enregistrement (« Enregistrer et relancer le programme »). La carte doit en plus être reconstruite pour les réglages de carte. |
+| Types d'avion | À l'enregistrement (« Enregistrer et relancer le programme »), comme les autres réglages. |
+| Langue | Immédiate pour webadmin (la page se recharge) ; à l'enregistrement (relance du programme) pour le texte affiché à l'écran. |
+| Serveur web : adresse et port | À l'enregistrement (« Enregistrer et redémarrer webadmin ») : la page se rouvre toute seule, sur le nouveau port si besoin. |
 | Serveur web : identifiant et mot de passe | Immédiate (le navigateur redemande les identifiants). |
 | Application et système, Mises à jour, Planning de l'écran | Immédiate. |
 | MQTT | Immédiate : webadmin se reconnecte au serveur. |
@@ -1110,7 +1110,7 @@ Quand une modification est prise en compte :
 
 - **Exporter** : le bouton « Télécharger la sauvegarde » produit un fichier `flightdisplay-backup-<nom-du-pi>-<date>.zip` contenant `config.ini` (tous les réglages du programme et de webadmin), `types_extra.txt` (types d'avion), l'état du son, la carte déjà construite (`background.png` et `map_meta.json`, pour ne pas avoir à la reconstruire) et un petit fichier d'information. Les photos n'y sont pas.
 - **Secrets** : l'interrupteur « Inclure les mots de passe et la clé CARTO » (activé par défaut) décide si les secrets (clé CARTO, mot de passe de webadmin, mot de passe MQTT) sont dans le fichier. Avec les secrets, la restauration retrouve tout ; **le fichier est alors sensible** : ne le partagez pas. Sans secrets, il peut être partagé (par exemple pour un diagnostic). Un export avec secrets n'est possible que depuis l'interface (en-tête `X-Admin`), jamais par un simple lien.
-- **Restaurer** : choisissez un fichier puis « Restaurer » (confirmation demandée). La configuration actuelle est remplacée (l'ancien `config.ini` reste en `config.ini.bak`). Une sauvegarde faite sans secrets conserve ceux de l'installation actuelle. Le fichier est vérifié avant tout changement (format, contenu autorisé, `config.ini` lisible, règles de types valides) : un fichier invalide est refusé sans rien modifier. Webadmin propose ensuite de relancer le programme (comme après un enregistrement) ; un changement de langue recharge la page.
+- **Restaurer** : choisissez un fichier puis « Restaurer » (confirmation demandée). La configuration actuelle est remplacée. Une sauvegarde faite sans secrets conserve ceux de l'installation actuelle. Le fichier est vérifié avant tout changement (format, contenu autorisé, `config.ini` lisible, règles de types valides) : un fichier invalide est refusé sans rien modifier. Webadmin propose ensuite de relancer le programme (comme après un enregistrement) ; un changement de langue recharge la page.
 - Cas typique, après une panne de carte SD : installer un Pi neuf (section 0, avec `--yes` si vous voulez), ouvrir webadmin, restaurer le fichier, relancer le programme, puis reconstruire la carte.
 
 **Planning de l'écran** (Réglages, Planning de l'écran)

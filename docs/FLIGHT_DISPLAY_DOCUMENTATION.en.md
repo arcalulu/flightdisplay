@@ -1004,7 +1004,7 @@ The `M` key of the keyboard connected to the Pi also mutes or unmutes the sound.
 
 ### 9.8 Unknown aircraft types
 
-When an aircraft type has no dedicated icon, a single-aisle shape is used and the log shows `type inconnu (icone par defaut) : XXXX` (unknown type, default icon). To assign it the right shape, use webadmin, Settings, "Aircraft types": the types detected in the logs are offered, with a field to add a rule and the editor of the `types_extra.txt` file. The file is checked when saved and taken into account at the next start of the program.
+When an aircraft type has no dedicated icon, a single-aisle shape is used and the log shows `type inconnu (icone par defaut) : XXXX` (unknown type, default icon). To assign it the right shape, use webadmin, Settings, "Aircraft types": the types detected in the logs are offered, with a field to add a rule and the editor of the `types_extra.txt` file. Changes are saved with the button at the bottom of the page ("Save and restart the program"): the file is checked, then the program is restarted to take them into account.
 
 File format (one rule per line, `#` for comments):
 
@@ -1090,10 +1090,10 @@ When a change takes effect:
 
 | Settings | Taken into account |
 |---|---|
-| `config.ini` (all the categories of the Program menu) | At the next start of the program (restart offered). The map must also be rebuilt for the map settings. |
-| Aircraft types | At the next start of the program. |
-| Language | Immediately for webadmin (the page reloads); at the next start of the program for the text shown on screen. |
-| Web server: address and port | At the restart of webadmin (offered: the page reopens by itself, on the new port if needed). |
+| `config.ini` (all the categories of the Program menu) | When you save ("Save and restart the program"). The map must also be rebuilt for the map settings. |
+| Aircraft types | When you save ("Save and restart the program"), like the other settings. |
+| Language | Immediately for webadmin (the page reloads); when you save (program restart) for the text shown on screen. |
+| Web server: address and port | When you save ("Save and restart webadmin"): the page reopens by itself, on the new port if needed. |
 | Web server: username and password | Immediate (the browser asks for the credentials again). |
 | Application and system, Updates, Screen schedule | Immediate. |
 | MQTT | Immediate: webadmin reconnects to the server. |
@@ -1110,7 +1110,7 @@ When a change takes effect:
 
 - **Export**: the "Download the backup" button produces a file `flightdisplay-backup-<pi-name>-<date>.zip` containing `config.ini` (all the program and webadmin settings), `types_extra.txt` (aircraft types), the sound state, the map already built (`background.png` and `map_meta.json`, so it does not have to be rebuilt) and a small information file. Photos are not in it.
 - **Secrets**: the "Include passwords and the CARTO key" switch (on by default) decides whether the secrets (CARTO key, webadmin password, MQTT password) are in the file. With the secrets, the restore gets everything back; **the file is then sensitive**: do not share it. Without secrets, it can be shared (for example for a diagnosis). An export with secrets is only possible from the interface (`X-Admin` header), never through a plain link.
-- **Restore**: choose a file then "Restore" (confirmation asked). The current configuration is replaced (the old `config.ini` stays as `config.ini.bak`). A backup made without secrets keeps those of the current installation. The file is checked before any change (format, allowed content, readable `config.ini`, valid type rules): an invalid file is refused without changing anything. Webadmin then offers to restart the program (as after a save); a language change reloads the page.
+- **Restore**: choose a file then "Restore" (confirmation asked). The current configuration is replaced. A backup made without secrets keeps those of the current installation. The file is checked before any change (format, allowed content, readable `config.ini`, valid type rules): an invalid file is refused without changing anything. Webadmin then offers to restart the program (as after a save); a language change reloads the page.
 - Typical case, after an SD card failure: install a new Pi (section 0, with `--yes` if you like), open webadmin, restore the file, restart the program, then rebuild the map.
 
 **Screen schedule** (Settings, Screen schedule)

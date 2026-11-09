@@ -147,7 +147,7 @@ CATS = [
 ]
 CAT_NOTES = {
     "language": "Langue de webadmin (immédiat) et du texte affiché à l'écran par le programme (le programme d'affichage est relancé à l'enregistrement). Pour ajouter une langue, déposez un fichier dans le dossier lang (voir la documentation).",
-    "label": "Petits panneaux affichés à côté de chaque avion sur la carte. Réordonnez les éléments avec les flèches, choisissez ceux à afficher, leur taille, gras et italique, et s'ils partagent la ligne de l'élément précédent. Si tout est masqué, aucun panneau n'est affiché. Pris en compte après relance du programme.",
+    "label": "Petits panneaux affichés à côté de chaque avion sur la carte. Réordonnez les éléments avec les flèches, choisissez ceux à afficher, leur taille, gras et italique, et s'ils partagent la ligne de l'élément précédent. Si tout est masqué, aucun panneau n'est affiché.",
     "position": "Modifier ces valeurs oblige à reconstruire la carte (section Reconstruction de la carte, en bas de cette page).",
     "mapstyle": "Personnalisez le fond de carte : thème, éléments affichés, couleurs et noms de lieux. L'aperçu est dessiné avec le même programme que la carte. Il faut ensuite enregistrer puis reconstruire la carte.",
     "server": "Le port et l'adresse d'écoute demandent un redémarrage de webadmin. L'identifiant et le mot de passe s'appliquent immédiatement.",
@@ -189,7 +189,7 @@ FIELD_HINTS = {"credit": "Le crédit est déjà visible à l'intérieur de l'ima
 PANEL_SHOW_KEYS = {"credit": ("panel", "show_credit")}
 
 
-PANEL_NOTE = "Texte affiché sous la photo dans le panneau : réordonnez les éléments avec les flèches, choisissez ceux à afficher, leur taille, gras et italique, et s'ils partagent la ligne de l'élément précédent. La ligne d'alerte de proximité n'est pas modifiable. Pris en compte après relance du programme."
+PANEL_NOTE = "Texte affiché sous la photo dans le panneau : réordonnez les éléments avec les flèches, choisissez ceux à afficher, leur taille, gras et italique, et s'ils partagent la ligne de l'élément précédent. La ligne d'alerte de proximité n'est pas modifiable."
 
 
 def field_params(cat, sec, fields, show_keys=None):
@@ -637,7 +637,7 @@ def _set_in_text(text, sec, key, value):
 
 
 def restore_from_backup(blob):
-    """Restaure une sauvegarde (zip) : config.ini, types_extra.txt, etat du son, carte. L'ancien config.ini est conserve en .bak."""
+    """Restaure une sauvegarde (zip) : config.ini, types_extra.txt, etat du son, carte."""
     import io, zipfile
     try:
         z = zipfile.ZipFile(io.BytesIO(blob))
@@ -677,8 +677,6 @@ def restore_from_backup(blob):
     lang_before = S.LANG
     done = ["config.ini"]
     with file_lock:
-        if os.path.exists(INI_PATH):
-            shutil.copy2(INI_PATH, INI_PATH + ".bak")
         tmp = INI_PATH + ".tmp"
         with open(tmp, "w", encoding="utf-8") as fh:
             fh.write(cfg.rstrip("\n") + "\n")
@@ -836,8 +834,6 @@ def write_types(text):
     check_types(text)
     path = S.TYPES_FILE
     with file_lock:
-        if os.path.exists(path):
-            shutil.copy2(path, path + ".bak")
         tmp = path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as fh:
             fh.write(text.rstrip() + "\n" if text.strip() else "")
@@ -1925,6 +1921,7 @@ if (TL_ON) {
 }
 
 let lastStAt = 0, SET = null, edits = {}, curCat = null, cur = 'home', logText = '', lastSt = null, volDrag = false, volTimer = null;
+let TYPES_DIRTY = false, TYPES_TEXT = '';
 let pend = {app: false, web: false}, TYPES = null, rows = {}, UPD = null, updWasRunning = false, updBusy = false, updAuto = false, updTick = 0, histShut = {};
 const $ = s => document.querySelector(s);
 const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
@@ -2090,10 +2087,10 @@ function applyNeeds() {
   return n;
 }
 function updateBar() {
-  const n = Object.keys(edits).length, b = $('#saveBar');
+  const n = Object.keys(edits).length + (TYPES_DIRTY ? 1 : 0), b = $('#saveBar');
   b.classList.toggle('on', cur === 'cfg' && n > 0);
   if (n) {
-    const a = applyNeeds();
+    const a = applyNeeds(); if (TYPES_DIRTY) a.app = true;
     $('#barTxt').textContent = _t(n > 1 ? '{0} modifications' : '{0} modification', n);
     $('#barSave').textContent = tl(a.app && a.web ? 'Enregistrer et relancer le programme et webadmin' : (a.app ? 'Enregistrer et relancer le programme' : (a.web ? 'Enregistrer et redémarrer webadmin' : 'Enregistrer')));
     $('#barHelp').textContent = tl(a.app && a.web ? "L'enregistrement relance le programme d'affichage et webadmin pour appliquer ces valeurs." : (a.app ? "L'enregistrement relance le programme d'affichage pour appliquer ces valeurs (quelques secondes sans image à l'écran)." : (a.web ? "L'enregistrement redémarre webadmin pour appliquer ces valeurs (la page sera indisponible quelques secondes)." : "Appliqué dès l'enregistrement.")));
@@ -2101,6 +2098,7 @@ function updateBar() {
 }
 function markMenu() {
   const dirty = new Set(); for (const p of allParams()) if (p.id in edits) dirty.add(p.cat);
+  if (TYPES_DIRTY) dirty.add('types');
   document.querySelectorAll('#menu button').forEach(b => b.classList.toggle('dot', dirty.has(b.dataset.c)));
 }
 function renderMenu() {
@@ -2235,12 +2233,15 @@ function showPending() {
   if (pend.app) { const b = el('button', 'b p s', 'Relancer le programme'); b.onclick = async () => { await svc('restart'); pend.app = false; showPending(); }; btns.append(b); }
   if (pend.web) { const b = el('button', 'b p s', 'Redémarrer webadmin'); b.onclick = () => restartWeb(pend.port); btns.append(b); }
 }
+const S_PORT = () => location.port ? +location.port : undefined;
 async function saveSettings() {
   try {
-    const r = await api('/api/settings', {changes: edits});
+    let r = {changed: [], restart_app: false, restart_web: false, port: S_PORT()};
+    if (TYPES_DIRTY) { await api('/api/types', {text: TYPES_TEXT}); TYPES_DIRTY = false; r.restart_app = true; }
+    if (Object.keys(edits).length) { const x = await api('/api/settings', {changes: edits}); r = Object.assign(x, {restart_app: x.restart_app || r.restart_app}); }
     await loadSettings();
     pollStatus();
-    toast(r.changed.length + ' réglage(s) enregistré(s)');
+    toast(r.changed.length ? r.changed.length + ' réglage(s) enregistré(s)' : 'Types d\'avion enregistrés');
     if (r.needs_map) $('#mapHint').style.display = 'block';
     pend = {app: false, web: false};
     if (r.reload_ui) setTimeout(() => location.reload(), 1500);
@@ -2249,7 +2250,7 @@ async function saveSettings() {
     if (r.restart_web) await restartWeb(r.port, true);
   } catch (e) { toast(e.message, true); }
 }
-function discardEdits() { edits = {}; renderCat(); markMenu(); updateBar(); }
+function discardEdits() { edits = {}; TYPES_DIRTY = false; renderCat(); markMenu(); updateBar(); }
 async function restartWeb(port, noAsk) {
   if (!noAsk && !confirm('Redémarrer webadmin ? La page sera indisponible quelques secondes.')) return;
   try { await api('/api/webadmin/restart', {}); } catch (e) { toast(e.message, true); return; }
@@ -2271,10 +2272,12 @@ function planeSvg(T, cat, size) {
   return svg;
 }
 async function renderTypes(box) {
-  box.append(el('p', 'note', "Chaque type d'avion (code ICAO) est associé à une forme d'icône. Touchez un type pour voir sa fiche et changer son icône. Pris en compte après relance du programme."));
+  box.append(el('p', 'note', "Chaque type d'avion (code ICAO) est associé à une forme d'icône. Touchez un type pour voir sa fiche et changer son icône. Les changements s'enregistrent avec le bouton en bas de page."));
   let T; try { T = await api('/api/types'); } catch (e) { box.append(el('p', 'note', e.message)); return; }
   TYPES = T;
   const extra = Object.assign({}, T.extra), builtin = T.builtin, info = {};
+  const textOf = o => Object.keys(o).sort().map(k => k + ' ' + o[k]).join('\n'), origText = textOf(T.extra);
+  if (TYPES_DIRTY) { for (const k of Object.keys(extra)) delete extra[k]; for (const l of TYPES_TEXT.split('\n')) { const p = l.trim().split(/\s+/); if (p.length === 2) extra[p[0]] = p[1]; } }
   for (const e of T.seen) info[e.code] = e;
   let sel = null, query = '', editing = null;
   const sug = {}, busy = new Set();
@@ -2284,11 +2287,7 @@ async function renderTypes(box) {
   const todo = el('div'), cats = el('div'), catList = el('div'), bt = el('div', 'grid'); bt.style.marginTop = '10px';
   const find = document.createElement('input'); find.type = 'search'; find.placeholder = 'Rechercher un code (ex. A320)'; find.style.textTransform = 'uppercase';
   const bar = el('div', 'tools'); bar.append(find);
-  const restart = el('button', 'b p', 'Relancer le programme');
-  const persist = async () => {
-    const text = Object.keys(extra).sort().map(k => k + ' ' + extra[k]).join('\n');
-    try { await api('/api/types', {text}); pend.app = true; showPending(); } catch (e) { toast(e.message, true); }
-  };
+  const persist = () => { const t = textOf(extra); TYPES_DIRTY = t !== origText; TYPES_TEXT = t; updateBar(); markMenu(); };
   const web = code => { const i = info[code]; window.open('https://www.google.com/search?q=' + encodeURIComponent('ICAO aircraft type ' + code + (i && i.model ? ' ' + i.model : '')), '_blank', 'noopener'); };
   const choose = (code, c) => { if (builtin[code] === c) delete extra[code]; else extra[code] = c; editing = null; draw(); persist(); };
   const ask = async (code, quiet) => {
@@ -2372,11 +2371,8 @@ async function renderTypes(box) {
   }
   function draw() { todoList(); catCards(); }
   find.oninput = () => { query = find.value.trim().toUpperCase(); catCards(); };
-  restart.onclick = async () => { try { await svc('restart'); } catch (e) { toast(e.message, true); } };
-  bt.append(restart);
-  const note2 = el('p', 'note', "Vos changements sont enregistrés tout de suite. Relancez le programme pour les voir à l'écran.");
   cats.append(el('h2', 't', 'Types par catégorie'), el('p', 'note', 'En vert : types déjà vus au-dessus de chez vous (survolez pour le nombre de passages).'), bar, catList);
-  box.append(todo, cats, note2, bt); draw();
+  box.append(todo, cats); draw();
   (async () => { for (const c of unknownCodes()) if (!sug[c]) await ask(c, true); })();
 }
 
@@ -2677,7 +2673,7 @@ function renderBackup(box) {
   box.append(el('p', 'note', 'La sauvegarde contient config.ini (réglages, avec ou sans les secrets), la liste des types d\'avion, l\'état du son et la carte déjà construite (background.png et map_meta.json). Les photos ne sont pas incluses.'));
   box.append(el('h2', 't', 'Restaurer une sauvegarde'));
   const l2 = el('div', 'list'), r3 = el('div', 'li stack'), t3 = el('div', 'lt');
-  t3.append(el('b', null, 'Choisir un fichier de sauvegarde'), el('small', null, "Remplace la configuration actuelle (l'ancienne est conservée en config.ini.bak). Une sauvegarde sans secrets garde ceux de cette installation."));
+  t3.append(el('b', null, 'Choisir un fichier de sauvegarde'), el('small', null, "Remplace la configuration actuelle. Une sauvegarde sans secrets garde ceux de cette installation."));
   const fi = document.createElement('input'); fi.type = 'file'; fi.accept = '.zip'; fi.style.marginTop = '8px'; t3.append(fi);
   const r4 = el('div', 'li stack'), rb = el('button', 'b d', 'Restaurer'); rb.disabled = true;
   fi.onchange = () => { rb.disabled = !fi.files.length; };
