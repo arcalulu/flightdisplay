@@ -146,7 +146,7 @@ CATS = [
     ("mqtt", "MQTT / Home Assistant", "Intégrations"),
 ]
 CAT_NOTES = {
-    "language": "Langue de webadmin (immédiat) et du texte affiché à l'écran par le programme (après sa relance : « Enregistrer et appliquer »). Pour ajouter une langue, déposez un fichier dans le dossier lang (voir la documentation).",
+    "language": "Langue de webadmin (immédiat) et du texte affiché à l'écran par le programme (après sa relance : « Enregistrer et relancer le programme »). Pour ajouter une langue, déposez un fichier dans le dossier lang (voir la documentation).",
     "label": "Petits panneaux affichés à côté de chaque avion sur la carte. Réordonnez les éléments avec les flèches, choisissez ceux à afficher, leur taille, gras et italique, et s'ils partagent la ligne de l'élément précédent. Si tout est masqué, aucun panneau n'est affiché. Pris en compte après relance du programme.",
     "position": "Modifier ces valeurs oblige à reconstruire la carte (section Reconstruction de la carte, en bas de cette page).",
     "mapstyle": "Personnalisez le fond de carte : thème, éléments affichés, couleurs et noms de lieux. L'aperçu est dessiné avec le même programme que la carte. Il faut ensuite enregistrer puis reconstruire la carte.",
@@ -1727,7 +1727,7 @@ p.note{color:var(--mut);font-size:13px;margin:0 4px 10px}
 pre{margin:0;padding:10px;background:#080b10;border:1px solid var(--line);border-radius:10px;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word;max-height:58vh;overflow:auto}
 pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 .bar{position:fixed;left:0;right:0;bottom:calc(52px + env(safe-area-inset-bottom));padding:8px 12px;background:#0e141bf2;backdrop-filter:blur(8px);border-top:1px solid var(--line);z-index:7;display:none}
-.bar.on{display:block}.bar .in{max-width:1100px;margin:0 auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.bar .in span{flex:1 1 100%;font-size:13px;color:var(--mut)}.bar .in button{flex:1}
+.bar.on{display:block}.bar .in{max-width:1100px;margin:0 auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.bar .in span{flex:1 1 100%;font-size:12px;color:var(--mut)}.bar .in #barTxt{font-size:14px;font-weight:600;color:var(--txt)}.bar .in button{flex:1}
 .hint{background:#2a2108;border:1px solid #5a4410;color:#f0d78c;padding:10px 12px;border-radius:10px;margin-bottom:12px;display:none;font-size:14px}
 .hint .btns{display:flex;gap:8px;margin-top:8px}.hint .btns button{flex:1}
 .tools{display:flex;gap:8px;margin-bottom:8px;align-items:center}.tools>*{flex:1}
@@ -1898,9 +1898,9 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 </section>
 </main>
 
-<div class="bar" id="saveBar"><div class="in"><span id="barTxt"></span>
-  <button class="b p" onclick="saveSettings(false)">Enregistrer</button>
-  <button class="b" onclick="saveSettings(true)">Enregistrer et appliquer</button>
+<div class="bar" id="saveBar"><div class="in"><span id="barTxt"></span><span id="barHelp"></span>
+  <button class="b p" id="barApply" onclick="saveSettings(true)">Enregistrer et relancer</button>
+  <button class="b" id="barSave" onclick="saveSettings(false)">Enregistrer</button>
   <button class="b" style="flex:none;width:auto" onclick="discardEdits()">Annuler</button>
 </div></div>
 <div id="toast"></div>
@@ -2118,9 +2118,14 @@ function updateBar() {
   const n = Object.keys(edits).length, b = $('#saveBar');
   b.classList.toggle('on', cur === 'cfg' && n > 0);
   if (n) {
-    const a = applyNeeds(), parts = [];
-    if (a.app) parts.push('relance du programme'); if (a.web) parts.push('redémarrage de webadmin');
-    $('#barTxt').textContent = _t(n > 1 ? '{0} modifications' : '{0} modification', n) + (parts.length ? _t(' · à appliquer : {0}', parts.map(tl).join(_t(' et '))) : _t(' · prise en compte immédiate'));
+    const a = applyNeeds(), need = a.app || a.web;
+    $('#barTxt').textContent = _t(n > 1 ? '{0} modifications' : '{0} modification', n);
+    $('#barHelp').textContent = !need ? tl("Prise en compte immédiate dès l'enregistrement.")
+      : tl(a.app && a.web ? "Le programme d'affichage et webadmin doivent être relancés pour utiliser ces valeurs." : (a.app ? "Le programme d'affichage doit être relancé pour utiliser ces valeurs (quelques secondes sans image à l'écran)." : "Webadmin doit être redémarré pour utiliser ces valeurs (la page sera indisponible quelques secondes).")) + ' ' + tl("Avec « Enregistrer sans relancer », les valeurs sont écrites mais l'ancienne configuration reste active jusqu'à la prochaine relance.");
+    const ba = $('#barApply'), bs = $('#barSave');
+    ba.style.display = need ? '' : 'none';
+    ba.textContent = tl(a.app && a.web ? 'Enregistrer et relancer' : (a.app ? 'Enregistrer et relancer le programme' : 'Enregistrer et redémarrer webadmin'));
+    bs.textContent = tl(need ? 'Enregistrer sans relancer' : 'Enregistrer'); bs.className = need ? 'b' : 'b p';
   }
 }
 function markMenu() {
@@ -2260,7 +2265,7 @@ function showPending() {
   if (!pend.app && !pend.web) { box.style.display = 'none'; return; }
   box.style.display = 'block';
   const parts = []; if (pend.app) parts.push('relancer le programme'); if (pend.web) parts.push('redémarrer webadmin');
-  $('#pendTxt').textContent = _t('Enregistré. Pour appliquer : {0}.', parts.map(tl).join(_t(' et ')));
+  $('#pendTxt').textContent = _t('Enregistré, mais pas encore pris en compte. Il reste à : {0}.', parts.map(tl).join(_t(' et ')));
   if (pend.app) { const b = el('button', 'b p s', 'Relancer le programme'); b.onclick = async () => { await svc('restart'); pend.app = false; showPending(); }; btns.append(b); }
   if (pend.web) { const b = el('button', 'b p s', 'Redémarrer webadmin'); b.onclick = () => restartWeb(pend.port); btns.append(b); }
 }
