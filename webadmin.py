@@ -1885,6 +1885,10 @@ h2.t{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.04
 .hsc{padding:14px 16px 16px}.hsc h3{margin:0;font-size:20px}.hsc .ha{color:var(--mut);margin-top:2px}.hcr{font-size:11px;color:var(--mut);margin-top:6px}
 .hdl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:12px 0;font-size:14px}.hdl dt{color:var(--mut)}.hdl dd{margin:0;min-width:0;overflow-wrap:anywhere}
 .hnav{display:flex;gap:8px;flex-wrap:wrap}
+.hx{position:absolute;top:8px;right:8px;z-index:2;width:30px;height:30px;padding:0;border-radius:50%;border:1px solid var(--line);background:#0b0f14d9;color:var(--txt);font-size:14px;cursor:pointer}
+.hbt{display:inline-flex;align-items:center;justify-content:center;width:28px;height:24px;margin-left:8px;padding:0;vertical-align:middle;border-radius:7px;border:1px solid var(--line);background:#1b2431;color:var(--txt);cursor:pointer}.hbt:hover,.hbt.on{border-color:var(--acc)}
+.hht{margin:2px 0 14px;overflow:auto;background:#0e141b;border:1px solid var(--line);border-radius:10px;padding:6px 8px}.hht h5{margin:2px 0 6px;font-size:12px;color:var(--mut);font-weight:600}
+.htab{width:100%;border-collapse:collapse;font-size:12px}.htab th{color:var(--mut);font-weight:600;text-align:left;padding:4px 6px;border-bottom:1px solid var(--line);white-space:nowrap}.htab td{padding:5px 6px;border-bottom:1px solid #1b2431;vertical-align:top}.htab tr:last-child td{border-bottom:0}
 .hlb{margin:0 0 12px}.hlb summary{cursor:pointer;color:var(--mut);font-size:13px;margin-bottom:8px}.hlbg{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
 .hlbc{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}.hlbc h4{margin:0 0 6px;font-size:13px;color:var(--mut);font-weight:600}
 .hlr{display:flex;align-items:center;gap:8px;font-size:13px;margin:5px 0}.hlr>span:first-child{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hlr .hlt{width:56px;height:5px;border-radius:3px;background:#243040;flex:none}.hlr .hlt i{display:block;height:100%;border-radius:3px;background:var(--acc)}.hlr b{min-width:18px;text-align:right}
@@ -3138,8 +3142,8 @@ function buildHist() {
   document.addEventListener('keydown', ev => {
     const o = document.querySelector('.hover'); if (!o) return;
     if (ev.key === 'Escape') o.remove();
-    else if (ev.key === 'ArrowLeft') { const b = o.querySelector('[data-nav="-1"]'); if (b) b.click(); }
-    else if (ev.key === 'ArrowRight') { const b = o.querySelector('[data-nav="1"]'); if (b) b.click(); }
+    else if (ev.key === 'ArrowLeft' && o._nav) o._nav(-1);
+    else if (ev.key === 'ArrowRight' && o._nav) o._nav(1);
   });
   setInterval(() => { if (cur === 'hist' && !document.querySelector('.hover') && document.activeElement !== q) loadHist(); }, 30000);
 }
@@ -3259,6 +3263,20 @@ function drawHist() {
   histPager($('#hPg1'), pages); histPager($('#hPg2'), pages);
   $('#hEmpty').textContent = L.length ? '' : tl(HIST.entries.length ? 'Aucun avion ne correspond à ces filtres.' : "Aucun avion pour le moment. Dès qu'un avion passe au-dessus de chez vous, il apparaît ici avec sa photo.");
 }
+function histTable(e) {  // tous les passages de cet appareil (même immatriculation) vus par le programme
+  const rows = HIST.entries.filter(x => x.reg === e.reg).sort((a, b) => b.t - a.t);
+  const w = el('div', 'hht'), tb = document.createElement('table'), hd = document.createElement('tr'); tb.className = 'htab';
+  w.append(el('h5', null, _t('Passages de {0}', e.reg)));
+  for (const h of ['Date et heure', 'Vu pendant', 'Indicatif', 'Trajet', 'Alerte']) hd.append(el('th', null, h));
+  tb.append(hd);
+  for (const x of rows) {
+    const r = document.createElement('tr'), m = Math.round((x.l - x.t) / 60), rt = histRoute(x);
+    r.append(el('td', null, new Date(x.t * 1000).toLocaleString()), el('td', null, m >= 1 ? (m >= 90 ? Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0') : m + ' min') : '–'),
+             el('td', null, x.cs || '–'), el('td', null, rt[0] + ' → ' + rt[1]), el('td', null, x.al ? tl('Oui') : ''));
+    tb.append(r);
+  }
+  w.append(tb); return w;
+}
 function histSheet(L, i) {
   const e = L[i]; const old = document.querySelector('.hover'); if (old) old.remove();
   const ov = el('div', 'hover'), sh = el('div', 'hsheet');
@@ -3275,17 +3293,21 @@ function histSheet(L, i) {
   row('Trajet', r[0] + (e.fi ? ' (' + e.fi + ')' : '') + ' → ' + r[1] + (e.ti ? ' (' + e.ti + ')' : ''));
   row('Premier passage', when(e.t) + ' · ' + ago(e.t));
   if (e.l - e.t > 120) row('Dernier passage', when(e.l));
-  row('Passages', e.reg ? _t('{0} fois vu', e.n) : '');
+  if (e.reg) {  // nombre de passages + petit bouton qui ouvre le tableau des passages vus par le programme
+    const dd = el('dd', null, _t('{0} fois vu', e.n)), tb = el('button', 'hbt'); tb.title = tl('Historique des passages'); tb.setAttribute('aria-label', tb.title);
+    tb.innerHTML = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M2 6.5h12M2 9.8h12M6.5 3v10"/></svg>';
+    dd.append(tb); dl.append(el('dt', null, 'Passages'), dd);
+    tb.onclick = () => { const old = sc.querySelector('.hht'); if (old) { old.remove(); tb.classList.remove('on'); } else { tb.classList.add('on'); dl.after(histTable(e)); } };
+  }
   row('Alerte sonore', e.al ? _t("Déclenchée le {0}", when(e.al)) : '');
   sc.append(dl);
   const nav = el('div', 'hnav');
-  const go_ = d => { const b = el('button', 'b s', d < 0 ? '←' : '→'); b.dataset.nav = d; b.title = tl(d < 0 ? 'Précédent' : 'Suivant'); b.disabled = !L[i + d]; b.onclick = () => histSheet(L, i + d); return b; };
-  nav.append(go_(-1), go_(1));
   if (e.reg) {
     const a = el('button', 'b s', 'Photos sur JetPhotos ↗'); a.onclick = () => window.open('https://www.jetphotos.com/registration/' + encodeURIComponent(e.reg), '_blank', 'noopener'); nav.append(a);
-    const f = el('button', 'b s', 'Vol sur Flightradar24 ↗'); f.onclick = () => window.open('https://www.flightradar24.com/data/aircraft/' + encodeURIComponent(e.reg.toLowerCase()), '_blank', 'noopener'); nav.append(f);
+    const f = el('button', 'b s', 'Historique Flightradar24 ↗'); f.onclick = () => window.open('https://www.flightradar24.com/data/aircraft/' + encodeURIComponent(e.reg.toLowerCase()), '_blank', 'noopener'); nav.append(f);
   }
-  const x = el('button', 'b s', 'Fermer'); x.onclick = () => ov.remove(); nav.append(x);
+  const xb = el('button', 'hx', '✕'); xb.title = tl('Fermer'); xb.onclick = () => ov.remove(); ph.append(xb);
+  ov._nav = d => { if (L[i + d]) histSheet(L, i + d); };
   sc.append(nav); sh.append(ph, sc); ov.append(sh); document.body.append(ov);
 }
 
