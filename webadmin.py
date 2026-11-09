@@ -1698,8 +1698,12 @@ button.b:disabled{opacity:.45}
 .ulink{background:none;border:0;color:var(--mut);font-size:12px;padding:2px;cursor:pointer;text-decoration:underline}
 .umeta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:12px;color:var(--mut)}.umeta .ulink{margin-left:auto}
 @media(max-width:520px){.uside{width:100%;align-items:stretch}.uside .ulink{align-self:center}}
-.segs{display:flex;gap:4px}.segs i{flex:1;height:5px;border-radius:3px;background:#243040}
-.segs i.done,.segs i.skipped{background:var(--ok)}.segs i.running{background:var(--acc)}.segs i.error{background:var(--bad)}
+.urun{display:flex;align-items:center;gap:18px}.urun svg{flex:none}.urinfo{min-width:0;flex:1}
+.urbg{fill:none;stroke:#243040;stroke-width:8}.urfg{fill:none;stroke:var(--acc);stroke-width:8;stroke-linecap:round;transition:stroke-dasharray .5s}
+.urun text{fill:var(--txt);font-size:16px;font-weight:600}
+.urvs{display:flex;align-items:center;flex-wrap:wrap;gap:8px}.urvs .chip{font-family:ui-monospace,Consolas,monospace;font-size:11px}.urvs .uarr{margin:0;font-size:14px}
+.urstep{font-size:17px;font-weight:600;margin-top:8px}
+@media(max-width:420px){.urun{gap:12px}.urun svg{width:68px;height:68px}}
 .runstep{font-size:14px;margin-top:10px}.runstep.err{color:#ffb4ae}
 .utog{color:var(--mut);font-size:12px;margin-top:10px;cursor:pointer;user-select:none}
 .utog .chev{display:inline-block;transition:transform .15s;margin-right:6px}.utog .chev.shut{transform:rotate(-90deg)}
@@ -1848,11 +1852,15 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
   <div class="hint" id="updWarn"></div>
   <div class="ucard" id="updSummary"></div>
   <div class="ucard" id="updRun" style="display:none">
-    <div class="urow"><b id="runT"></b><span class="usub" id="runP"></span></div>
-    <div class="pb" id="updBar" style="margin:10px 0"><i></i></div>
-    <div class="segs" id="updSegs"></div>
-    <div class="runstep" id="runStep"></div>
-    <div class="utog" id="logTog"></div>
+    <div class="urun">
+      <svg width="84" height="84" viewBox="0 0 84 84" role="img" aria-label="Progression"><circle class="urbg" cx="42" cy="42" r="34"/><circle class="urfg" id="runArc" cx="42" cy="42" r="34" transform="rotate(-90 42 42)" stroke-dasharray="0 214"/><text id="runPct" x="42" y="47" text-anchor="middle"></text></svg>
+      <div class="urinfo">
+        <div class="urvs" id="runVer"></div>
+        <div class="urstep" id="runT"></div>
+        <div class="usub" id="runStep"></div>
+        <div class="utog" id="logTog"></div>
+      </div>
+    </div>
   </div>
   <div class="ulast" id="lastRow" style="display:none"></div>
   <div class="list" id="updSteps" style="display:none"></div>
@@ -3048,12 +3056,23 @@ function renderUpd(lost) {
   const idleOpen = updDetailsOpen === null ? u.ok === false : updDetailsOpen;
   let showOut = false;
   if (busy) {
-    $('#runT').textContent = u.to_label ? _t(u.mode === 'rollback' ? 'Retour à la version {0}' : 'Mise à jour vers {0}', vbase(u.to_label)) : tl(u.mode === 'rollback' ? 'Retour à la version précédente' : 'Mise à jour en cours');
-    $('#runP').textContent = (u.pct || 0) + ' %';
-    $('#updBar').firstElementChild.style.width = (u.pct || 0) + '%';
-    const sg = $('#updSegs'); sg.innerHTML = ''; for (const s of u.steps) sg.append(el('i', s.status));
-    const i = u.steps.findIndex(s => s.status === 'running'), rs = $('#runStep'); rs.className = 'runstep';
-    rs.textContent = lost || u.restarting ? tl('Webadmin redémarre, la page va se recharger...') : (i >= 0 ? _t('{0} · étape {1} sur {2}', u.steps[i].label, i + 1, u.steps.length) + (u.steps[i].elapsed > 2 ? ' · ' + fmtEl(u.steps[i].elapsed) : '') : '');
+    const pct = u.pct || 0, n = u.steps.length, i = u.steps.findIndex(x => x.status === 'running'), lowerFirst = t => t.charAt(0).toLowerCase() + t.slice(1);
+    $('#runArc').setAttribute('stroke-dasharray', (pct * 2.1362).toFixed(1) + ' 214'); $('#runPct').textContent = pct + ' %';
+    const rv = $('#runVer'); rv.innerHTML = '';
+    if (u.mode === 'rollback') rv.append(el('span', 'usub', 'Retour arrière'));
+    if (u.from_label && u.to_label) rv.append(el('span', 'chip', vbase(u.from_label)), el('span', 'uarr', '→'), el('span', 'chip', vbase(u.to_label)));
+    else if (u.to_label) rv.append(el('span', 'chip', vbase(u.to_label)));
+    rv.style.display = rv.childNodes.length ? 'flex' : 'none';
+    const rs = $('#runStep'); rs.className = 'usub';
+    const restarting = lost || u.restarting;
+    $('#runT').textContent = restarting ? tl('Redémarrage de webadmin') : (i >= 0 ? tl(u.steps[i].label) : tl(u.mode === 'rollback' ? 'Retour à la version précédente' : 'Mise à jour en cours'));
+    if (restarting) rs.textContent = tl('Webadmin redémarre, la page va se recharger...');
+    else if (i >= 0) {
+      const parts = [_t('Étape {0} sur {1}', i + 1, n)];
+      if (u.steps[i].elapsed > 2) parts.push(fmtEl(u.steps[i].elapsed));
+      if (i + 1 < n) parts.push(_t('ensuite : {0}', lowerFirst(tl(u.steps[i + 1].label))));
+      rs.textContent = parts.join(' · ');
+    } else rs.textContent = '';
     toggle2($('#logTog'), updLogOpen, 'Journal détaillé', () => { updLogOpen = !updLogOpen; renderUpd(lost); });
     showOut = updLogOpen;
     last.style.display = 'none'; det.style.display = 'none';
