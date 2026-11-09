@@ -3277,7 +3277,7 @@ function drawAside(base) {
   const node = (label, n, on, fn, cls) => { const b = el('button', 'hnode' + (cls ? ' ' + cls : '') + (on ? ' on' : '')); b.append(el('span', null, label), el('b', null, String(n))); b.onclick = () => { fn(); histPage = 1; drawHist(); }; return b; };
   const alerts = HIST.entries.filter(e => e.al).length;
   a.append(el('h4', null, 'Filtres'));
-  a.append(node('Avec alerte sonore', alerts, histAlert, () => { histAlert = !histAlert; }, 'alert'));
+  a.append(node("Zone d'alerte", alerts, histAlert, () => { histAlert = !histAlert; }, 'alert'));
   a.append(el('h4', null, histGroup === 'brand' ? 'Constructeurs' : 'Compagnies'));
   a.append(node('Tous les avions', base.length, !histBrand && !histFam && !histAirline, () => { histBrand = histFam = histAirline = ''; }));
   if (histGroup === 'brand') {
@@ -3298,7 +3298,7 @@ function drawCrumb(total) {
   const sel = histBrand || histAirline;
   if (!sel && !histAlert) c.append(el('span', null, 'Tous les avions'));
   else c.append(link('Tous les avions', () => { histBrand = histFam = histAirline = ''; histAlert = false; }));
-  if (histAlert) { c.append(el('i', null, '›')); c.append(sel ? link('Alertes sonores', () => { histAlert = false; }) : el('span', null, 'Alertes sonores')); }
+  if (histAlert) { c.append(el('i', null, '›')); c.append(sel ? link("Zone d'alerte", () => { histAlert = false; }) : el('span', null, "Zone d'alerte")); }
   if (histBrand) { c.append(el('i', null, '›')); c.append(histFam ? link(histBrand, () => { histFam = ''; }) : el('span', null, histBrand)); if (histFam) { c.append(el('i', null, '›'), el('span', null, histFam)); } }
   if (histAirline) { c.append(el('i', null, '›'), el('span', null, histAirline)); }
   c.append(el('small', null, _t(total > 1 ? '{0} avions' : '{0} avion', total)));
@@ -3388,7 +3388,7 @@ function histSheet(L, i) {
     dd.append(tb); dl.append(el('dt', null, 'Passages'), dd);
     tb.onclick = () => { const old = sc.querySelector('.hht'); if (old) { old.remove(); tb.classList.remove('on'); } else { tb.classList.add('on'); dl.after(histTable(e)); } };
   }
-  row('Alerte sonore', e.al ? _t("Déclenchée le {0}", when(e.al)) : '');
+  row("Zone d'alerte", e.al ? _t("Entré dans la zone le {0}", when(e.al)) : '');
   sc.append(dl);
   const nav = el('div', 'hnav');
   if (e.reg) {
