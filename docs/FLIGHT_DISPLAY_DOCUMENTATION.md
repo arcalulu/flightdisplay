@@ -501,11 +501,11 @@ Si le son est indisponible, `fd logs` affiche `son indisponible : ...` et l'affi
 
 La veille est assurée par deux scripts créés par l'étape 9 de `install.sh` : `/usr/local/bin/flight-screen` (veille et réveil) et `/usr/local/bin/flight-screen-guard` (garde).
 
-**Pourquoi le programme est arrêté pendant la veille.** Tant que le programme d'affichage tourne, il garde la main sur la sortie vidéo : écrire dans le framebuffer ne coupe pas le signal (`dpms` reste à `On`). La veille arrête donc d'abord le service.
+**Ce que devient le programme pendant la veille.** Il n'est plus arrêté : il continue de suivre les avions (historique « Avions vus », alertes marquées, sans son), mais il cesse de dessiner et **ferme son affichage** dès qu'il voit le fichier témoin `/run/flight-screen-off`. Tant qu'il garde l'affichage, il garde la main sur la sortie vidéo et écrire dans le framebuffer ne coupe pas le signal (`dpms` reste à `On`) : c'est pourquoi il le ferme. Il économise ainsi le processeur et la température. Au réveil, il rouvre l'affichage tout seul ; si la réouverture échoue, il se relance (le service est en `Restart=always`). La commande `flight-screen version` renvoie `2` : webadmin s'en sert pour savoir que le script est à jour.
 
 **Comment le signal est coupé.** La commande `setterm --blank force` n'éteint pas réellement la sortie HDMI de ce Pi (`dpms` reste `On`). Le script utilise à la place le framebuffer du noyau : écrire `4` dans `/sys/class/graphics/fb0/blank` coupe la sortie (`dpms` passe à `Off`, le moniteur s'endort), et écrire `0` la rallume. Si ce fichier n'est pas accessible, le script retombe sur `setterm`.
 
-**Terminal de veille.** La veille bascule d'abord sur un terminal virtuel inutilisé (`tty7`), où aucun programme n'écrit : ni invite de connexion ni message ne peut ranimer la console. Le réveil revient sur `tty1`.
+**Terminal de veille.** Une fois l'affichage fermé, la veille bascule sur un terminal virtuel inutilisé (`tty7`), où aucun programme n'écrit : ni invite de connexion ni message ne peut ranimer la console. Le réveil revient sur `tty1`.
 
 Contenu de `/usr/local/bin/flight-screen` (pour référence ou une installation manuelle) :
 
@@ -533,10 +533,12 @@ unblank() {
 }
 
 case "$1" in
+  version)
+    echo 2
+    ;;
   off)
-    systemctl stop "$SVC"
-    sleep 1
     touch "$FLAG"
+    sleep 2   # laisse le programme voir le fichier temoin et fermer l'affichage
     chvt "$IDLE_VT"
     sleep 1
     blank
@@ -545,10 +547,9 @@ case "$1" in
     rm -f "$FLAG"
     unblank
     chvt "$MAIN_VT"
-    systemctl start "$SVC"
     ;;
   *)
-    echo "usage : flight-screen on|off" >&2
+    echo "usage : flight-screen on|off|version" >&2
     exit 2
     ;;
 esac
@@ -556,7 +557,7 @@ esac
 
 Le fichier témoin `/run/flight-screen-off` indique que la veille est demandée ; il disparaît au redémarrage du Pi.
 
-**La garde.** `/usr/local/bin/flight-screen-guard`, lancée par le service `flight-screen-guard`, vérifie toutes les 20 secondes que la sortie vidéo est bien éteinte pendant une veille. Si l'écran s'est rallumé tout seul (fichier témoin présent, programme arrêté, `dpms` à `On`), elle le coupe de nouveau et note l'événement. Elle ne fait rien en dehors d'une veille, ni quand le programme tourne.
+**La garde.** `/usr/local/bin/flight-screen-guard`, lancée par le service `flight-screen-guard`, vérifie toutes les 20 secondes que la sortie vidéo est bien éteinte pendant une veille. Si l'écran s'est rallumé tout seul (fichier témoin présent, `dpms` à `On`), elle le coupe de nouveau et note l'événement. Elle ne fait rien en dehors d'une veille.
 
 ```sh
 #!/bin/sh
@@ -565,7 +566,7 @@ FLAG=/run/flight-screen-off
 FB=/sys/class/graphics/fb0/blank
 IDLE_VT=7
 while true; do
-  if [ -f "$FLAG" ] && ! systemctl is-active --quiet "$SVC"; then
+  if [ -f "$FLAG" ]; then
     if grep -q On /sys/class/drm/card*-HDMI-A-*/dpms 2>/dev/null; then
       if [ -w "$FB" ]; then
         echo 4 > "$FB"
@@ -1044,8 +1045,8 @@ Catégories valides : `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `b
   - Disque : anneau avec le pourcentage utilisé et l'espace libre (le survol donne le total). L'anneau passe en orange 10 points avant le seuil d'alerte et en rouge au seuil, avec un cadre coloré (voir « Stockage et photos »).
   Rafraîchies toutes les 4 secondes. L'en-tête de la page n'affiche que des pastilles d'état : « son coupé », « carte en construction », « mise à jour en cours », « mise à jour disponible » ou « disque rempli à X % » (orange 10 points avant le seuil, rouge au seuil ; un clic ouvre « Stockage et photos »).
 - Commandes à bascule, comme dans Réglages d'iOS ou Home Assistant :
-  - Programme Flight Display : démarre ou arrête le service (si l'écran est en veille, l'interrupteur rallume l'écran).
-  - Écran : veille et réveil (la veille arrête aussi le programme, voir 6.2).
+  - Programme Flight Display : démarre ou arrête le service. C'est le seul moyen d'arrêter le programme. Quand l'écran est en veille, le programme continue de tourner : la tuile « Programme » du haut de la page affiche « image en pause (écran en veille) » à la place des images par seconde, et la ligne de l'interrupteur « En fonctionnement, image en pause ».
+  - Écran : veille et réveil. La veille n'arrête pas le programme : il suit toujours les avions (historique) mais ne rafraîchit plus l'image (voir 6.2).
   - Planning de l'écran (affiché seulement quand un planning est actif) : prochaine action programmée, avec l'heure et le temps restant (par exemple « Prochaine action : extinction à 23:00 (dans 4 h 12 min) »). Le bouton « Modifier » ouvre le calendrier.
   - Son des alertes : coupe ou réactive le son (désactivé et grisé si `sound = false` dans `config.ini`).
 - Curseur de volume (0 à 100 %), appliqué en direct à la prochaine alerte.
@@ -1134,7 +1135,7 @@ Allume et éteint l'écran tout seul selon un calendrier hebdomadaire, comme un 
 - L'interrupteur « Activer le planning » met le planning en marche. Le calendrier montre les sept jours (lundi à dimanche) sur 24 heures ; les plages **bleues** sont les heures où l'écran est allumé, tout le reste est éteint. Une barre rouge marque l'heure actuelle dans la colonne du jour.
 - Sur le calendrier : faire glisser sur une journée trace une plage (par pas de 15 minutes) ; un simple clic en crée une d'une heure ; tirer le haut ou le bas d'une plage l'ajuste ; la déplacer avec la souris ou le doigt change son heure, ou son jour si on la glisse sur une autre colonne ; ✕ la supprime ; ⧉ en tête de colonne copie la journée sur toute la semaine. « Tous les jours 07:00-23:00 » et « Tout effacer » sont des raccourcis. Les plages qui se touchent ou se chevauchent sont fusionnées.
 - Comme les autres réglages, les modifications sont enregistrées avec la barre du bas, puis prises en compte immédiatement (pas de relance).
-- L'action s'exécute **aux heures programmées** : à chaque début de plage, webadmin allume l'écran (réveil, comme le bouton Écran de Pilotage) ; à chaque fin de plage, il le met en veille (le programme d'affichage est alors arrêté, voir 6.2). Entre deux heures programmées, vous pouvez allumer ou éteindre l'écran à la main : le planning ne le corrige pas et reprend à la prochaine heure programmée. Un jour sans plage est un jour entièrement éteint.
+- L'action s'exécute **aux heures programmées** : à chaque début de plage, webadmin allume l'écran (réveil, comme le bouton Écran de Pilotage) ; à chaque fin de plage, il le met en veille (le programme continue de tourner sans rafraîchir l'image, voir 6.2). Entre deux heures programmées, vous pouvez allumer ou éteindre l'écran à la main : le planning ne le corrige pas et reprend à la prochaine heure programmée. Un jour sans plage est un jour entièrement éteint.
 - Au moment où le planning est enregistré, l'écran est aligné tout de suite sur l'état voulu à cette heure. Au redémarrage de webadmin, rien n'est forcé.
 - La page Pilotage affiche la prochaine action (allumage ou extinction, heure et temps restant) tant que le planning est actif.
 - Le planning suit l'**heure du Pi** (fuseau horaire du système, voir 3.4). Il s'exécute dans webadmin : il ne fonctionne que tant que webadmin tourne, et utilise le script `flight-screen` via sudo comme le bouton Écran. Une action est reportée si une reconstruction de carte ou une mise à jour est en cours. En cas d'échec de la commande, le message est affiché sous la prochaine action.
@@ -1150,7 +1151,7 @@ Allume et éteint l'écran tout seul selon un calendrier hebdomadaire, comme un 
 **Reconstruction de la carte** (Réglages, Carte et position, en bas de la page ; un bandeau y renvoie quand un réglage de carte a changé)
 
 - Bouton « Reconstruire la carte » : lance `build_map_vector.py` avec les réglages actuels, affiche sa sortie en direct, et propose « Annuler ».
-- Interrupteur « Arrêter l'affichage pendant la construction » : libère la mémoire du Pi Zero pendant le calcul. À la fin, l'affichage est relancé pour charger la nouvelle carte (sauf si l'écran est en veille). Si la construction échoue, l'affichage reprend avec l'ancienne carte.
+- Interrupteur « Arrêter l'affichage pendant la construction » : libère la mémoire du Pi Zero pendant le calcul. À la fin, l'affichage est relancé pour charger la nouvelle carte (il reste sans image tant que l'écran est en veille). Si la construction échoue, l'affichage reprend avec l'ancienne carte.
 - Une seule construction à la fois (et pas pendant une mise à jour du logiciel).
 
 **Mises à jour**
@@ -1341,7 +1342,7 @@ Les mêmes réglages existent dans `config.ini`, section `[mqtt]`.
 
 | Entité | Type | Sujets (état / commande) | Description |
 |---|---|---|---|
-| Écran | interrupteur | `base/screen/state`, `base/screen/set` | ON rallume, OFF met en veille (et arrête le programme). |
+| Écran | interrupteur | `base/screen/state`, `base/screen/set` | ON rallume, OFF met en veille (le programme continue de tourner sans rafraîchir l'image). |
 | Son des alertes | interrupteur | `base/sound/state`, `base/sound/set` | ON si le son n'est ni coupé ni désactivé dans `config.ini`. OFF coupe le son. |
 | Volume des alertes | nombre 0-100 % (pas de 5) | `base/volume/state`, `base/volume/set` | Règle le volume en direct. |
 | Température | capteur °C | `base/temperature/state` | Température du Pi, arrondie à 0,5 °C. |

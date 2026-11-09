@@ -896,7 +896,7 @@ def live_info():
             d = json.load(fh)
         if time.time() - float(d["t"]) > 8:
             return None
-        return dict(fps=float(d["fps"]), aircraft=int(d.get("aircraft", 0)), ground=int(d.get("ground", 0)), zone=int(d.get("zone", 0)))
+        return dict(fps=float(d["fps"]), aircraft=int(d.get("aircraft", 0)), ground=int(d.get("ground", 0)), zone=int(d.get("zone", 0)), paused=bool(d.get("paused")))
     except Exception:
         return None
 
@@ -1193,7 +1193,23 @@ def svc_state():
 
 
 def screen_off():
-    return os.path.exists(S.SCREEN_FLAG) and svc_state() != "active"
+    """Ecran en veille (le programme d'affichage continue de tourner, sans dessiner)."""
+    return os.path.exists(S.SCREEN_FLAG)
+
+
+_helper_ver = {"t": 0.0, "v": None}
+
+
+def screen_helper_version():
+    """Version du script de veille (installe par install.sh) : 2 = le programme continue de tourner pendant la veille ; autre = ancien script."""
+    if time.time() - _helper_ver["t"] > 300:
+        _helper_ver["t"] = time.time()
+        try:
+            r = subprocess.run([S.SCREEN_HELPER, "version"], capture_output=True, text=True, timeout=5)
+            _helper_ver["v"] = int(r.stdout.strip()) if r.returncode == 0 and r.stdout.strip().isdigit() else 1
+        except (OSError, subprocess.SubprocessError, ValueError):
+            _helper_ver["v"] = None
+    return _helper_ver["v"]
 
 
 def screen_cmd(act):
@@ -1331,7 +1347,7 @@ def build_worker(stop_display):
     finally:
         b["rc"] = rc
         try:
-            if not screen_off() and (stopped or rc == 0):
+            if stopped or rc == 0:
                 log("Relance de l'affichage...")
                 ok, out = run(S.SUDO + [S.SYSTEMCTL, "restart", S.SERVICE])
                 log(out or ("ok" if ok else "échec du redémarrage"))
@@ -1618,6 +1634,9 @@ class Handler(BaseHTTPRequestHandler):
                 s["schedule"] = sched_status()
                 s["fps"] = fps_info() if s["service"] == "active" else None
                 s["fps_target"] = fps_target()
+                lv = live_info()
+                s["paused"] = bool(lv and lv.get("paused"))
+                s["helper_old"] = screen_helper_version() is not None and screen_helper_version() < 2
                 self.send_json(s)
             elif u.path == "/api/settings":
                 self.send_json(get_settings())
@@ -2320,12 +2339,12 @@ async function busy(inp, fn) {
 function onProg(on, inp) {
   if (!on && !confirm("Arrêter le programme Flight Display ?")) { inp.checked = true; return; }
   busy(inp, async () => {
-    const r = on ? (lastSt && lastSt.screen_off ? await api('/api/screen', {action: 'on'}) : await api('/api/service', {action: 'start'})) : await api('/api/service', {action: 'stop'});
+    const r = await api('/api/service', {action: on ? 'start' : 'stop'});
     toast(r.message);
   });
 }
 function onScreen(on, inp) {
-  if (!on && !confirm("Mettre l'écran en veille ? L'affichage sera arrêté.")) { inp.checked = true; return; }
+  if (!on && !confirm("Mettre l'écran en veille ? Le programme continue de suivre les avions (historique), mais l'image n'est plus rafraîchie.")) { inp.checked = true; return; }
   busy(inp, async () => { const r = await api('/api/screen', {action: on ? 'on' : 'off'}); toast(r.message); });
 }
 function onSound(on, inp) {
@@ -2373,7 +2392,7 @@ async function pollStatus() {
     const aw = $('#authWarn'); if (aw) aw.style.display = s.auth ? 'none' : 'block';
     lastStAt = performance.now();
     const t = $('#tiles'); t.innerHTML = '';
-    t.append(tile('Programme', s.service === 'active' ? 'actif' : s.service, s.service === 'active' ? 'ok' : 'bad', s.fps !== null && s.fps !== undefined ? s.fps.toFixed(1) + ' / ' + s.fps_target + ' fps' : ''));
+    t.append(tile('Programme', s.service === 'active' ? 'actif' : s.service, s.service === 'active' ? 'ok' : 'bad', s.paused ? tl('image en pause (écran en veille)') : (s.fps !== null && s.fps !== undefined ? s.fps.toFixed(1) + ' / ' + s.fps_target + ' fps' : '')));
     t.append(tile('Écran', s.screen_off ? 'en veille' : 'allumé', s.screen_off ? 'warn' : ''));
     const ml = {connecte: ['connecté', 'ok'], deconnecte: ['déconnecté', 'bad'], off: ['désactivé', ''], 'paho manquant': ['paho manquant', 'bad'], 'host manquant': ['serveur manquant', 'warn']};
     const mq = ml[s.mqtt] || [String(s.mqtt).startsWith('refuse') ? 'refusé' : s.mqtt, 'bad'];
@@ -2396,9 +2415,9 @@ async function pollStatus() {
     if (rows.prog) {
       const run = s.service === 'active';
       if (!rows.prog.t.input.disabled) rows.prog.t.input.checked = run;
-      rows.prog.sub.textContent = run ? 'En fonctionnement' : (s.screen_off ? 'Arrêté (écran en veille)' : 'Arrêté');
+      rows.prog.sub.textContent = run ? (s.paused ? tl("En fonctionnement, image en pause : l'écran est en veille") : tl('En fonctionnement')) : tl('Arrêté');
       if (!rows.screen.t.input.disabled) rows.screen.t.input.checked = !s.screen_off;
-      rows.screen.sub.textContent = s.screen_off ? 'En veille : le programme est arrêté' : 'Allumé';
+      rows.screen.sub.textContent = s.screen_off ? (s.helper_old ? tl("En veille. Le script de veille est ancien : relancez l'installeur pour que le programme continue de tourner") : tl('En veille : le programme continue de suivre les avions sans rafraîchir l\'image')) : tl('Allumé');
       if (!rows.sound.t.input.disabled) rows.sound.t.input.checked = !s.muted && s.sound_enabled;
       rows.sound.t.input.disabled = !s.sound_enabled;
       rows.sound.sub.textContent = !s.sound_enabled ? 'Désactivé dans config.ini (alert, sound)' : (s.muted ? "Coupé : icône de haut-parleur barré à l'écran" : 'Carillon à chaque avion entrant dans la zone');

@@ -583,7 +583,7 @@ class Updater:
             if changed and not display_affected(changed) and not (lang and self._lang_affects_display(old, latest["hash"], lang)):
                 self._log("Le programme d'affichage n'est pas concerné par cette mise à jour : il continue sans interruption.")
                 self._end(5, "skipped", "non concerné par cette mise à jour : pas de relance")
-            elif was_active and not self.screen_off():
+            elif was_active:
                 self._log("Relance du programme d'affichage...")
                 ok, out = self._sudo_restart()
                 if not ok:

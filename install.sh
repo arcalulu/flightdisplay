@@ -1016,10 +1016,11 @@ install_webadmin() {
   echo "$(L '== Script de mise en veille de l'"'"'écran')"
   cat >"$tmp" <<'HELPER_EOF'
 #!/bin/sh
-# flight-screen on|off : veille / reveil de l'ecran.
-# La veille arrete l'affichage, bascule sur un terminal virtuel inutilise (aucun texte n'y est ecrit),
-# puis coupe la sortie video par le framebuffer (methode fiable : le signal HDMI est reellement coupe).
-# Le reveil fait l'inverse. Repli sur setterm si le framebuffer n'est pas disponible.
+# flight-screen on|off|version : veille / reveil de l'ecran (version 2).
+# La veille NE ARRETE PLUS le programme d'affichage : des qu'il voit le fichier temoin, il cesse de dessiner ET ferme l'affichage
+# (tant qu'il le garde, le signal ne peut pas etre coupe) mais continue de suivre les avions (historique, alertes). On bascule ensuite
+# sur un terminal virtuel inutilise, puis la sortie video est coupee par le framebuffer (le signal HDMI est reellement coupe).
+# Le reveil fait l'inverse : le programme rouvre l'affichage. Repli sur setterm si le framebuffer n'est pas disponible.
 SVC=__SERVICE__
 MAIN_VT=__MAIN_VT__
 IDLE_VT=__IDLE_VT__
@@ -1042,10 +1043,12 @@ unblank() {
 }
 
 case "$1" in
+  version)
+    echo 2
+    ;;
   off)
-    systemctl stop "$SVC"
-    sleep 1
     touch "$FLAG"
+    sleep 2   # laisse le programme voir le fichier temoin et fermer l'affichage
     chvt "$IDLE_VT"
     sleep 1
     blank
@@ -1054,10 +1057,9 @@ case "$1" in
     rm -f "$FLAG"
     unblank
     chvt "$MAIN_VT"
-    systemctl start "$SVC"
     ;;
   *)
-    echo "usage : flight-screen on|off" >&2
+    echo "usage : flight-screen on|off|version" >&2
     exit 2
     ;;
 esac
@@ -1068,14 +1070,14 @@ HELPER_EOF
   echo "$(L '== Garde de veille (remet l'"'"'écran en veille s'"'"'il se rallume tout seul)')"
   cat >"$tmp" <<'GUARD_EOF'
 #!/bin/sh
-# Pendant une veille demandee, verifie toutes les 20 s que la sortie video est bien eteinte.
+# Pendant une veille demandee (le programme tourne toujours, sans dessiner), verifie toutes les 20 s que la sortie video est bien eteinte.
 # Sinon, la coupe a nouveau et note l'evenement : journalctl -t flight-screen-guard
 SVC=__SERVICE__
 FLAG=/run/flight-screen-off
 FB=/sys/class/graphics/fb0/blank
 IDLE_VT=__IDLE_VT__
 while true; do
-  if [ -f "$FLAG" ] && ! systemctl is-active --quiet "$SVC"; then
+  if [ -f "$FLAG" ]; then
     if grep -q On /sys/class/drm/card*-HDMI-A-*/dpms 2>/dev/null; then
       if [ -w "$FB" ]; then
         echo 4 > "$FB"

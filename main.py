@@ -135,12 +135,24 @@ RUNTIME_FILE = os.path.join(CACHE, "runtime.json")
 FPS_FILE = "/dev/shm/flightdisplay-fps.json" if os.path.isdir("/dev/shm") else os.path.join(CACHE, "fps.json")
 
 
-def fps_publish(fps, aircraft=0, ground=0, zone=0):
+SCREEN_FLAG = cfg.get("screen", "flag", fallback="/run/flight-screen-off")  # cree par flight-screen off (veille de l'ecran)
+_sl = {"t": 0.0, "v": False}
+
+
+def screen_asleep():
+    """Ecran en veille : le programme continue de tourner (historique, alertes) mais ne dessine plus. Teste au plus 2 fois par seconde."""
+    now = time.time()
+    if now - _sl["t"] >= 0.5:
+        _sl["t"], _sl["v"] = now, os.path.exists(SCREEN_FLAG)
+    return _sl["v"]
+
+
+def fps_publish(fps, aircraft=0, ground=0, zone=0, paused=False):
     """Etat en direct lu par webadmin : images par seconde, avions en vol / au sol / dans la zone d'alerte."""
     try:
         tmp = FPS_FILE + f".{os.getpid()}.tmp"
         with open(tmp, "w", encoding="utf-8") as fh:
-            json.dump({"fps": round(fps, 1), "t": time.time(), "pid": os.getpid(), "aircraft": aircraft, "ground": ground, "zone": zone}, fh)
+            json.dump({"fps": round(fps, 1), "t": time.time(), "pid": os.getpid(), "aircraft": aircraft, "ground": ground, "zone": zone, "paused": bool(paused)}, fh)
         os.replace(tmp, FPS_FILE)
     except OSError:
         pass
@@ -903,14 +915,52 @@ def main():
 
     first = True
     running = True
+    paused_pub = 0.0
+    display_up = True
     while running:
-        for e in pygame.event.get():
+        for e in (pygame.event.get() if display_up else ()):
             if e.type == pygame.QUIT or (e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE):
                 running = False
             elif e.type == pygame.KEYDOWN and e.key == pygame.K_m:
                 toggle_mute()
         rt_refresh()
         now = time.time()
+        if screen_asleep():
+            # Ecran en veille : plus de dessin ni de rafraichissement (processeur, temperature). Le programme ferme aussi
+            # l'affichage : tant qu'il le garde, la sortie video ne peut pas etre coupee. Le suivi continue :
+            # l'historique se remplit (threads de fond) et les alertes sont marquees, sans son.
+            if display_up:
+                pygame.display.quit(); display_up = False
+                print('ecran en veille : affichage ferme, suivi des avions maintenu', flush=True)
+            with lock:
+                air_now = [(k, dict(s)) for k, s in states.items() if not s["ground"]]
+            zone_now = set()
+            if ALERT_ON:
+                for k, s in air_now:
+                    dk = dist_km(s["lat"], s["lon"]); was = k in zone_ids
+                    if (dk < ALERT_KM or (was and dk < ALERT_KM * 1.1)) and in_alert_alt(s["alt"], was):
+                        zone_now.add(k)
+                if zone_now - zone_ids:
+                    history_alert(zone_now - zone_ids)
+            zone_ids = zone_now
+            if now - paused_pub >= 2.0:
+                fps_publish(0, len(air_now), 0, len(zone_ids), paused=True); paused_pub = now
+            fps_n, fps_t0 = 0, now
+            clock.tick(2)
+            continue
+        paused_pub = 0.0
+        if not display_up:  # reveil de l'ecran : l'affichage est rouvert
+            try:
+                pygame.display.init()
+                screen = pygame.display.set_mode((W, H), flags)
+                pygame.display.set_caption("Flight display")
+                pygame.mouse.set_visible(False)
+                display_up = True
+                fps_n, fps_t0 = 0, time.time()
+                print('ecran rallume : affichage rouvert', flush=True)
+            except Exception as ex:
+                print("impossible de rouvrir l'affichage :", ex, "-> redemarrage du programme", flush=True)
+                os._exit(1)  # systemd relance le programme, qui demarre ecran allume
         if len(smooth) > 300: smooth.clear()
         screen.blit(bg, (0, 0))
         hx, hy = to_xy(LAT, LON)

@@ -501,11 +501,11 @@ If the sound is unavailable, `fd logs` shows `son indisponible : ...` (sound una
 
 The sleep is handled by two scripts created by step 9 of `install.sh`: `/usr/local/bin/flight-screen` (sleep and wake-up) and `/usr/local/bin/flight-screen-guard` (guard).
 
-**Why the program is stopped during sleep.** As long as the display program runs, it keeps control of the video output: writing to the framebuffer does not cut the signal (`dpms` stays `On`). The sleep therefore stops the service first.
+**What the program does during sleep.** It is no longer stopped: it keeps tracking aircraft ("Aircraft seen" history, alerts marked, without sound), but it stops drawing and **closes its display** as soon as it sees the marker file `/run/flight-screen-off`. As long as it keeps the display, it keeps control of the video output and writing to the framebuffer does not cut the signal (`dpms` stays `On`): that is why it closes it. This saves processor and temperature. At wake-up it reopens the display by itself; if reopening fails, it restarts (the service is `Restart=always`). The `flight-screen version` command returns `2`: webadmin uses it to know that the script is up to date.
 
 **How the signal is cut.** The `setterm --blank force` command does not really turn off this Pi's HDMI output (`dpms` stays `On`). The script uses the kernel framebuffer instead: writing `4` to `/sys/class/graphics/fb0/blank` cuts the output (`dpms` goes to `Off`, the monitor goes to sleep), and writing `0` turns it back on. If this file is not accessible, the script falls back to `setterm`.
 
-**Sleep terminal.** The sleep first switches to an unused virtual terminal (`tty7`), where no program writes: no login prompt or message can wake the console. The wake-up goes back to `tty1`.
+**Sleep terminal.** Once the display is closed, the sleep switches to an unused virtual terminal (`tty7`), where no program writes: no login prompt or message can wake the console. The wake-up goes back to `tty1`.
 
 Content of `/usr/local/bin/flight-screen` (for reference or a manual installation):
 
@@ -533,10 +533,12 @@ unblank() {
 }
 
 case "$1" in
+  version)
+    echo 2
+    ;;
   off)
-    systemctl stop "$SVC"
-    sleep 1
     touch "$FLAG"
+    sleep 2   # laisse le programme voir le fichier temoin et fermer l'affichage
     chvt "$IDLE_VT"
     sleep 1
     blank
@@ -545,10 +547,9 @@ case "$1" in
     rm -f "$FLAG"
     unblank
     chvt "$MAIN_VT"
-    systemctl start "$SVC"
     ;;
   *)
-    echo "usage : flight-screen on|off" >&2
+    echo "usage : flight-screen on|off|version" >&2
     exit 2
     ;;
 esac
@@ -556,7 +557,7 @@ esac
 
 The marker file `/run/flight-screen-off` indicates that sleep is requested; it disappears when the Pi reboots.
 
-**The guard.** `/usr/local/bin/flight-screen-guard`, started by the `flight-screen-guard` service, checks every 20 seconds that the video output is really off during a sleep. If the screen has woken up by itself (marker file present, program stopped, `dpms` at `On`), it cuts it again and logs the event. It does nothing outside a sleep, nor when the program is running.
+**The guard.** `/usr/local/bin/flight-screen-guard`, started by the `flight-screen-guard` service, checks every 20 seconds that the video output is really off during a sleep. If the screen has woken up by itself (marker file present, `dpms` at `On`), it cuts it again and logs the event. It does nothing outside a sleep.
 
 ```sh
 #!/bin/sh
@@ -565,7 +566,7 @@ FLAG=/run/flight-screen-off
 FB=/sys/class/graphics/fb0/blank
 IDLE_VT=7
 while true; do
-  if [ -f "$FLAG" ] && ! systemctl is-active --quiet "$SVC"; then
+  if [ -f "$FLAG" ]; then
     if grep -q On /sys/class/drm/card*-HDMI-A-*/dpms 2>/dev/null; then
       if [ -w "$FB" ]; then
         echo 4 > "$FB"
@@ -1044,8 +1045,8 @@ Valid categories: `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `bizje
   - Disk: ring with the percentage used and the free space (hover for the total). The ring turns orange 10 points before the alert threshold and red at the threshold, with a colored frame (see "Storage and photos").
   Refreshed every 4 seconds. The page header only shows status dots: "sound muted", "map building", "update in progress", "update available" or "disk X % full" (orange 10 points before the threshold, red at the threshold; a click opens "Storage and photos").
 - Toggle commands, like in iOS Settings or Home Assistant:
-  - Flight Display program: starts or stops the service (if the screen is asleep, the switch turns the screen back on).
-  - Screen: sleep and wake-up (sleep also stops the program, see 6.2).
+  - Flight Display program: starts or stops the service. It is the only way to stop the program. When the screen is asleep, the program keeps running: the "Program" tile at the top of the page shows "image paused (screen asleep)" instead of the frames per second, and the switch line shows "Running, image paused".
+  - Screen: sleep and wake-up. The sleep does not stop the program: it keeps tracking aircraft (history) but no longer refreshes the image (see 6.2).
   - Screen schedule (shown only when a schedule is active): next scheduled action, with the time and the time left (for example "Next action: turn off at 23:00 (in 4 h 12 min)"). The "Edit" button opens the calendar.
   - Alert sound: mutes or unmutes the sound (disabled and greyed out if `sound = false` in `config.ini`).
 - Volume slider (0 to 100%), applied live at the next alert.
@@ -1150,7 +1151,7 @@ Turns the screen on and off by itself following a weekly calendar, like a diary.
 **Map rebuild** (Settings, Map and position, at the bottom of the page; a banner points to it when a map setting has changed)
 
 - "Rebuild the map" button: runs `build_map_vector.py` with the current settings, shows its output live, and offers "Cancel".
-- "Stop the display during the build" switch: frees the Pi Zero's memory during the computation. At the end, the display is restarted to load the new map (unless the screen is asleep). If the build fails, the display resumes with the old map.
+- "Stop the display during the build" switch: frees the Pi Zero's memory during the computation. At the end, the display is restarted to load the new map (it stays without image while the screen is asleep). If the build fails, the display resumes with the old map.
 - Only one build at a time (and not during a software update).
 
 **Updates**
@@ -1341,7 +1342,7 @@ The same settings exist in `config.ini`, section `[mqtt]`.
 
 | Entity | Type | Topics (state / command) | Description |
 |---|---|---|---|
-| Screen | switch | `base/screen/state`, `base/screen/set` | ON turns it back on, OFF puts it to sleep (and stops the program). |
+| Screen | switch | `base/screen/state`, `base/screen/set` | ON turns it back on, OFF puts it to sleep (the program keeps running without refreshing the image). |
 | Alert sound | switch | `base/sound/state`, `base/sound/set` | ON if the sound is neither muted nor disabled in `config.ini`. OFF mutes the sound. |
 | Alert volume | number 0-100% (steps of 5) | `base/volume/state`, `base/volume/set` | Sets the volume live. |
 | Temperature | sensor °C | `base/temperature/state` | Pi temperature, rounded to 0.5 °C. |
