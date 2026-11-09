@@ -11,7 +11,7 @@ tr = i18n.tr
 RING_FIRST = max(0.1, cfg.getfloat("rings", "first_km", fallback=5))
 RING_STEP = max(0.1, cfg.getfloat("rings", "step_km", fallback=5))
 RING_N = max(0, min(30, cfg.getint("rings", "count", fallback=4))) if cfg.getboolean("rings", "show", fallback=True) else 0
-ALERT_KM = RING_FIRST if cfg.getboolean("alert", "link_first_ring", fallback=False) else cfg.getfloat("alert", "radius_km", fallback=5)
+ALERT_KM = RING_FIRST if (cfg.getboolean("alert", "link_first_ring", fallback=False) and RING_N > 0) else cfg.getfloat("alert", "radius_km", fallback=5)  # sans cercle affiche, la distance du premier cercle ne sert pas
 ALERT_ON = ALERT_KM > 0
 ALERT_SOUND = cfg.getboolean("alert", "sound", fallback=True)
 ALERT_START_SOUND = cfg.getboolean("alert", "sound_on_start", fallback=False)

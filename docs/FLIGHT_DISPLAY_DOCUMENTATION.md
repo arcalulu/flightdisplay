@@ -840,7 +840,7 @@ Les options sont regroupées dans webadmin en cinq groupes : Zone, Son, Teinte r
 | Option | Défaut | Plage | Groupe | Description |
 |---|---|---|---|---|
 | `radius_km` | 5 | 0 à 50 | Zone | Rayon du cercle d'alerte. `0` désactive toute l'alerte (teinte, son de proximité, simulation). Ignoré si `link_first_ring` est activé. |
-| `link_first_ring` | `false` | `true` / `false` | Zone | `true` : le rayon d'alerte est la distance du premier cercle (`[rings] first_km`). `false` : `radius_km` (distance indépendante). |
+| `link_first_ring` | `false` | `true` / `false` | Zone | `true` : le rayon d'alerte est la distance du premier cercle (`[rings] first_km`). `false` : `radius_km` (distance indépendante). Sans cercle affiché (0 cercle ou cercles masqués), l'option est ignorée ; dans webadmin elle est alors décochée et masquée. |
 | `sound` | true | true / false | Son | Interrupteur général du son. À `false`, aucun son ni périphérique audio n'est utilisé, y compris au démarrage. |
 | `volume` | 0.6 | 0 à 1 | Son | Volume de départ. Le curseur de Pilotage le remplace en direct. |
 | `pulse_seconds` | 3 | 0.5 à 30 | Teinte rouge | Durée d'un cycle de clignotement de la teinte rouge. |

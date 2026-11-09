@@ -276,7 +276,7 @@ PARAMS = [
     C("ground", "ground", "min_speed_kt", "float", 0, "Vitesse minimale (kt)", "Masque les avions quasi immobiles.", "Filtres", min=0, max=200),
     C("ground", "ground", "landed_alt_ft", "int", 2000, "Altitude d'atterrissage (ft)", "Un avion qui disparaît sous cette altitude est considéré comme posé.", "Atterrissage", min=0, max=10000),
     C("ground", "ground", "landed_keep_minutes", "float", 10, "Durée d'affichage après atterrissage (min)", "", "Atterrissage", min=0, max=240),
-    C("alert", "alert", "radius_km", "float", 5, "Rayon d'alerte (km)", "0 désactive toute l'alerte. Ignoré quand la distance du premier cercle est utilisée (option ci-dessous).", "Zone", min=0, max=50),
+    C("alert", "alert", "radius_km", "float", 5, "Rayon d'alerte (km)", "0 désactive toute l'alerte. Ignoré quand la distance du premier cercle est utilisée (option ci-dessous, proposée seulement s'il y a au moins un cercle affiché).", "Zone", min=0, max=50),
     C("alert", "alert", "link_first_ring", "bool", False, "Utiliser la distance du premier cercle", "Le rayon d'alerte prend la distance du premier cercle (Carte et position, Cercles de distance). Désactivez pour fixer une autre distance.", "Zone"),
     C("alert", "alert", "sound", "bool", True, "Son", "Interrupteur général. La coupure temporaire se fait dans Pilotage.", "Son"),
     C("alert", "alert", "volume", "float", 0.6, "Volume par défaut", "Valeur de départ. Le curseur de Pilotage la remplace en direct.", "Son", min=0, max=1, ui="slider", step=0.05),
@@ -2491,7 +2491,7 @@ function pval(p) { return p.id in edits ? edits[p.id] : p.value; }
 function setEdit(p, v, clear) {
   if (p.secret) { if (clear) edits[p.id] = ''; else if (v) edits[p.id] = v; else delete edits[p.id]; }
   else if (v === p.value) delete edits[p.id]; else edits[p.id] = v;
-  updateBar(); markMenu(); ringVis();
+  updateBar(); markMenu(); ringVis(); linkSync();
 }
 function applyNeeds() {
   const n = {app: false, web: false};
@@ -2605,6 +2605,15 @@ function renderGroups(box, cat) {
   }
 }
 // Cercles de distance : les réglages n'apparaissent que s'ils servent (cercles affichés, au moins 1 cercle, au moins 2 pour l'écartement)
+// Alerte : « Utiliser la distance du premier cercle » n'a de sens que s'il y a au moins un cercle affiché. Sinon l'option est décochée et masquée.
+function linkSync() {
+  const ps = allParams(), lp = ps.find(p => p.id === 'config:alert.link_first_ring'), sh = ps.find(p => p.id === 'config:rings.show'), ct = ps.find(p => p.id === 'config:rings.count');
+  if (!lp || !sh || !ct) return;
+  const on = String(pval(sh)) === 'true' && (parseInt(pval(ct)) || 0) >= 1;
+  if (!on && String(pval(lp)) === 'true') setEdit(lp, 'false');  // setEdit rappelle linkSync : la 2e passe ne fait plus rien
+  const r = document.querySelector('[data-row="config:alert.link_first_ring"]');
+  if (r) { r.style.display = on ? '' : 'none'; const t = r.querySelector('input[type=checkbox]'); if (t) t.checked = String(pval(lp)) === 'true'; }
+}
 function ringVis() {
   if (curCat === 'storage') {  // le quota n'a de sens que si le nettoyage automatique est activé
     const ac = allParams().find(p => p.id === 'web:storage.auto_clean'), r = document.querySelector('[data-row="web:storage.cache_max_mb"]');
@@ -2647,6 +2656,7 @@ function renderCatBase() {
   if (cat.id === 'position') renderMapPicker(box);
   renderGroups(box, cat);
   if (cat.id === 'position' || cat.id === 'storage') ringVis();
+  if (cat.id === 'alert') linkSync();
 }
 async function loadSettings() {
   SET = await api('/api/settings'); edits = {};

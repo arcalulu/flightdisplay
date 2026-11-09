@@ -840,7 +840,7 @@ The options are grouped in webadmin in five groups: Zone, Sound, Red tint, Altit
 | Option | Default | Range | Group | Description |
 |---|---|---|---|---|
 | `radius_km` | 5 | 0 to 50 | Zone | Radius of the alert circle. `0` disables the whole alert (tint, proximity sound, simulation). Ignored if `link_first_ring` is on. |
-| `link_first_ring` | `false` | `true` / `false` | Zone | `true`: the alert radius is the distance of the first circle (`[rings] first_km`). `false`: `radius_km` (independent distance). |
+| `link_first_ring` | `false` | `true` / `false` | Zone | `true`: the alert radius is the distance of the first circle (`[rings] first_km`). `false`: `radius_km` (independent distance). With no circle displayed (0 circles or hidden circles), the option is ignored; in webadmin it is then unticked and hidden. |
 | `sound` | true | true / false | Sound | Master switch of the sound. At `false`, no sound nor audio device is used, including at startup. |
 | `volume` | 0.6 | 0 to 1 | Sound | Starting volume. The slider in Control overrides it live. |
 | `pulse_seconds` | 3 | 0.5 to 30 | Red tint | Duration of one blink cycle of the red tint. |
