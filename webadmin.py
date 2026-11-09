@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Administration web legere pour flightdisplay (bibliotheque standard uniquement)."""
 import base64, collections, configparser, hmac, json, math, os, re, shlex, shutil, socket
+import email.utils
 import struct, subprocess, sys, threading, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
@@ -1412,6 +1413,21 @@ class Handler(BaseHTTPRequestHandler):
                 self.wfile.write(data)
             elif u.path == "/api/mapstyle/preview":
                 self.send_json(mapprev_state())
+            elif u.path == "/api/mapstyle/current":
+                try:
+                    p = os.path.join(S.APP_DIR, "background.png")
+                    with open(p, "rb") as fh:
+                        data = fh.read()
+                    mt = os.path.getmtime(p)
+                except OSError:
+                    return self.send_json({"error": "aucune carte"}, 404)
+                self.send_response(200)
+                self.send_header("Content-Type", "image/png")
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header("Last-Modified", email.utils.formatdate(mt, usegmt=True))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(data)
             elif u.path == "/api/mapstyle/theme":
                 tid = parse_qs(u.query).get("id", [""])[0]
                 if tid not in mapstyle.PRESETS:
@@ -2545,7 +2561,8 @@ function renderMapStyle(box, cat) {
   const pvw = el('div', 'msprev'), img = document.createElement('img'); img.alt = ''; img.className = 'msimg'; pvw.append(img);
   const msg = el('p', 'note'), again = el('button', 'b s', "Mettre à jour l'aperçu"), stop = el('button', 'b s', 'Annuler'); again.style.marginTop = '4px'; stop.style.display = 'none';
   const lg = document.createElement('details'), lgs = document.createElement('summary'), log = document.createElement('pre'); lg.className = 'mslogbox'; lgs.textContent = _t('Suivi en direct'); log.className = 'mslog'; lg.append(lgs, log);
-  const bar = el('div', 'tools'); bar.append(again, stop);
+  const cur = el('button', 'b s', 'Voir la carte actuelle'); cur.style.marginTop = '4px';
+  const bar = el('div', 'tools'); bar.append(again, cur, stop);
   box.append(pvw, msg, bar, lg);
   box.append(el('p', 'note', "L'aperçu fidèle est dessiné par le même programme que la vraie carte, pour la zone et le ratio de la page Carte et position, avec tous vos réglages (modifications non enregistrées comprises). Il ne modifie pas la vraie carte : une fois l'aperçu validé, enregistrez puis reconstruisez la carte (section « Reconstruction de la carte », en bas de cette page)."));
 
@@ -2652,6 +2669,17 @@ function renderMapStyle(box, cat) {
     } catch (e) { msg.textContent = e.message; msg.classList.add('err'); }
     busy = false; again.disabled = false; stop.style.display = 'none';
   }
+  cur.onclick = async () => {  // la carte réellement utilisée par le programme d'affichage (background.png)
+    if (busy) return;
+    msg.classList.remove('err');
+    try {
+      const r = await fetch('/api/mapstyle/current', {cache: 'no-store'});
+      if (!r.ok) { msg.textContent = tl("Aucune carte n'a encore été construite."); msg.classList.add('err'); return; }
+      const lm = r.headers.get('Last-Modified'), blob = await r.blob();
+      img.src = URL.createObjectURL(blob); mode = 'current'; again.classList.remove('p');
+      msg.textContent = _t('Carte actuellement utilisée par le programme (construite {0}).', lm ? new Date(lm).toLocaleString() : '?');
+    } catch (e) { msg.textContent = e.message; msg.classList.add('err'); }
+  };
   stop.onclick = async () => { try { await api('/api/mapstyle/cancel', {}); } catch (e) { toast(e.message, true); } };
   again.onclick = () => refresh();
   { const g = geo(); if (isFinite(g.width) && isFinite(g.height) && g.height > 0) pvw.style.aspectRatio = g.width + ' / ' + g.height; }
