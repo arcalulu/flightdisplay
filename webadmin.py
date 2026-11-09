@@ -1840,7 +1840,6 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 
 <div id="mapHolder" style="display:none"><div id="mapBuild">
   <div class="list">
-    <div class="li stack"><div class="lt"><b>Reconstruire la carte</b><small>Lance build_map_vector.py avec la position et le rayon de config.ini. L'affichage est relancé à la fin pour charger la nouvelle carte.</small></div></div>
     <div class="li"><div class="lt"><b>Arrêter l'affichage pendant la construction</b><small>Libère la mémoire du Pi Zero.</small></div><label class="tg"><input type="checkbox" id="stopDisp"><span></span></label></div>
     <div class="li stack"><div class="btns"><button class="b p" id="buildBtn" onclick="startBuild()">Reconstruire la carte</button><button class="b d" id="cancelBtn" onclick="cancelBuild()" style="display:none">Annuler</button></div></div>
   </div>
@@ -2108,7 +2107,7 @@ function pval(p) { return p.id in edits ? edits[p.id] : p.value; }
 function setEdit(p, v, clear) {
   if (p.secret) { if (clear) edits[p.id] = ''; else if (v) edits[p.id] = v; else delete edits[p.id]; }
   else if (v === p.value) delete edits[p.id]; else edits[p.id] = v;
-  updateBar(); markMenu();
+  updateBar(); markMenu(); ringVis();
 }
 function applyNeeds() {
   const n = {app: false, web: false};
@@ -2158,8 +2157,10 @@ function control(p) {
     const ok = x => /^#[0-9a-f]{6}$/i.test(x || '');
     i.type = 'color'; i.value = ok(v) ? v : p.default; i.dataset.pid = p.id;
     pv.setAttribute('viewBox', '-16 -16 32 32'); pv.setAttribute('width', 30); pv.setAttribute('height', 30);
-    const pg = document.createElementNS('http://www.w3.org/2000/svg', 'polygon'); pg.setAttribute('points', PLANE_PTS); pv.append(pg);
-    const paint = () => { pg.setAttribute('fill', i.value); rs.style.visibility = i.value.toLowerCase() === String(p.default).toLowerCase() ? 'hidden' : 'visible'; };
+    const ring = p.id === 'config:rings.color', pg = document.createElementNS('http://www.w3.org/2000/svg', ring ? 'circle' : 'polygon');
+    if (ring) { pg.setAttribute('r', 11); pg.setAttribute('fill', 'none'); pg.setAttribute('stroke-width', 2.5); } else pg.setAttribute('points', PLANE_PTS);
+    pv.append(pg);
+    const paint = () => { pg.setAttribute(ring ? 'stroke' : 'fill', i.value); rs.style.visibility = i.value.toLowerCase() === String(p.default).toLowerCase() ? 'hidden' : 'visible'; };
     i.oninput = () => { setEdit(p, i.value.toLowerCase()); paint(); }; rs.title = 'Couleur par défaut'; rs.onclick = () => { i.value = p.default; setEdit(p, p.default); paint(); };
     paint(); w.append(pv, i, rs); return {c: w, inline: true};
   }
@@ -2200,10 +2201,19 @@ function renderGroups(box, cat) {
       if (p.needs_map) b.append(el('span', 'flag', 'recalcule la carte'));
       t.append(b); const hp = (p.help || '') + (p.present ? '' : (p.help ? ' ' : '') + _t('(absent du fichier : valeur par défaut)'));
       if (hp) t.append(el('small', null, hp));
-      row.append(t, ctl.c); list.append(row);
+      row.dataset.row = p.id; row.append(t, ctl.c); list.append(row);
     }
     box.append(list);
   }
+}
+// Cercles de distance : les réglages n'apparaissent que s'ils servent (cercles affichés, au moins 1 cercle, au moins 2 pour l'écartement)
+function ringVis() {
+  if (curCat !== 'position') return;
+  const g = k => allParams().find(p => p.id === 'config:rings.' + k);
+  if (!g('show') || !g('count')) return;
+  const on = String(pval(g('show'))) === 'true', n = parseInt(pval(g('count'))) || 0;
+  const vis = {count: on, first_km: on && n >= 1, step_km: on && n >= 2, width: on && n >= 1, color: on && n >= 1, show_labels: on && n >= 1};
+  for (const k in vis) { const r = document.querySelector('[data-row="config:rings.' + k + '"]'); if (r) r.style.display = vis[k] ? '' : 'none'; }
 }
 let fieldTab = {};
 function renderCatBase() {
@@ -2233,6 +2243,7 @@ function renderCatBase() {
   if (cat.id === 'server') { const w = el('div', 'hint', "Aucun mot de passe n'est défini : toute personne du réseau local peut piloter le Raspberry Pi. Définissez-en un ci-dessous."); w.id = 'authWarn'; w.style.display = (lastSt && !lastSt.auth) ? 'block' : 'none'; box.append(w); }  
   if (cat.id === 'position') renderMapPicker(box);
   renderGroups(box, cat);
+  if (cat.id === 'position') ringVis();
   if (cat.file) {
     const r = el('button', 'b s', 'Revenir à la version précédente de ' + 'config.ini');
     r.onclick = async () => { if (!confirm('Remplacer le fichier par sa version précédente ?')) return; try { await api('/api/settings/restore', {file: cat.file}); toast('Version précédente restaurée'); await loadSettings(); } catch (e) { toast(e.message, true); } };
@@ -2476,7 +2487,7 @@ function renderMapPicker(box) {
     const rp = RP('rings.show');
     if (rp) {
       const on = String(pval(rp)) === 'true', f0 = num(RP('rings.first_km'), 5), n0 = parseInt(pval(RP('rings.count'))) || 0;
-      fw.style.display = cw.style.display = ew.style.display = on ? '' : 'none';
+      cw.style.display = on ? '' : 'none'; fw.style.display = on && n0 >= 1 ? '' : 'none'; ew.style.display = on && n0 >= 2 ? '' : 'none';
       const s0 = num(RP('rings.step_km'), 5);
       fr.max = er.max = Math.max(1, Math.round(R)); fr.value = Math.max(0.5, Math.min(+fr.max, f0)); fv.textContent = Math.round(f0 * 10) / 10 + ' km'; cv.textContent = n0;
       er.value = Math.max(0.5, Math.min(+er.max, s0)); ev.textContent = Math.round(s0 * 10) / 10 + ' km';

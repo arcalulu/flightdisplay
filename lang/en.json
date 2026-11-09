@@ -309,7 +309,6 @@
   "La position ou le rayon de la carte a changé : la carte doit être reconstruite.": "The position or radius of the map has changed: the map must be rebuilt.",
   "Aller à la reconstruction": "Go to the rebuild",
   "Reconstruire la carte": "Rebuild the map",
-  "Lance build_map_vector.py avec la position et le rayon de config.ini. L'affichage est relancé à la fin pour charger la nouvelle carte.": "Runs build_map_vector.py with the position and radius from config.ini. The display is restarted at the end to load the new map.",
   "Libère la mémoire du Pi Zero.": "Frees the memory of the Pi Zero.",
   "Annuler": "Cancel",
   "inactif": "idle",
