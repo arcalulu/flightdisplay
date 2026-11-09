@@ -1736,6 +1736,7 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 .tools{display:flex;gap:8px;margin-bottom:8px;align-items:center}.tools>*{flex:1}
 .mpbig{height:380px;border-radius:12px;border:1px solid var(--line);margin:10px 0;overflow:hidden;background:#0e141b}
 .mpbig .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.8) saturate(.55)}
+.mpbig.leaflet-container,.mpprev.leaflet-container{background:#161d24}  /* Safari iOS laisse voir le fond entre les tuiles pendant le zoom : un fond sombre au lieu du gris clair de Leaflet */
 .sl.mprad{width:100%;max-width:640px}.mprad{margin:8px 0}.mprad b{flex:none;margin-right:10px;min-width:84px;font-weight:500}.mprad input{flex:1}
 .mpcnt{display:flex;align-items:center;gap:6px}.mpcnt button{width:34px;height:34px;padding:0;border-radius:8px;border:1px solid var(--line);background:#1b2431;color:var(--txt);font-size:18px;line-height:1}.mpcnt span{min-width:30px;text-align:center;font-variant-numeric:tabular-nums}
 .mppv{width:100%;max-width:640px;border-radius:10px;border:1px solid var(--line);overflow:hidden;background:#0e141b;margin:8px 0}
