@@ -204,10 +204,30 @@ except (OSError, ValueError, TypeError, KeyError):
     pass
 
 
+alerted = {}  # vols qui ont declenche l'alerte (zone d'alerte) : id -> heure ; garde meme si l'avion n'est pas encore dans l'historique
+
+
+def history_alert(ids):
+    """Marque les vols qui viennent d'entrer dans la zone d'alerte (filtre « alerte » de la page Avions vus)."""
+    now = int(time.time())
+    with lock:
+        for k in ids:
+            alerted[k] = now
+            e = history.get(k)
+            if e is not None and not e.get("al"):
+                e["al"] = now
+                _hs["dirty"] = True
+        if len(alerted) > 300:
+            for k in sorted(alerted, key=alerted.get)[:len(alerted) - 300]:
+                del alerted[k]
+
+
 def history_note(f, info):
     """Ajoute (ou complete) l'avion dans l'historique. Appele avec le verrou."""
     now = int(time.time())
     e = history.get(f.id) or {"id": f.id, "t": now}
+    if f.id in alerted and not e.get("al"):
+        e["al"] = alerted[f.id]
     e.update(l=now, cs=f.callsign or "", reg=info.get("reg") or "", code=f.aircraft_code or "", model=info.get("model") or "",
              airline=info.get("airline") or "", frm=info.get("origin") or "", to=info.get("dest") or "",
              fi=f.origin_airport_iata or "", ti=f.destination_airport_iata or "",
@@ -946,6 +966,7 @@ def main():
                 if (dk < ALERT_KM or (was and dk < ALERT_KM * 1.1)) and in_alert_alt(s["alt"], was):
                     zone_now.add(k)
             if zone_now - zone_ids:
+                history_alert(zone_now - zone_ids)
                 play_alert()
         zone_ids = zone_now
 

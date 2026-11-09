@@ -1055,11 +1055,14 @@ Catégories valides : `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `b
 **Avions vus** (entre Pilotage et Réglages)
 
 - L'historique des avions qui ont survolé la zone, en cartes avec leur photo : modèle, compagnie, trajet (ville de départ → ville d'arrivée), immatriculation et « il y a X » ; tout ce que montre le panneau de l'écran, sauf l'altitude et la vitesse.
-- Des pastilles sur les photos : « 1re fois » (appareil jamais vu auparavant), « Type rare » (modèle jamais vu avant), « Habitué ×N » (même immatriculation vue N fois, à partir de 3).
+- Des pastilles sur les photos : « Alerte » (l'avion a déclenché l'alerte, enregistrée par le programme au moment où il entre dans la zone), « 1re fois » (appareil jamais vu auparavant), « Type rare » (modèle jamais vu avant), « Habitué ×N » (même immatriculation vue N fois, à partir de 3).
 - En haut : quatre compteurs (avions vus, appareils différents, compagnies, dernières 24 h) et un « Palmarès » repliable (compagnies et modèles les plus vus, appareils habitués).
+- Deux modes d'affichage : **Cartes** (grille de photos) ou **Liste** (une ligne par avion, vignette, modèle, compagnie, trajet, immatriculation, heure, pastilles). Le choix est mémorisé dans le navigateur.
+- Une **colonne de navigation verticale à gauche** (un bouton « Filtres » sur téléphone) : « Regrouper par » **Constructeur** (Airbus, Boeing, ATR…, puis la famille : tous les A320-251N, A320-232, A320neo sont réunis sous « A320 », tous les 737 sous « 737 ») ou par **Compagnie**, avec le nombre d'avions de chaque entrée, et le filtre « **Avec alerte sonore** » qui ne garde que les avions ayant déclenché l'alerte en entrant dans la zone d'alerte. Un fil d'Ariane au-dessus des résultats (« Tous les avions › Airbus › A320 ») permet de remonter d'un niveau.
 - Recherche (modèle, immatriculation, indicatif, compagnie, ville, code aéroport), période (aujourd'hui, 7 jours, tout) et tri (récents ou habitués).
+- **Pagination** comme sur un forum : nombre d'avions par page réglable (12, 24, 48, 96 ou 200), puis « Page 3 sur 12 ‹ 1 2 3 … 11 12 › » en haut et en bas de la liste.
 - Un clic sur une carte ouvre la fiche : grande photo avec son crédit, immatriculation, indicatif, type ICAO, trajet avec codes aéroport, premier et dernier passage, nombre de passages ; flèches (ou touches ← →) pour passer d'un avion à l'autre, boutons vers JetPhotos et Flightradar24.
-- L'historique est tenu par le programme d'affichage dans `cache/history.json` (les 1000 derniers vols, écrit 30 secondes après l'arrivée d'un nouvel avion) ; la page en montre les 400 plus récents. Si une photo a été supprimée du cache (nettoyage), webadmin la retélécharge au besoin.
+- L'historique est tenu par le programme d'affichage dans `cache/history.json` (les 1000 derniers vols, écrit 30 secondes après l'arrivée d'un nouvel avion) ; la page les montre tous. Si une photo a été supprimée du cache (nettoyage), webadmin la retélécharge au besoin.
 
 **Réglages**
 

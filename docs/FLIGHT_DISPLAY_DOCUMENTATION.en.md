@@ -1055,11 +1055,14 @@ Valid categories: `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `bizje
 **Aircraft seen** (between Control and Settings)
 
 - The history of the aircraft that flew over the area, as cards with their photo: model, airline, route (departure city → arrival city), registration and "X ago"; everything the on-screen panel shows, except altitude and speed.
-- Badges on the photos: "First time" (an aircraft never seen before), "Rare type" (a model never seen before), "Regular ×N" (same registration seen N times, from 3).
+- Badges on the photos: "Alert" (the aircraft triggered the alert, recorded by the program when it enters the zone), "First time" (an aircraft never seen before), "Rare type" (a model never seen before), "Regular ×N" (same registration seen N times, from 3).
 - At the top: four counters (aircraft seen, different aircraft, airlines, last 24 h) and a collapsible "Leaderboard" (most seen airlines and models, regular aircraft).
+- Two display modes: **Cards** (grid of photos) or **List** (one line per aircraft: thumbnail, model, airline, route, registration, time, badges). The choice is remembered in the browser.
+- A **vertical navigation column on the left** (a "Filters" button on a phone): "Group by" **Manufacturer** (Airbus, Boeing, ATR…, then the family: all the A320-251N, A320-232, A320neo are gathered under "A320", all the 737 under "737") or by **Airline**, with the number of aircraft for each entry, and the "**With sound alert**" filter that keeps only the aircraft that triggered the alert when entering the alert zone. A breadcrumb above the results ("All aircraft › Airbus › A320") lets you go back up one level.
 - Search (model, registration, callsign, airline, city, airport code), period (today, 7 days, all) and sort (recent or regulars).
+- **Pagination** like on a forum: number of aircraft per page adjustable (12, 24, 48, 96 or 200), then "Page 3 of 12 ‹ 1 2 3 … 11 12 ›" above and below the list.
 - Clicking a card opens the sheet: large photo with its credit, registration, callsign, ICAO type, route with airport codes, first and last sighting, number of sightings; arrows (or the ← → keys) to go from one aircraft to the next, buttons to JetPhotos and Flightradar24.
-- The history is kept by the display program in `cache/history.json` (the last 1000 flights, written 30 seconds after a new aircraft arrives); the page shows the 400 most recent. If a photo was deleted from the cache (cleanup), webadmin downloads it again when needed.
+- The history is kept by the display program in `cache/history.json` (the last 1000 flights, written 30 seconds after a new aircraft arrives); the page shows them all. If a photo was deleted from the cache (cleanup), webadmin downloads it again when needed.
 
 **Settings**
 
