@@ -1051,6 +1051,8 @@ Catégories valides : `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `b
   - Son des alertes : coupe ou réactive le son (désactivé et grisé si `sound = false` dans `config.ini`).
 - Curseur de volume (0 à 100 %), appliqué en direct à la prochaine alerte.
 - Bouton « Tester le son » (désactivé tant que le son est coupé). L'enregistrement dans Réglages relance le programme si besoin.
+- Les interrupteurs « Programme Flight Display » et « Écran » agissent tout de suite, sans demande de confirmation.
+- **Mode hors ligne** (toutes les pages) : quand le Pi ne répond plus (redémarrage, coupure du réseau), la page masque tout sauf la barre de titre et affiche « Raspberry Pi injoignable » avec un anneau jaune qui se vide en 10 secondes ; à chaque fin de compte à rebours elle tente de se reconnecter. Dès que le Pi répond, la page revient sur l'onglet (et la catégorie de Réglages) où vous étiez ; si webadmin a redémarré, elle se recharge pour charger la version à jour. Le mode hors ligne ne s'active pas pendant une mise à jour ni un redémarrage de webadmin demandé depuis la page, qui ont leur propre suivi.
 - Alimentation : redémarrer ou éteindre le Pi, avec confirmation. Après une extinction, il faut débrancher puis rebrancher l'alimentation.
 
 **Avions vus** (entre Pilotage et Réglages)

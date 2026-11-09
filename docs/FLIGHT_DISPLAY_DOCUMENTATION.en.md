@@ -1051,6 +1051,8 @@ Valid categories: `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `bizje
   - Alert sound: mutes or unmutes the sound (disabled and greyed out if `sound = false` in `config.ini`).
 - Volume slider (0 to 100%), applied live at the next alert.
 - "Test the sound" button (disabled while the sound is muted). Saving in Settings restarts the program when needed.
+- The "Flight Display program" and "Screen" switches act immediately, without a confirmation request.
+- **Offline mode** (all pages): when the Pi no longer answers (restart, network down), the page hides everything except the title bar and shows "Raspberry Pi unreachable" with a yellow ring that empties in 10 seconds; at the end of each countdown it tries to reconnect. As soon as the Pi answers, the page returns to the tab (and the Settings category) where you were; if webadmin restarted, it reloads to load the up-to-date version. Offline mode does not start during an update or a webadmin restart requested from the page, which have their own tracking.
 - Power: restart or shut down the Pi, with confirmation. After a shutdown, the power supply must be unplugged and plugged back in.
 
 **Aircraft seen** (between Control and Settings)

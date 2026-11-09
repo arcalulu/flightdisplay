@@ -14,6 +14,7 @@ import webadmin_update
 from i18n import tr
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+BOOT_ID = str(int(time.time()))
 INI_PATH = os.environ.get("WEBADMIN_INI") or os.path.join(HERE, "config.ini")
 # Sections de config.ini gérées par webadmin ; toutes les autres appartiennent au programme d'affichage.
 WEB_SECS = ("server", "app", "screen", "build", "mqtt", "update", "schedule", "storage")
@@ -1634,6 +1635,7 @@ class Handler(BaseHTTPRequestHandler):
                 s["schedule"] = sched_status()
                 s["fps"] = fps_info() if s["service"] == "active" else None
                 s["fps_target"] = fps_target()
+                s["boot"] = BOOT_ID
                 lv = live_info()
                 s["paused"] = bool(lv and lv.get("paused"))
                 s["helper_old"] = screen_helper_version() is not None and screen_helper_version() < 2
@@ -1867,6 +1869,10 @@ nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:#0e141bf2;bac
 nav button{flex:1;background:none;border:0;color:var(--mut);padding:12px 0 10px;font-size:13px}
 nav button.on{color:var(--acc)}
 h2.t{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;margin:18px 4px 6px;font-weight:600}
+#offline{position:fixed;left:0;right:0;bottom:0;top:56px;background:var(--bg);z-index:40;display:none;align-items:center;justify-content:center;text-align:center;padding:20px}
+#offline .offbox{max-width:420px}#offline h2{margin:14px 0 6px;font-size:20px}#offline p{margin:0 0 6px;color:var(--mut);font-size:14px}#offline .offs{color:var(--txt);font-size:15px;margin-top:10px}
+.offring{width:132px;height:132px}.offring circle{fill:none;stroke-width:8}.offring .offbg{stroke:#243040}.offring .offfg{stroke:var(--acc);stroke-linecap:round;stroke-dasharray:326.7;stroke-dashoffset:0;transition:stroke-dashoffset 1s linear}.offring text{fill:var(--txt);font-size:34px;font-weight:600}
+.offring.try .offfg{animation:offspin 1.1s linear infinite;stroke-dasharray:90 237;transition:none}@keyframes offspin{to{stroke-dashoffset:-326.7}}
 .hlayout{display:flex;gap:14px;align-items:flex-start}
 .haside{width:236px;flex:none;position:sticky;top:8px;max-height:calc(100vh - 70px);overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 8px}
 .haside h4{margin:2px 6px 6px;font-size:12px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
@@ -2228,6 +2234,12 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
   <button class="b p" id="barSave" onclick="saveSettings()">Enregistrer</button>
   <button class="b" style="flex:none;width:auto" onclick="discardEdits()">Annuler</button>
 </div></div>
+<div id="offline"><div class="offbox">
+  <svg class="offring" id="offRing" viewBox="0 0 120 120" role="img" aria-label="Compte à rebours"><circle class="offbg" cx="60" cy="60" r="52"/><circle class="offfg" id="offArc" cx="60" cy="60" r="52" transform="rotate(-90 60 60)"/><text id="offNum" x="60" y="71" text-anchor="middle"></text></svg>
+  <h2>Raspberry Pi injoignable</h2>
+  <p>Redémarrage du Pi ou coupure du réseau ? La page se reconnecte toute seule et revient là où vous étiez.</p>
+  <p class="offs" id="offS"></p>
+</div></div>
 <div id="toast"></div>
 
 <script>
@@ -2280,9 +2292,55 @@ let pend = {app: false, web: false}, TYPES = null, rows = {}, UPD = null, updWas
 const $ = s => document.querySelector(s);
 const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
 
+/* ---------- Mode hors ligne : le Pi ne répond plus (redémarrage, réseau) ---------- */
+let netFails = 0, offline = false, offTimer = null, offLeft = 10, offBusy = false, bootId = null, webRestarting = false;
+const OFF_EVERY = 10, OFF_LEN = 326.7;
+function netFail() {
+  netFails++;
+  if (netFails >= 2 && !offline && !webRestarting && !updWasRunning && !(UPD && (UPD.running || UPD.restarting))) goOffline();
+}
+function goOffline() {
+  offline = true; offLeft = OFF_EVERY; offBusy = false;
+  const o = $('#offline'), h = document.querySelector('header');
+  o.style.top = (h ? h.offsetHeight : 56) + 'px'; o.style.display = 'flex';
+  $('#chips').style.visibility = 'hidden';
+  offDraw(); clearInterval(offTimer); offTimer = setInterval(offTick, 1000);
+}
+function offDraw() {
+  $('#offRing').classList.toggle('try', offBusy);
+  $('#offArc').style.strokeDashoffset = offBusy ? '' : String(OFF_LEN * (1 - offLeft / OFF_EVERY));
+  $('#offNum').textContent = offBusy ? '' : String(offLeft);
+  $('#offS').textContent = offBusy ? tl('Tentative de connexion…') : _t('Nouvelle tentative dans {0} s', offLeft);
+}
+async function offTick() {
+  if (offBusy) return;
+  offLeft--;
+  if (offLeft > 0) { offDraw(); return; }
+  offBusy = true; offDraw();
+  try {
+    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 6000);
+    const r = await fetch('/api/status', {cache: 'no-store', signal: ctl.signal}); clearTimeout(t);
+    if (!r.ok && r.status !== 401) throw 0;
+    const d = await r.json().catch(() => ({}));
+    comeBack(d.boot);
+  } catch (e) { offBusy = false; offLeft = OFF_EVERY; offDraw(); }
+}
+function comeBack(boot) {  // la connexion est revenue : on retrouve la page où l'on était
+  clearInterval(offTimer); offline = false; netFails = 0; offBusy = false;
+  $('#offline').style.display = 'none'; $('#chips').style.visibility = '';
+  if (boot && bootId && boot !== bootId) {  // webadmin a redémarré (nouvelle version possible) : rechargement, même onglet et même catégorie
+    try { sessionStorage.setItem('fdRestore', JSON.stringify({tab: cur, cat: curCat})); } catch (e) {}
+    location.reload(); return;
+  }
+  pollStatus();
+  if (cur === 'hist') loadHist(); else if (cur === 'upd') pollUpd(); else if (cur === 'log') loadLogs();
+  else if (cur === 'cfg' && !Object.keys(edits).length) loadSettings().catch(() => {});
+}
 async function api(path, body) {
   const opt = body === undefined ? {} : {method: 'POST', headers: {'Content-Type': 'application/json', 'X-Admin': '1'}, body: JSON.stringify(body)};
-  const r = await fetch(path, opt);
+  let r;
+  try { r = await fetch(path, opt); } catch (e) { netFail(); throw new Error(tl('Connexion perdue')); }
+  netFails = 0;
   let data = {};
   try { data = await r.json(); } catch (e) {}
   if (!r.ok) throw new Error(data.error || ('Erreur HTTP ' + r.status));
@@ -2338,14 +2396,12 @@ async function busy(inp, fn) {
   try { await fn(); } catch (e) { toast(e.message, true); } finally { inp.disabled = false; setTimeout(pollStatus, 1200); }
 }
 function onProg(on, inp) {
-  if (!on && !confirm("Arrêter le programme Flight Display ?")) { inp.checked = true; return; }
   busy(inp, async () => {
     const r = await api('/api/service', {action: on ? 'start' : 'stop'});
     toast(r.message);
   });
 }
 function onScreen(on, inp) {
-  if (!on && !confirm("Mettre l'écran en veille ? Le programme continue de suivre les avions (historique), mais l'image n'est plus rafraîchie.")) { inp.checked = true; return; }
   busy(inp, async () => { const r = await api('/api/screen', {action: on ? 'on' : 'off'}); toast(r.message); });
 }
 function onSound(on, inp) {
@@ -2377,7 +2433,7 @@ function ringTile(label, pct, cls, text, detail, tip) {
 }
 async function pollStatus() {
   try {
-    const s = await api('/api/status'); lastSt = s;
+    const s = await api('/api/status'); lastSt = s; bootId = s.boot || bootId;
     const c = el('div');
     if (s.muted) c.append(chip('son coupé', 'warn'));
     if (s.build_running) c.append(chip('carte en construction', 'warn'));
@@ -2626,7 +2682,8 @@ async function saveSettings() {
 function discardEdits() { edits = {}; TYPES_DIRTY = false; renderCat(); markMenu(); updateBar(); }
 async function restartWeb(port, noAsk) {
   if (!noAsk && !confirm('Redémarrer webadmin ? La page sera indisponible quelques secondes.')) return;
-  try { await api('/api/webadmin/restart', {}); } catch (e) { toast(e.message, true); return; }
+  webRestarting = true;
+  try { await api('/api/webadmin/restart', {}); } catch (e) { webRestarting = false; toast(e.message, true); return; }
   toast('Redémarrage de webadmin...');
   for (let i = 0; i < 30; i++) {
     await new Promise(r => setTimeout(r, 1000));
@@ -3747,6 +3804,11 @@ setInterval(() => { if (updWasRunning || (cur === 'upd' && ++updTick % 7 === 0))
 pollStatus(); pollBuild();
 loadSettings().catch(e => toast(e.message, true));
 if (location.hash === '#upd') { history.replaceState(null, '', location.pathname); go('upd'); }
+{ let rs = null; try { rs = JSON.parse(sessionStorage.getItem('fdRestore') || 'null'); sessionStorage.removeItem('fdRestore'); } catch (e) {}
+  if (rs && rs.tab && rs.tab !== 'home') {  // retour sur l'onglet (et la catégorie) d'avant la coupure
+    go(rs.tab);
+    if (rs.tab === 'cfg' && rs.cat) { const t = setInterval(() => { if (SET && SET.cats && SET.cats[rs.cat]) { clearInterval(t); curCat = rs.cat; renderMenu(); renderCat(); } }, 200); setTimeout(() => clearInterval(t), 8000); }
+  } }
 </script>
 </body>
 </html>
