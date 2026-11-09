@@ -1885,7 +1885,7 @@ h2.t{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.04
 .hpager{display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin:12px 0}.hpager .hpi{color:var(--mut);font-size:13px;margin-right:8px}.hpager .hpe{color:var(--mut);padding:0 4px}
 .hpg{min-width:34px;height:34px;padding:0 8px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--txt);font-size:14px;cursor:pointer}.hpg:hover:not(:disabled){border-color:#3a4c63}.hpg.on{background:#2c3a4d;border-color:var(--acc);font-weight:600}.hpg:disabled{opacity:.35;cursor:default}
 .hrows{display:flex;flex-direction:column;gap:6px}
-.hrow{display:grid;grid-template-columns:64px minmax(0,1.15fr) minmax(0,1.6fr) 84px 74px 150px;align-items:center;gap:10px;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:6px 10px 6px 6px;color:var(--txt);cursor:pointer}
+.hrow{display:grid;grid-template-columns:64px minmax(0,1.15fr) minmax(0,1.6fr) 92px 74px 150px;align-items:center;gap:10px;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:6px 10px 6px 6px;color:var(--txt);cursor:pointer}
 .hrow:hover{border-color:#3a4c63}.hrow .hrt{position:relative;width:64px;height:42px;border-radius:8px;overflow:hidden;background:#0e141b;display:flex;align-items:center;justify-content:center;color:#3f5269;font-size:20px}.hrow .hrt img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .hrow b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hrow small{display:block;color:var(--mut);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hrow code{font:12px ui-monospace,Consolas,monospace}.hrow .hbadges{position:static;justify-content:flex-end;align-content:center;gap:3px}.hrow .hbadge{font-size:10px;padding:1px 6px}.hrow .hroutel b{white-space:normal;line-height:1.25}
 .hfilt{display:none}
@@ -3323,7 +3323,8 @@ function drawHist() {
       const r = el('button', 'hrow'), rt = histRoute(e), t1 = el('div'), t2 = el('div');
       t1.append(el('b', null, e.model && e.model !== '?' ? e.model : (e.code || '?')), el('small', null, e.airline || ' '));
       t2.className = 'hroutel'; t2.append(el('b', null, rt[0] + ' → ' + rt[1]), el('small', null, [e.fi, e.ti].filter(Boolean).join(' → ') || ' '));
-      r.append(histPhoto(e, 'hrt'), t1, t2, el('code', null, e.reg || e.cs || '?'), el('small', null, ago(e.t)), histBadges(e));
+      const t3 = el('div'); t3.append(el('b', null, e.reg || e.cs || '?'), el('small', null, e.reg ? (e.cs || ' ') : ' '));  // immatriculation, puis indicatif dessous
+      r.append(histPhoto(e, 'hrt'), t1, t2, t3, el('small', null, ago(e.t)), histBadges(e));
       r.onclick = () => histSheet(L, from + k); res.append(r);
     });
   } else {
