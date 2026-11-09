@@ -410,6 +410,7 @@
   "il y a {0} h": "{0} h ago",
   "il y a {0} j": "{0} d ago",
   "Version installée": "Installed version",
+  "Le script de veille de l'écran est ancien : la veille arrête encore le programme d'affichage. Relancez l'installeur en conservant la configuration (cd ~/flightdisplay && bash install.sh) pour que le programme continue de tourner pendant la veille.": "The screen sleep script is old: the sleep still stops the display program. Run the installer again, keeping the configuration (cd ~/flightdisplay && bash install.sh), so that the program keeps running during the sleep.",
   "image en pause (écran en veille)": "image paused (screen asleep)",
   "En fonctionnement, image en pause : l'écran est en veille": "Running, image paused: the screen is asleep",
   "En veille. Le script de veille est ancien : relancez l'installeur pour que le programme continue de tourner": "Asleep. The sleep script is old: run the installer again so that the program keeps running",

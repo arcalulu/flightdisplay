@@ -2134,6 +2134,7 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 </nav>
 <main>
 <section class="tab on" id="t-home">
+  <div class="hint" id="helperWarn">Le script de veille de l'écran est ancien : la veille arrête encore le programme d'affichage. Relancez l'installeur en conservant la configuration (cd ~/flightdisplay &amp;&amp; bash install.sh) pour que le programme continue de tourner pendant la veille.</div>
   <div class="tiles" id="tiles"></div>
   <div class="cols">
     <div>
@@ -2390,6 +2391,7 @@ async function pollStatus() {
     { const box = $('#chips'); if (box.dataset.h !== c.innerHTML) { box.dataset.h = c.innerHTML; box.replaceChildren(...c.childNodes); } }
 
     const aw = $('#authWarn'); if (aw) aw.style.display = s.auth ? 'none' : 'block';
+    $('#helperWarn').style.display = s.helper_old ? 'block' : 'none';
     lastStAt = performance.now();
     const t = $('#tiles'); t.innerHTML = '';
     t.append(tile('Programme', s.service === 'active' ? 'actif' : s.service, s.service === 'active' ? 'ok' : 'bad', s.paused ? tl('image en pause (écran en veille)') : (s.fps !== null && s.fps !== undefined ? s.fps.toFixed(1) + ' / ' + s.fps_target + ' fps' : '')));
