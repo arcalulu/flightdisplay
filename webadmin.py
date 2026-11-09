@@ -1860,12 +1860,12 @@ h2.t{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.04
 .hpager{display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin:12px 0}.hpager .hpi{color:var(--mut);font-size:13px;margin-right:8px}.hpager .hpe{color:var(--mut);padding:0 4px}
 .hpg{min-width:34px;height:34px;padding:0 8px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--txt);font-size:14px;cursor:pointer}.hpg:hover:not(:disabled){border-color:#3a4c63}.hpg.on{background:#2c3a4d;border-color:var(--acc);font-weight:600}.hpg:disabled{opacity:.35;cursor:default}
 .hrows{display:flex;flex-direction:column;gap:6px}
-.hrow{display:grid;grid-template-columns:64px minmax(0,1.7fr) minmax(0,1.1fr) 88px 78px 176px;align-items:center;gap:12px;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:6px 12px 6px 6px;color:var(--txt);cursor:pointer}
+.hrow{display:grid;grid-template-columns:64px minmax(0,1.15fr) minmax(0,1.6fr) 84px 74px 150px;align-items:center;gap:10px;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:6px 10px 6px 6px;color:var(--txt);cursor:pointer}
 .hrow:hover{border-color:#3a4c63}.hrow .hrt{position:relative;width:64px;height:42px;border-radius:8px;overflow:hidden;background:#0e141b;display:flex;align-items:center;justify-content:center;color:#3f5269;font-size:20px}.hrow .hrt img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.hrow b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hrow small{display:block;color:var(--mut);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hrow code{font:12px ui-monospace,Consolas,monospace}.hrow .hbadges{position:static;justify-content:flex-end;align-content:center;gap:4px}
+.hrow b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hrow small{display:block;color:var(--mut);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hrow code{font:12px ui-monospace,Consolas,monospace}.hrow .hbadges{position:static;justify-content:flex-end;align-content:center;gap:3px}.hrow .hbadge{font-size:10px;padding:1px 6px}.hrow .hroutel b{white-space:normal;line-height:1.25}
 .hfilt{display:none}
 @media(max-width:820px){.hlayout{flex-direction:column}.haside{width:100%;position:static;max-height:none;display:none}.haside.open{display:block}.hfilt{display:inline-block}.hrow{grid-template-columns:64px minmax(0,1fr) 92px}.hrow>:nth-child(3),.hrow>:nth-child(4){display:none}}
-.hbadge.alert{background:#4a1a17;border-color:#8a2f29;color:#ffb4ae}
+.hbadge.alert{background:#4a1a17;border-color:#8a2f29;color:#ffb4ae}.hbadge.cnt{background:#243040;border-color:#3a4a5f;color:#c4cfdc}
 .hbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:4px 0 12px}.hbar input[type=search]{flex:1 1 200px;min-width:0;padding:9px 12px;font-size:14px;border-radius:9px;border:1px solid var(--line);background:#0e141b;color:var(--txt)}
 .hstats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px}
 .hstat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}.hstat b{display:block;font-size:24px;font-weight:600}.hstat small{color:var(--mut);font-size:12px}
@@ -1878,7 +1878,7 @@ h2.t{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.04
 .hbadge{font-size:11px;padding:2px 7px;border-radius:99px;background:#0b0f14d9;border:1px solid var(--line);color:var(--txt)}
 .hbadge.new{background:#14391f;border-color:#1f6b3a;color:#7ee2a0}.hbadge.rare{background:#3a2e0a;border-color:#7a5f10;color:var(--acc)}.hbadge.reg{background:#1b2c44;border-color:#2f5385;color:#9ec3f5}
 .hbody{padding:9px 11px 11px}.hbody b{display:block;font-size:15px;line-height:1.25}.hbody .ha{font-size:12px;color:var(--mut);margin-top:2px}
-.hroute{display:flex;align-items:center;gap:6px;margin-top:7px;font-size:13px}.hroute span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hroute i{font-style:normal;color:var(--acc);flex:none}
+.hroute{display:flex;align-items:center;flex-wrap:wrap;gap:2px 6px;margin-top:7px;font-size:13px}.hroute span{min-width:0;overflow-wrap:anywhere}.hroute i{font-style:normal;color:var(--acc);flex:none}
 .hmeta{display:flex;justify-content:space-between;gap:6px;margin-top:7px;font-size:11px;color:var(--mut)}.hmeta code{font:11px ui-monospace,Consolas,monospace;color:var(--txt)}
 .hover{position:fixed;inset:0;background:#05080cd9;z-index:30;display:flex;align-items:center;justify-content:center;padding:12px}
 .hsheet{background:var(--card);border:1px solid var(--line);border-radius:16px;max-width:560px;width:100%;max-height:94vh;overflow:auto}.hsheet .hph{font-size:60px}
@@ -3163,7 +3163,7 @@ function histBadges(e) {
   if (e.al) bd.append(el('span', 'hbadge alert', 'Alerte'));
   if (e.n === 1 && e.reg) bd.append(el('span', 'hbadge new', '1re fois'));
   if (e.rare) bd.append(el('span', 'hbadge rare', 'Type rare'));
-  if (e.n >= 3) bd.append(el('span', 'hbadge reg', _t('Habitué ×{0}', e.n)));
+  if (e.n >= 2) { const c = el('span', 'hbadge cnt', '×' + e.n); c.title = _t('{0} fois vu', e.n); bd.append(c); }  // déjà vu : le nombre de passages, en gris
   return bd;
 }
 function histPager(host, pages) {
@@ -3240,7 +3240,7 @@ function drawHist() {
     part.forEach((e, k) => {
       const r = el('button', 'hrow'), rt = histRoute(e), t1 = el('div'), t2 = el('div');
       t1.append(el('b', null, e.model && e.model !== '?' ? e.model : (e.code || '?')), el('small', null, e.airline || ' '));
-      t2.append(el('b', null, rt[0] + ' → ' + rt[1]), el('small', null, [e.fi, e.ti].filter(Boolean).join(' → ') || ' '));
+      t2.className = 'hroutel'; t2.append(el('b', null, rt[0] + ' → ' + rt[1]), el('small', null, [e.fi, e.ti].filter(Boolean).join(' → ') || ' '));
       r.append(histPhoto(e, 'hrt'), t1, t2, el('code', null, e.reg || e.cs || '?'), el('small', null, ago(e.t)), histBadges(e));
       r.onclick = () => histSheet(L, from + k); res.append(r);
     });
