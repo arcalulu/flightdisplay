@@ -149,7 +149,7 @@ CAT_NOTES = {
     "language": "Langue de webadmin (immédiat) et du texte affiché à l'écran par le programme (le programme d'affichage est relancé à l'enregistrement). Pour ajouter une langue, déposez un fichier dans le dossier lang (voir la documentation).",
     "label": "Petits panneaux affichés à côté de chaque avion sur la carte. Réordonnez les éléments avec les flèches, choisissez ceux à afficher, leur taille, gras et italique, et s'ils partagent la ligne de l'élément précédent. Si tout est masqué, aucun panneau n'est affiché.",
     "position": "Modifier ces valeurs oblige à reconstruire la carte (section Reconstruction de la carte, en bas de cette page).",
-    "mapstyle": "Personnalisez le fond de carte : thème, éléments affichés, couleurs et noms de lieux. L'aperçu est dessiné avec le même programme que la carte. Il faut ensuite enregistrer puis reconstruire la carte.",
+    "mapstyle": "Personnalisez le fond de carte : thème, éléments affichés, couleurs et noms de lieux. Choisir un thème ou une couleur met l'aperçu à jour tout de suite (indicatif) ; « Mettre à jour l'aperçu » donne le rendu fidèle de votre zone. Il faut ensuite enregistrer puis reconstruire la carte pour que l'écran l'utilise.",
     "server": "Le port et l'adresse d'écoute demandent un redémarrage de webadmin. L'identifiant et le mot de passe s'appliquent immédiatement.",
     "paths": "Réglages avancés. Une valeur vide utilise le comportement par défaut.",
     "backup": "Exporte la configuration du Raspberry Pi dans un fichier, et la restaure (par exemple sur une nouvelle carte SD après une panne).",
@@ -1412,6 +1412,18 @@ class Handler(BaseHTTPRequestHandler):
                 self.wfile.write(data)
             elif u.path == "/api/mapstyle/preview":
                 self.send_json(mapprev_state())
+            elif u.path == "/api/mapstyle/sample":
+                try:
+                    with open(os.path.join(S.APP_DIR, "defaults", "mapstyle_sample.png"), "rb") as fh:
+                        data = fh.read()
+                except OSError:
+                    return self.send_json({"error": "image introuvable"}, 404)
+                self.send_response(200)
+                self.send_header("Content-Type", "image/png")
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header("Cache-Control", "max-age=3600")
+                self.end_headers()
+                self.wfile.write(data)
             elif u.path == "/api/mapstyle/img":
                 name = parse_qs(u.query).get("name", [""])[0]
                 if not re.fullmatch(r"(current|preset_[a-z]+)\.png", name):
@@ -2525,27 +2537,27 @@ function renderMapStyle(box, cat) {
   const citiesNow = () => ({show: String(V('cities', 'show')) === 'true', kinds: String(V('cities', 'kinds')).split(',').map(x => x.trim()).filter(Boolean), max_labels: parseInt(V('cities', 'max_labels')) || 0, font_size: parseInt(V('cities', 'font_size')) || 20});
   const geo = () => ({lat: parseFloat(V('position', 'latitude')), lon: parseFloat(V('position', 'longitude')), radius_km: parseFloat(V('position', 'radius_km')), width: parseInt(V('display', 'width')), height: parseInt(V('display', 'height'))});
 
-  /* aperçu */
+  /* aperçu : indicatif et instantané (image d'exemple recolorée), ou fidèle à la demande (rendu serveur) */
   box.append(el('h2', 't', 'Aperçu'));
   const pvw = el('div', 'msprev'), img = document.createElement('img'); img.alt = ''; img.className = 'msimg'; pvw.append(img);
   const msg = el('p', 'note'), again = el('button', 'b s', "Mettre à jour l'aperçu"), stop = el('button', 'b s', 'Annuler'); again.style.marginTop = '4px'; stop.style.display = 'none';
   const lg = document.createElement('details'), lgs = document.createElement('summary'), log = document.createElement('pre'); lg.className = 'mslogbox'; lgs.textContent = _t('Suivi en direct'); log.className = 'mslog'; lg.append(lgs, log);
   const bar = el('div', 'tools'); bar.append(again, stop);
   box.append(pvw, msg, bar, lg);
-  box.append(el('p', 'note', "Aperçu réel : il est dessiné par le même programme que la carte, pour la zone et le ratio de la page Carte et position (modifications non enregistrées comprises). Les polices peuvent différer légèrement."));
+  box.append(el('p', 'note', "L'aperçu fidèle est dessiné par le même programme que la vraie carte, pour la zone et le ratio de la page Carte et position, avec tous vos réglages (modifications non enregistrées comprises). Il ne modifie pas la vraie carte : une fois l'aperçu validé, enregistrez puis reconstruisez la carte (section « Reconstruction de la carte », en bas de cette page)."));
 
   /* thèmes */
   box.append(el('h2', 't', 'Thème'));
   const grid = el('div', 'msthemes'), cards = {};
   for (const [id, pr] of Object.entries(presets)) {
     const c = el('button', 'mscard'), th = document.createElement('img'); th.alt = ''; th.className = 'msth';
-    th.style.background = pr.colors.land; th.onerror = () => { th.style.visibility = 'hidden'; };
+    th.style.background = pr.colors.land;
     const sw = el('div', 'msw'); for (const k of ['water', 'forest', 'aero', 'road_high', 'runway', 'label']) { const i = el('i'); i.style.background = pr.colors[k]; sw.append(i); }
     c.append(th, el('span', null, pr.label), sw);
     c.onclick = () => {
       setEdit(P('mapstyle', 'preset'), id);
       for (const k of colorKeys) if (V('mapstyle', 'color_' + k)) setEdit(P('mapstyle', 'color_' + k), '');
-      syncAll(); markStale();
+      syncAll(); showStatic();
     };
     cards[id] = {c, th}; grid.append(c);
   }
@@ -2594,8 +2606,8 @@ function renderMapStyle(box, cat) {
   for (const k of colorKeys) {
     const p = P('mapstyle', 'color_' + k), w = el('label', 'mscol'), i = document.createElement('input'), rs = el('button', 'b s', '↺');
     i.type = 'color'; rs.title = 'Couleur du thème'; rs.style.display = 'none';
-    i.oninput = () => { setEdit(p, i.value); sync(k); markStale(); };
-    rs.onclick = ev => { ev.preventDefault(); setEdit(p, ''); sync(k); markStale(); };
+    i.oninput = () => { setEdit(p, i.value); sync(k); showStatic(); };
+    rs.onclick = ev => { ev.preventDefault(); setEdit(p, ''); sync(k); showStatic(); };
     w.append(i, el('span', null, cat.color_labels[k]), rs); cin[k] = {i, rs}; cg.append(w);
   }
   det.append(cg); box.append(det);
@@ -2604,18 +2616,42 @@ function renderMapStyle(box, cat) {
   syncAll();
   box.append(el('p', 'note', "Les noms de lieux, les routes et les autres éléments proviennent du fond vectoriel CARTO. Avec un fond clair, les avions jaunes ressortent moins : préférez un thème sombre pour un écran lisible de loin."));
 
-  /* génération de l'aperçu : seulement au premier affichage (s'il n'en existe pas) ou sur demande */
-  let busy = false;
+  /* aperçu indicatif : l'image d'exemple (zone de Bordeaux, thème sombre) est recolorée avec les couleurs du thème, sans réseau ni calcul serveur */
+  let busy = false, mode = 'static', sampleCv = null;
+  const MSK = ['land', 'water', 'aero', 'runway', 'label'];
+  const hex = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  const lum = c => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
+  function recolor(cv, to) {
+    const w = cv.width, h = cv.height, out = document.createElement('canvas'); out.width = w; out.height = h;
+    const id = cv.getContext('2d').getImageData(0, 0, w, h), d = id.data;
+    const F = MSK.map(k => hex(presets.dark.colors[k])), T = MSK.map(k => hex(to[k] || presets.dark.colors[k])), fy = F.map(lum);
+    for (let p = 0; p < d.length; p += 4) {
+      const r = d[p], g = d[p + 1], b = d[p + 2], y = 0.299 * r + 0.587 * g + 0.114 * b;
+      let A, B, t;
+      if (b - r > 12 && y > fy[0]) { A = T[0]; B = T[4]; t = Math.min(1, (y - fy[0]) / (fy[4] - fy[0])); }  // texte des noms de lieux
+      else if (y <= fy[0]) { A = B = T[0]; t = 0; }
+      else if (y >= fy[3]) { A = B = T[3]; t = 0; }
+      else { let i = 0; while (y > fy[i + 1]) i++; A = T[i]; B = T[i + 1]; t = (y - fy[i]) / (fy[i + 1] - fy[i]); }
+      d[p] = A[0] + (B[0] - A[0]) * t; d[p + 1] = A[1] + (B[1] - A[1]) * t; d[p + 2] = A[2] + (B[2] - A[2]) * t;
+    }
+    out.getContext('2d').putImageData(id, 0, 0); return out;
+  }
+  const palette = () => Object.assign({}, presets[V('mapstyle', 'preset')].colors, styleNow().colors);
+  function showStatic() {
+    if (!sampleCv) return;
+    mode = 'static'; msg.classList.remove('err'); again.classList.add('p');
+    img.src = recolor(sampleCv, palette()).toDataURL();
+    msg.textContent = _t("Aperçu indicatif : zone d'exemple, thème et couleurs seulement. « Mettre à jour l'aperçu » affiche le rendu fidèle de votre zone, avec tous vos réglages.");
+  }
+  function drawThumbs() {
+    if (!sampleCv) return;
+    const sc = document.createElement('canvas'); sc.width = 200; sc.height = 112; sc.getContext('2d').drawImage(sampleCv, 0, 0, 200, 112);
+    for (const id in cards) cards[id].th.src = recolor(sc, presets[id].colors).toDataURL();
+  }
   const sleep = ms => new Promise(r => setTimeout(r, ms));
-  const same = (a, g) => !!a && ['lat', 'lon', 'radius_km', 'width', 'height'].every(k => Math.abs(a[k] - g[k]) < 1e-9);
   function markStale() { if (busy) return; msg.classList.remove('err'); msg.textContent = _t("Les réglages ont changé : l'aperçu affiché n'est plus à jour."); again.classList.add('p'); }
   const showLog = st => { log.textContent = st.lines.join('\n'); log.scrollTop = log.scrollHeight; };
-  const showImages = (st, withThumbs) => {
-    const t = '&t=' + Math.round(st.t);
-    if (st.files.includes('current.png')) img.src = '/api/mapstyle/img?name=current.png' + t;
-    if (withThumbs) for (const id in cards) if (st.thumb_files.includes('preset_' + id + '.png')) { cards[id].th.style.visibility = ''; cards[id].th.src = '/api/mapstyle/img?name=preset_' + id + '.png' + t; }
-  };
-  async function refresh(attach) {
+  async function refresh() {
     if (!msAlive || !box.isConnected || busy) return;
     busy = true; again.classList.remove('p');
     const g = geo();
@@ -2623,8 +2659,7 @@ function renderMapStyle(box, cat) {
     if (isFinite(g.width) && isFinite(g.height) && g.height > 0) pvw.style.aspectRatio = g.width + ' / ' + g.height;
     try {
       let st = await api('/api/mapstyle/preview');
-      const wantThumbs = !(st.thumb_files.length === Object.keys(presets).length && same(st.thumbs_geo, g));
-      if (!st.running) await api('/api/mapstyle/preview', Object.assign({}, g, {style: styleNow(), cities: citiesNow(), presets: wantThumbs ? Object.keys(presets) : []}));
+      if (!st.running) await api('/api/mapstyle/preview', Object.assign({}, g, {style: styleNow(), cities: citiesNow(), presets: []}));
       for (;;) {
         await sleep(1000); if (!msAlive) return;
         st = await api('/api/mapstyle/preview'); showLog(st);
@@ -2632,24 +2667,24 @@ function renderMapStyle(box, cat) {
         if (!st.running) break;
       }
       if (st.error) throw new Error(st.error);
-      showImages(st, true); msg.textContent = ''; lg.open = false;
+      if (st.files.includes('current.png')) img.src = '/api/mapstyle/img?name=current.png&t=' + Math.round(st.t);
+      mode = 'real'; msg.textContent = tl("Aperçu fidèle de votre zone et de vos réglages. La vraie carte n'est pas modifiée : enregistrez puis reconstruisez-la pour l'utiliser."); lg.open = false;
     } catch (e) { msg.textContent = e.message; msg.classList.add('err'); }
     busy = false; again.disabled = false; stop.style.display = 'none';
   }
   stop.onclick = async () => { try { await api('/api/mapstyle/cancel', {}); } catch (e) { toast(e.message, true); } };
   again.onclick = () => refresh();
+  { const g = geo(); if (isFinite(g.width) && isFinite(g.height) && g.height > 0) pvw.style.aspectRatio = g.width + ' / ' + g.height; }
   (async () => {
     try {
-      const st = await api('/api/mapstyle/preview'), g = geo();
-      if (st.running) return refresh();
-      if (st.files.includes('current.png')) {  // un aperçu existe déjà : on l'affiche tel quel
-        if (isFinite(g.width) && isFinite(g.height) && g.height > 0 && st.geo) pvw.style.aspectRatio = st.geo.width + ' / ' + st.geo.height;
-        showImages(st, same(st.thumbs_geo, g));
-        if (!same(st.geo, g)) markStale();
-        return;
-      }
-    } catch (e) {}
-    refresh();
+      sampleCv = await new Promise((ok, ko) => {
+        const im = new Image();
+        im.onload = () => { const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight; c.getContext('2d').drawImage(im, 0, 0); ok(c); };
+        im.onerror = ko; im.src = '/api/mapstyle/sample';
+      });
+      drawThumbs(); showStatic();
+    } catch (e) { msg.textContent = tl("Aperçu indicatif indisponible : « Mettre à jour l'aperçu » génère l'aperçu fidèle."); }
+    try { const st = await api('/api/mapstyle/preview'); if (st.running) refresh(); } catch (e) {}
   })();
 }
 
