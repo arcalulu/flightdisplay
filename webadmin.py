@@ -2429,20 +2429,22 @@ function renderMapPicker(box) {
   if (!pLat || !pLon || !pRad || !pW || !pH) return;
   const num = (p, d) => { const v = parseFloat(String(pval(p)).replace(',', '.')); return isFinite(v) ? v : d; };
   box.append(el('h2', 't', 'Position et zone affichée'));
-  box.append(el('p', 'note', "Cliquez sur la carte ou faites glisser le repère pour placer votre position. Le rectangle jaune est la zone que le programme affichera, le cercle en pointillés son rayon ; les cercles gris sont les cercles de distance, le cercle rouge la distance d'alerte. Les valeurs sont écrites dans les champs plus bas ; il faut ensuite enregistrer puis reconstruire la carte."));
+  box.append(el('p', 'note', "Cliquez sur la carte ou faites glisser le repère pour placer votre position. Le rectangle jaune est la zone que le programme affichera ; les cercles gris sont les cercles de distance, le cercle rouge la distance d'alerte. Les valeurs sont écrites dans les champs plus bas ; il faut ensuite enregistrer puis reconstruire la carte."));
   const sr = el('div', 'tools'), q = document.createElement('input'); q.type = 'text'; q.placeholder = 'Rechercher une adresse ou un lieu'; q.autocomplete = 'off';
   const go = el('button', 'b s', 'Chercher'); go.style.flex = 'none'; sr.append(q, go); box.append(sr);
   const res = el('p', 'note'); res.style.display = 'none'; box.append(res);
   const big = el('div', 'mpbig'); box.append(big);
-  const rw = el('div', 'sl mprad'), rl = el('b', null, 'Rayon'), rr = document.createElement('input'), rv = el('span');
+  const info = el('p', 'note'); box.append(info);
+  const rw = el('div', 'sl mprad'), rl = el('b', null, 'Taille de la zone'), rr = document.createElement('input'), rv = el('span');
   rr.type = 'range'; rr.min = 1; rr.max = 200; rr.step = 1; rr.value = Math.max(1, Math.min(200, Math.round(num(pRad, 20)))); rw.append(rl, rr, rv); box.append(rw);
-  // cercles de distance : 1er cercle et nombre (visibles seulement si les cercles sont affichés)
-  const fw = el('div', 'sl mprad'), fl = el('b', null, '1er cercle'), fr = document.createElement('input'), fv = el('span');
-  fr.type = 'range'; fr.min = 0.5; fr.step = 0.5; fw.append(fl, fr, fv);
+  // cercles de distance : nombre, 1er cercle, ecartement (visibles seulement si les cercles sont affiches)
   const cw = el('div', 'sl mprad'), cl = el('b', null, 'Cercles'), cnt = el('div', 'mpcnt'), cm = el('button', null, '−'), cv = el('span'), cp = el('button', null, '+');
   cm.type = cp.type = 'button'; cm.title = tl('Moins de cercles'); cp.title = tl('Plus de cercles'); cnt.append(cm, cv, cp); cw.append(cl, cnt);
-  box.append(fw, cw);
-  const info = el('p', 'note'); box.append(info);
+  const fw = el('div', 'sl mprad'), fl = el('b', null, '1er cercle'), fr = document.createElement('input'), fv = el('span');
+  fr.type = 'range'; fr.min = 0.5; fr.step = 0.5; fw.append(fl, fr, fv);
+  const ew = el('div', 'sl mprad'), el_ = el('b', null, 'Écartement'), er = document.createElement('input'), ev = el('span');
+  er.type = 'range'; er.min = 0.5; er.step = 0.5; ew.append(el_, er, ev);
+  box.append(cw, fw, ew);
   box.append(el('h2', 't', "Aperçu sur l'écran"));
   const pvw = el('div', 'mppv'), pv = el('div', 'mpprev'); pvw.append(pv); box.append(pvw);
   box.append(el('p', 'note', "Cet aperçu montre la même zone que la carte reconstruite, avec le fond OpenStreetMap assombri. Le fond réellement affiché sera celui de CARTO (routes, eau, pistes et noms de lieux), construit à la reconstruction."));
@@ -2476,16 +2478,18 @@ function renderMapPicker(box) {
     const rp = RP('rings.show');
     if (rp) {
       const on = String(pval(rp)) === 'true', f0 = num(RP('rings.first_km'), 5), n0 = parseInt(pval(RP('rings.count'))) || 0;
-      fw.style.display = cw.style.display = on ? '' : 'none';
-      fr.max = Math.max(1, Math.round(R)); fr.value = Math.max(0.5, Math.min(+fr.max, f0)); fv.textContent = Math.round(f0 * 10) / 10 + ' km'; cv.textContent = n0;
+      fw.style.display = cw.style.display = ew.style.display = on ? '' : 'none';
+      const s0 = num(RP('rings.step_km'), 5);
+      fr.max = er.max = Math.max(1, Math.round(R)); fr.value = Math.max(0.5, Math.min(+fr.max, f0)); fv.textContent = Math.round(f0 * 10) / 10 + ' km'; cv.textContent = n0;
+      er.value = Math.max(0.5, Math.min(+er.max, s0)); ev.textContent = Math.round(s0 * 10) / 10 + ' km';
     }
     if (W > 0 && H > 0) { pvw.style.aspectRatio = W + ' / ' + H; const d = gcd(Math.round(W), Math.round(H)) || 1; var ratio = Math.round(W / d) + ':' + Math.round(H / d); }
     if (!g) { info.textContent = _t('Choisissez une position sur la carte.'); return; }
     const kmW = 2 * g.R * g.W / g.H, kmH = 2 * g.R;
     info.textContent = _t('Zone affichée : {0} km × {1} km (ratio {2}, {3} m par pixel).', (Math.round(kmW * 10) / 10).toLocaleString(), (Math.round(kmH * 10) / 10).toLocaleString(), ratio || '?', (Math.round(2 * g.R * 1000 / g.H * 10) / 10).toLocaleString());
     const ll = L.latLng(g.lat, g.lon);
-    st.mk.setLatLng(ll); st.circle.setLatLng(ll).setRadius(g.R * 1000); st.rect.setBounds(g.b);
-    for (const l of [st.mk, st.circle, st.rect]) if (!st.big.hasLayer(l)) l.addTo(st.big);
+    st.mk.setLatLng(ll); st.rect.setBounds(g.b);
+    for (const l of [st.mk, st.rect]) if (!st.big.hasLayer(l)) l.addTo(st.big);
     st.home.setLatLng(ll); if (!st.pv.hasLayer(st.home)) st.home.addTo(st.pv);
     st.pv.invalidateSize({animate: false}); st.pv.fitBounds(g.b, {animate: false, padding: [0, 0]});
     if (fit) st.big.fitBounds(g.b, {animate: false, padding: [20, 20]});
@@ -2497,6 +2501,7 @@ function renderMapPicker(box) {
   }
   rr.oninput = () => { setEdit(pRad, String(rr.value)); syncInput(pRad); refresh(false); };
   fr.oninput = () => { const p = RP('rings.first_km'); setEdit(p, String(fr.value)); syncInput(p); refresh(false); };
+  er.oninput = () => { const p = RP('rings.step_km'); setEdit(p, String(er.value)); syncInput(p); refresh(false); };
   const stepCount = d => { const p = RP('rings.count'), n = Math.max(0, Math.min(30, (parseInt(pval(p)) || 0) + d)); setEdit(p, String(n)); syncInput(p); refresh(false); };
   cm.onclick = () => stepCount(-1); cp.onclick = () => stepCount(1);
   rr.onchange = () => refresh(true);
@@ -2519,7 +2524,6 @@ function renderMapPicker(box) {
     st.pv = L.map(pv, {zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false, zoomSnap: 0, attributionControl: true});
     tiles().addTo(st.pv); st.pv.attributionControl.setPrefix('');
     st.mk = L.marker([0, 0], {draggable: true, icon: L.divIcon({className: 'mppin', html: '<i></i>', iconSize: [22, 22], iconAnchor: [11, 11]})});
-    st.circle = L.circle([0, 0], {radius: 1, color: '#ffd250', weight: 3, dashArray: '8 6', fill: false, interactive: false});
     st.rect = L.rectangle([[0, 0], [1, 1]], {color: '#ffd250', weight: 3, fillColor: '#ffd250', fillOpacity: 0.08, interactive: false});
     st.home = L.circleMarker([0, 0], {radius: 5, color: '#ffc83c', fillColor: '#ffc83c', fillOpacity: 1, weight: 1, interactive: false});
     st.rings = L.layerGroup().addTo(st.big); st.ringsPv = L.layerGroup().addTo(st.pv);

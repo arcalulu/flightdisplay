@@ -1129,8 +1129,8 @@ Turns the screen on and off by itself following a weekly calendar, like a diary.
 
 **Choosing the position and the radius** (Settings, Map and position, at the top of the page)
 - An OpenStreetMap map (darkened so that the yellow frame stands out) lets you click or drag the marker to set the position, or search an address (Nominatim search, run only when you ask for it). The latitude and longitude fields below are updated.
-- The "Radius" slider sets `radius_km`. The yellow rectangle shows the area actually displayed (height = 2 × radius, width following the "Width / Height" ratio of the map size) and the dashed circle shows the radius.
-- When "Show the distance circles" is checked, two controls are added under the "Radius" slider: a "1st circle" slider (`first_km`) and two buttons − and + for the number of circles (`count`). The grey circles of the map and those of the preview follow live.
+- Under the map, a line gives the displayed area (for example "142.2 km × 80 km, ratio 16:9, 74.1 m per pixel"). The "Area size" slider sets `radius_km`. The yellow rectangle shows the area actually displayed (height = 2 × radius, width following the "Width / Height" ratio of the map size).
+- When "Show the distance circles" is checked, three controls are added under the "Area size" slider, in this order: two buttons − and + for the number of circles (`count`), a "1st circle" slider (`first_km`) and a "Spacing" slider (`step_km`).
 - Below the map, a preview with the same ratio as the display shows the area on a darkened OpenStreetMap background (the real background is CARTO's, built at rebuild time).
 - The values are pending changes: "Save", then rebuild the map. The map needs internet access from the browser (Leaflet is loaded from cdnjs); without it, the fields can still be filled in by hand.
 
