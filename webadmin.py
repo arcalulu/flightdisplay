@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Administration web legere pour flightdisplay (bibliotheque standard uniquement)."""
-import base64, collections, configparser, hmac, json, math, os, re, shlex, shutil, socket
+import base64, collections, configparser, hashlib, hmac, json, math, os, re, shlex, shutil, socket
+import urllib.request
 import email.utils
 import struct, subprocess, sys, threading, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -945,6 +946,72 @@ def cache_stats():
     return dict(photos=photos, other=other, now=time.time())
 
 
+def _history_list():
+    try:
+        with open(os.path.join(S.APP_DIR, "cache", "history.json"), encoding="utf-8") as fh:
+            d = json.load(fh)
+    except (OSError, ValueError):
+        return []
+    return [e for e in d if isinstance(e, dict) and e.get("id")] if isinstance(d, list) else []
+
+
+def history_data():
+    """Avions vus (ecrits par main.py) : les plus recents d'abord, avec compteurs par immatriculation et statistiques."""
+    L = sorted(_history_list(), key=lambda e: -e.get("t", 0))
+    regs = collections.Counter(e["reg"] for e in L if e.get("reg"))
+    codes = collections.Counter(e.get("code") for e in L)
+    label = lambda e: (e.get("model") if e.get("model") and e.get("model") != "?" else e.get("code")) or "?"
+    types = collections.Counter(label(e) for e in L)
+    airl = collections.Counter(e["airline"] for e in L if e.get("airline"))
+    now = time.time()
+    model_of = {}
+    for e in L:
+        if e.get("reg") and e["reg"] not in model_of:
+            model_of[e["reg"]] = label(e)
+    entries = []
+    for e in L[:400]:
+        reg = e.get("reg") or ""
+        entries.append(dict(id=str(e["id"]), t=int(e.get("t", 0)), l=int(e.get("l", e.get("t", 0))), cs=e.get("cs", ""), reg=reg,
+                            code=e.get("code", ""), model=e.get("model", ""), airline=e.get("airline", ""), frm=e.get("frm", ""), to=e.get("to", ""),
+                            fi=e.get("fi", ""), ti=e.get("ti", ""), photo=bool(e.get("photo") or e.get("url")), credit=e.get("credit", ""),
+                            n=regs.get(reg, 1) if reg else 1, rare=codes.get(e.get("code"), 0) == 1))
+    stats = dict(total=len(L), regs=len(regs), airlines=len(airl), types=len(codes), today=sum(1 for e in L if now - e.get("t", 0) < 86400),
+                 first=int(L[-1].get("t", 0)) if L else 0, top_airlines=airl.most_common(5), top_types=types.most_common(5),
+                 regulars=[(r, model_of.get(r, "?"), n) for r, n in regs.most_common(5) if n > 1])
+    return dict(entries=entries, stats=stats, now=now)
+
+
+def history_photo(fid):
+    """Photo d'un avion de l'historique : celle du cache, sinon retelechargee depuis son adresse (apres un nettoyage du cache)."""
+    e = next((x for x in _history_list() if str(x.get("id")) == fid), None)
+    if not e:
+        return None
+    cache = os.path.join(S.APP_DIR, "cache")
+    name = str(e.get("photo") or "")
+    if re.fullmatch(r"[0-9a-f]{32}\.jpg", name):
+        try:
+            with open(os.path.join(cache, name), "rb") as fh:
+                return fh.read()
+        except OSError:
+            pass
+    url = str(e.get("url") or "")
+    if not url.startswith("https://"):
+        return None
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=15) as r:
+            data = r.read(4000001)
+    except Exception:
+        return None
+    if len(data) > 4000000 or data[:3] != b"\xff\xd8\xff":
+        return None
+    try:
+        with open(os.path.join(cache, hashlib.md5(url.encode()).hexdigest() + ".jpg"), "wb") as fh:
+            fh.write(data)
+    except OSError:
+        pass
+    return data
+
+
 def storage_info():
     return dict(disk=disk_info(), cache=cache_stats(),
                 clean=dict(auto=S.CLEAN_AUTO, quota=S.CLEAN_MAX_MB * 1024 * 1024, log=list(reversed(clean_log_read()[-30:]))))
@@ -1042,7 +1109,7 @@ def cache_loop():
             auto_clean_cache()
         except Exception:
             pass
-        time.sleep(300)
+        time.sleep(86400)  # une verification par jour suffit
 
 
 def sound_update(body):
@@ -1604,6 +1671,19 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_header("Cache-Control", "no-store")
                 self.end_headers()
                 self.wfile.write(data)
+            elif u.path == "/api/history":
+                self.send_json(history_data())
+            elif u.path == "/api/history/photo":
+                fid = parse_qs(u.query).get("id", [""])[0]
+                data = history_photo(fid) if re.fullmatch(r"[A-Za-z0-9]{1,32}", fid) else None
+                if data is None:
+                    return self.send_json({"error": "photo introuvable"}, 404)
+                self.send_response(200)
+                self.send_header("Content-Type", "image/jpeg")
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header("Cache-Control", "max-age=3600")
+                self.end_headers()
+                self.wfile.write(data)
             elif u.path == "/api/storage":
                 self.send_json(storage_info())
             elif u.path == "/api/update":
@@ -1629,7 +1709,10 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(n) or b"{}")
             act = str(body.get("action", ""))
             if path == "/api/settings":
-                return self.send_json(dict(ok=True, **apply_settings(body.get("changes") or {})))
+                res = apply_settings(body.get("changes") or {})
+                if any(str(k).startswith("web:storage.") for k in res.get("changed", [])):
+                    threading.Thread(target=auto_clean_cache, daemon=True).start()  # nettoyage tout de suite si le quota est deja depasse
+                return self.send_json(dict(ok=True, **res))
             if path == "/api/types":
                 write_types(str(body.get("text", "")))
                 return self.send_json(dict(ok=True))
@@ -1725,6 +1808,29 @@ nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:#0e141bf2;bac
 nav button{flex:1;background:none;border:0;color:var(--mut);padding:12px 0 10px;font-size:13px}
 nav button.on{color:var(--acc)}
 h2.t{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;margin:18px 4px 6px;font-weight:600}
+.hbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:4px 0 12px}.hbar input[type=search]{flex:1 1 200px;min-width:0;padding:9px 12px;font-size:14px;border-radius:9px;border:1px solid var(--line);background:#0e141b;color:var(--txt)}
+.hstats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px}
+.hstat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}.hstat b{display:block;font-size:24px;font-weight:600}.hstat small{color:var(--mut);font-size:12px}
+.hgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:10px}
+.hcard{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;text-align:left;color:var(--txt);padding:0;display:flex;flex-direction:column;transition:transform .12s,border-color .12s}
+.hcard:hover{transform:translateY(-2px);border-color:#3a4c63}
+.hph{position:relative;aspect-ratio:16/10;background:#0e141b;display:flex;align-items:center;justify-content:center;font-size:44px;color:#3f5269;overflow:hidden}
+.hph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.hbadges{position:absolute;left:6px;top:6px;display:flex;gap:4px;flex-wrap:wrap;z-index:1}
+.hbadge{font-size:11px;padding:2px 7px;border-radius:99px;background:#0b0f14d9;border:1px solid var(--line);color:var(--txt)}
+.hbadge.new{background:#14391f;border-color:#1f6b3a;color:#7ee2a0}.hbadge.rare{background:#3a2e0a;border-color:#7a5f10;color:var(--acc)}.hbadge.reg{background:#1b2c44;border-color:#2f5385;color:#9ec3f5}
+.hbody{padding:9px 11px 11px}.hbody b{display:block;font-size:15px;line-height:1.25}.hbody .ha{font-size:12px;color:var(--mut);margin-top:2px}
+.hroute{display:flex;align-items:center;gap:6px;margin-top:7px;font-size:13px}.hroute span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hroute i{font-style:normal;color:var(--acc);flex:none}
+.hmeta{display:flex;justify-content:space-between;gap:6px;margin-top:7px;font-size:11px;color:var(--mut)}.hmeta code{font:11px ui-monospace,Consolas,monospace;color:var(--txt)}
+.hover{position:fixed;inset:0;background:#05080cd9;z-index:30;display:flex;align-items:center;justify-content:center;padding:12px}
+.hsheet{background:var(--card);border:1px solid var(--line);border-radius:16px;max-width:560px;width:100%;max-height:94vh;overflow:auto}.hsheet .hph{font-size:60px}
+.hsc{padding:14px 16px 16px}.hsc h3{margin:0;font-size:20px}.hsc .ha{color:var(--mut);margin-top:2px}.hcr{font-size:11px;color:var(--mut);margin-top:6px}
+.hdl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:12px 0;font-size:14px}.hdl dt{color:var(--mut)}.hdl dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.hnav{display:flex;gap:8px;flex-wrap:wrap}
+.hlb{margin:0 0 12px}.hlb summary{cursor:pointer;color:var(--mut);font-size:13px;margin-bottom:8px}.hlbg{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+.hlbc{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}.hlbc h4{margin:0 0 6px;font-size:13px;color:var(--mut);font-weight:600}
+.hlr{display:flex;align-items:center;gap:8px;font-size:13px;margin:5px 0}.hlr>span:first-child{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hlr .hlt{width:56px;height:5px;border-radius:3px;background:#243040;flex:none}.hlr .hlt i{display:block;height:100%;border-radius:3px;background:var(--acc)}.hlr b{min-width:18px;text-align:right}
+@media(min-width:720px){.hstats{grid-template-columns:repeat(4,minmax(0,1fr))}}
 .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px}
 .tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 13px}
 .tile small{display:block;color:var(--mut);font-size:12px;margin-bottom:2px}
@@ -1940,6 +2046,7 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 <header><h1>Flight display</h1><div class="hr"><div class="chips" id="chips"></div><a href="#" class="crl" onclick="go('credits');return false">Crédits</a></div></header>
 <nav id="nav">
   <button data-t="home" class="on" onclick="go('home')">Pilotage</button>
+  <button data-t="hist" onclick="go('hist')">Avions vus</button>
   <button data-t="cfg" onclick="go('cfg')">Réglages</button>
   <button data-t="upd" id="navUpd" onclick="go('upd')">Mises à jour</button>
   <button data-t="log" onclick="go('log')">Logs</button>
@@ -1963,6 +2070,8 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
     </div>
   </div>
 </section>
+
+<section class="tab" id="t-hist"></section>
 
 <section class="tab" id="t-cfg">
   <div class="hint" id="mapHint">La position ou le rayon de la carte a changé : la carte doit être reconstruite.<div class="btns"><button class="b p s" onclick="gotoMap()">Aller à la reconstruction</button></div></div>
@@ -2114,6 +2223,7 @@ function go(tab) {
   updateBar();
   if (tab === 'log') loadLogs();
   if (tab === 'cfg') pollBuild();
+  if (tab === 'hist') loadHist();
   if (tab === 'home') pollStatus();
   if (tab === 'upd') { updTick = 0; pollUpd(); }
   window.scrollTo(0, 0);
@@ -2930,6 +3040,107 @@ async function renderStorage(box) {
   }
   await load();
   const iv = setInterval(() => { if (!wrap.isConnected) clearInterval(iv); else if (cur === 'cfg' && curCat === 'storage') load(); }, 10000);
+}
+
+/* ---------- Avions vus : l'historique, en cartes avec photo ---------- */
+let HIST = null, histQ = '', histPeriod = 'all', histSort = 'recent';
+async function loadHist() {
+  try { HIST = await api('/api/history'); } catch (e) { toast(e.message, true); return; }
+  buildHist(); drawHist();
+}
+function buildHist() {
+  const box = $('#t-hist'); if (box.dataset.ready) return; box.dataset.ready = '1';
+  const stats = el('div', 'hstats'); stats.id = 'hStats';
+  const lb = document.createElement('details'); lb.className = 'hlb'; lb.id = 'hLb';
+  const bar = el('div', 'hbar'), q = document.createElement('input'); q.type = 'search'; q.autocomplete = 'off'; q.placeholder = tl('Rechercher un avion, une compagnie, une ville…');
+  q.oninput = () => { histQ = q.value; drawHist(); };
+  const seg = (opts, get, set) => {
+    const d = el('div', 'seg');
+    for (const [v, t] of opts) { const b = el('button', get() === v ? 'on' : '', t); b.dataset.v = v; b.onclick = () => { set(v); d.querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.v === v)); drawHist(); }; d.append(b); }
+    return d;
+  };
+  bar.append(q, seg([['day', "Aujourd'hui"], ['week', '7 jours'], ['all', 'Tout']], () => histPeriod, v => { histPeriod = v; }), seg([['recent', 'Récents'], ['often', 'Habitués']], () => histSort, v => { histSort = v; }));
+  const grid = el('div', 'hgrid'); grid.id = 'hGrid';
+  const empty = el('p', 'note'); empty.id = 'hEmpty';
+  box.append(stats, lb, bar, grid, empty);
+  document.addEventListener('keydown', ev => {
+    const o = document.querySelector('.hover'); if (!o) return;
+    if (ev.key === 'Escape') o.remove();
+    else if (ev.key === 'ArrowLeft') { const b = o.querySelector('[data-nav="-1"]'); if (b) b.click(); }
+    else if (ev.key === 'ArrowRight') { const b = o.querySelector('[data-nav="1"]'); if (b) b.click(); }
+  });
+  setInterval(() => { if (cur === 'hist' && !document.querySelector('.hover') && document.activeElement !== q) loadHist(); }, 30000);
+}
+function histList() {
+  const now = Date.now() / 1000, lim = histPeriod === 'day' ? now - 86400 : (histPeriod === 'week' ? now - 7 * 86400 : 0), q = histQ.trim().toLowerCase();
+  let L = HIST.entries.filter(e => e.t >= lim && (!q || [e.model, e.reg, e.cs, e.airline, e.frm, e.to, e.fi, e.ti, e.code].join(' ').toLowerCase().includes(q)));
+  if (histSort === 'often') L = L.slice().sort((a, b) => b.n - a.n || b.t - a.t);
+  return L;
+}
+function histPhoto(e, cls) {
+  const ph = el('div', cls || 'hph'), noph = () => { ph.append(el('span', null, '✈')); };
+  if (e.photo) { const im = document.createElement('img'); im.loading = 'lazy'; im.alt = ''; im.src = '/api/history/photo?id=' + encodeURIComponent(e.id); im.onerror = () => { im.remove(); noph(); }; ph.append(im); } else noph();
+  return ph;
+}
+function histRoute(e) { return [e.frm || e.fi || '?', e.to || e.ti || '?']; }
+function drawHist() {
+  if (!HIST) return;
+  const st = HIST.stats, S_ = $('#hStats'); S_.innerHTML = '';
+  const tile = (n, label) => { const d = el('div', 'hstat'); d.append(el('b', null, String(n)), el('small', null, label)); return d; };
+  S_.append(tile(st.total, 'avions vus'), tile(st.regs, 'appareils différents'), tile(st.airlines, 'compagnies'), tile(st.today, 'ces dernières 24 h'));
+  const lb = $('#hLb'), open = lb.open; lb.innerHTML = '';
+  lb.append(el('summary', null, st.first ? _t('Palmarès · premier avion enregistré le {0}', new Date(st.first * 1000).toLocaleDateString()) : 'Palmarès'));
+  const g = el('div', 'hlbg');
+  const board = (title, rows) => {
+    const c = el('div', 'hlbc'); c.append(el('h4', null, title)); const mx = Math.max(1, ...rows.map(r => r[1]));
+    if (!rows.length) c.append(el('div', 'note', '–'));
+    for (const [name, n] of rows) { const r = el('div', 'hlr'), t = el('span', 'hlt'), i = el('i'); i.style.width = (n / mx * 100) + '%'; t.append(i); r.append(el('span', null, name), t, el('b', null, String(n))); c.append(r); }
+    return c;
+  };
+  g.append(board('Compagnies les plus vues', st.top_airlines), board('Modèles les plus vus', st.top_types), board('Habitués (même appareil)', st.regulars.map(r => [r[0] + ' · ' + r[1], r[2]])));
+  lb.append(g); lb.open = open;
+  const L = histList(), grid = $('#hGrid'); grid.innerHTML = '';
+  L.forEach((e, i) => {
+    const c = el('button', 'hcard'), ph = histPhoto(e), bd = el('div', 'hbadges');
+    if (e.n === 1 && e.reg) bd.append(el('span', 'hbadge new', '1re fois'));
+    if (e.rare) bd.append(el('span', 'hbadge rare', 'Type rare'));
+    if (e.n >= 3) bd.append(el('span', 'hbadge reg', _t('Habitué ×{0}', e.n)));
+    ph.append(bd);
+    const bo = el('div', 'hbody'), r = histRoute(e), rt = el('div', 'hroute');
+    rt.append(el('span', null, r[0]), el('i', null, '→'), el('span', null, r[1]));
+    const mt = el('div', 'hmeta'), cd = el('code', null, e.reg || e.cs || '?');
+    mt.append(cd, el('span', null, ago(e.t)));
+    bo.append(el('b', null, e.model && e.model !== '?' ? e.model : (e.code || '?')), el('div', 'ha', e.airline || ' '), rt, mt);
+    c.append(ph, bo); c.onclick = () => histSheet(L, i); grid.append(c);
+  });
+  $('#hEmpty').textContent = L.length ? '' : tl(HIST.entries.length ? 'Aucun avion ne correspond à cette recherche.' : "Aucun avion pour le moment. Dès qu'un avion passe au-dessus de chez vous, il apparaît ici avec sa photo.");
+}
+function histSheet(L, i) {
+  const e = L[i]; const old = document.querySelector('.hover'); if (old) old.remove();
+  const ov = el('div', 'hover'), sh = el('div', 'hsheet');
+  ov.onclick = ev => { if (ev.target === ov) ov.remove(); };
+  const ph = histPhoto(e);
+  const sc = el('div', 'hsc');
+  sc.append(el('h3', null, e.model && e.model !== '?' ? e.model : (e.code || '?')), el('div', 'ha', e.airline || ' '));
+  if (e.photo && e.credit) sc.append(el('div', 'hcr', _t('© {0} (via JetPhotos)', e.credit)));
+  const r = histRoute(e), dl = document.createElement('dl'); dl.className = 'hdl';
+  const row = (k, v) => { if (!v) return; dl.append(el('dt', null, k), el('dd', null, v)); };
+  const when = t => new Date(t * 1000).toLocaleString();
+  row('Immatriculation', e.reg); row('Indicatif', e.cs); row('Type ICAO', e.code);
+  row('Trajet', r[0] + (e.fi ? ' (' + e.fi + ')' : '') + ' → ' + r[1] + (e.ti ? ' (' + e.ti + ')' : ''));
+  row('Premier passage', when(e.t) + ' · ' + ago(e.t));
+  if (e.l - e.t > 120) row('Dernier passage', when(e.l));
+  row('Passages', e.reg ? _t(e.n > 1 ? '{0} fois vu' : '{0} fois vu', e.n) : '');
+  sc.append(dl);
+  const nav = el('div', 'hnav');
+  const go_ = (d) => { const b = el('button', 'b s', d < 0 ? '←' : '→'); b.dataset.nav = d; b.title = tl(d < 0 ? 'Précédent' : 'Suivant'); b.disabled = !L[i + d]; b.onclick = () => histSheet(L, i + d); return b; };
+  nav.append(go_(-1), go_(1));
+  if (e.reg) {
+    const a = el('button', 'b s', 'Photos sur JetPhotos ↗'); a.onclick = () => window.open('https://www.jetphotos.com/registration/' + encodeURIComponent(e.reg), '_blank', 'noopener'); nav.append(a);
+    const f = el('button', 'b s', 'Vol sur Flightradar24 ↗'); f.onclick = () => window.open('https://www.flightradar24.com/data/aircraft/' + encodeURIComponent(e.reg.toLowerCase()), '_blank', 'noopener'); nav.append(f);
+  }
+  const x = el('button', 'b s', 'Fermer'); x.onclick = () => ov.remove(); nav.append(x);
+  sc.append(nav); sh.append(ph, sc); ov.append(sh); document.body.append(ov);
 }
 
 /* ---------- Heure du Pi et prochaine action du planning ---------- */

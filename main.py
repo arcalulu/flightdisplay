@@ -191,6 +191,47 @@ def types_flush():
         pass
 
 
+# Historique des avions vus (page "Avions vus" de webadmin) : un avion par vol, plafonne, ecrit au plus toutes les 10 minutes.
+HISTORY_FILE = os.path.join(CACHE, "history.json")
+HISTORY_MAX = 1000
+history = {}
+_hs = {"dirty": False, "last": 0.0}
+try:
+    with open(HISTORY_FILE, encoding="utf-8") as _fh:
+        history = {str(e["id"]): e for e in json.load(_fh) if isinstance(e, dict) and e.get("id")}
+except (OSError, ValueError, TypeError, KeyError):
+    pass
+
+
+def history_note(f, info):
+    """Ajoute (ou complete) l'avion dans l'historique. Appele avec le verrou."""
+    now = int(time.time())
+    e = history.get(f.id) or {"id": f.id, "t": now}
+    e.update(l=now, cs=f.callsign or "", reg=info.get("reg") or "", code=f.aircraft_code or "", model=info.get("model") or "",
+             airline=info.get("airline") or "", frm=info.get("origin") or "", to=info.get("dest") or "",
+             fi=f.origin_airport_iata or "", ti=f.destination_airport_iata or "",
+             photo=os.path.basename(info["photo_path"]) if info.get("photo_path") else e.get("photo", ""),
+             url=info.get("photo_url") or e.get("url", ""), credit=info.get("credit") or e.get("credit", ""))
+    history[f.id] = e
+    if len(history) > HISTORY_MAX:
+        for k in sorted(history, key=lambda k: history[k].get("t", 0))[:len(history) - HISTORY_MAX]:
+            del history[k]
+    _hs["dirty"] = True
+
+
+def history_flush():
+    if not _hs["dirty"] or time.time() - _hs["last"] < 600:
+        return
+    _hs.update(dirty=False, last=time.time())
+    try:
+        tmp = HISTORY_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(sorted(history.values(), key=lambda e: e.get("t", 0)), fh)
+        os.replace(tmp, HISTORY_FILE)
+    except OSError:
+        pass
+
+
 rt = {"muted": False, "volume": ALERT_VOL, "seq": 0, "mtime": 0, "checked": 0.0}
 
 
@@ -514,6 +555,8 @@ def poll_loop():
                     if old is None:
                         types_note(f.aircraft_code)
                     seen.add(f.id)
+                    if f.id in history:
+                        history[f.id]["l"] = int(now)  # dernier passage (ecrit avec le prochain enregistrement)
                     if not (old and ts <= old["t"]):
                         trail = old["trail"] if old else []
                         trail.append((f.latitude, f.longitude)); trail[:] = trail[-25:]
@@ -526,6 +569,7 @@ def poll_loop():
                             and not (f.on_ground and (f.ground_speed or 0) < G_MIN)):
                         queued.add(f.id); q.put(f)
                 types_flush()
+                history_flush()
                 for k in list(states):
                     s = states[k]
                     if s.get("landed"):
@@ -574,6 +618,7 @@ def details_loop():
             with lock:
                 details[f.id] = info
                 types_detail(f.aircraft_code, info)
+                history_note(f, info)
             if time.time() - last_save[0] > 60:
                 last_save[0] = time.time()
                 save_details()

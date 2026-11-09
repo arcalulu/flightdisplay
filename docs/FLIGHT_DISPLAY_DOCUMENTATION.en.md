@@ -998,6 +998,7 @@ The `M` key of the keyboard connected to the Pi also mutes or unmutes the sound.
 | `background.png`, `map_meta.json` | Map and its dimensions, produced by `build_map_vector.py`. | Until the next rebuild. |
 | `cache/details.json` | Aircraft details (model, airline, route). | 3 hours. |
 | `cache/*.jpg` | Downloaded photos. | Cleaned after 3 days at startup, or according to a quota with the automatic cleanup; can be deleted from webadmin (Settings, Storage and photos). |
+| `cache/history.json` | History of the aircraft seen ("Aircraft seen" page of webadmin). | The last 1000 flights. |
 | `cache/runtime.json` | Sound state (muted, volume, test). | Persistent. |
 | `/dev/shm/flightdisplay-fps.json` | Frames per second really displayed, published every 2 seconds for webadmin. In memory: no write to the SD card (`cache/fps.json` if `/dev/shm` does not exist). | Lost at reboot. |
 | `cache/update.json` | State and log of the last update from webadmin. | Persistent. |
@@ -1050,6 +1051,15 @@ Valid categories: `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `bizje
 - Volume slider (0 to 100%), applied live at the next alert.
 - "Test the sound" button (disabled while the sound is muted). Saving in Settings restarts the program when needed.
 - Power: restart or shut down the Pi, with confirmation. After a shutdown, the power supply must be unplugged and plugged back in.
+
+**Aircraft seen** (between Control and Settings)
+
+- The history of the aircraft that flew over the area, as cards with their photo: model, airline, route (departure city → arrival city), registration and "X ago"; everything the on-screen panel shows, except altitude and speed.
+- Badges on the photos: "First time" (an aircraft never seen before), "Rare type" (a model never seen before), "Regular ×N" (same registration seen N times, from 3).
+- At the top: four counters (aircraft seen, different aircraft, airlines, last 24 h) and a collapsible "Leaderboard" (most seen airlines and models, regular aircraft).
+- Search (model, registration, callsign, airline, city, airport code), period (today, 7 days, all) and sort (recent or regulars).
+- Clicking a card opens the sheet: large photo with its credit, registration, callsign, ICAO type, route with airport codes, first and last sighting, number of sightings; arrows (or the ← → keys) to go from one aircraft to the next, buttons to JetPhotos and Flightradar24.
+- The history is kept by the display program in `cache/history.json` (the last 1000 flights, written at most every 10 minutes); the page shows the 400 most recent. If a photo was deleted from the cache (cleanup), webadmin downloads it again when needed.
 
 **Settings**
 
@@ -1104,7 +1114,7 @@ When a change takes effect:
 - **JetPhotos photos in cache**: number of image files (`cache/*.jpg`), the volume they occupy, the share this represents as a percentage of the disk and of the used space, age of the oldest photo, and volume of the other cache files (aircraft details, sound state).
 - **Clear the photo cache**: deletes all the photos of the cache after confirmation. Only the photos are deleted (not the aircraft details, to avoid multiplying requests to Flightradar24). The display program downloads a deleted photo again when it is needed once more; until then, the panel shows "Photo unavailable" for that aircraft.
 - **Monitoring**: the "Disk alert threshold (%)" setting (90 by default, from 50 to 99) triggers the alert: "disk X % full" chip in the header (all pages), colored Memory tile, banner in this page. The orange alert comes 10 points before the threshold.
-- **Automatic cleanup**: the "Clean the photo cache automatically" option (`auto_clean`, off by default) and the "Photo cache quota (MB)" (`cache_max_mb`, 200 by default, from 20 to 100000) spare you from clearing the cache: webadmin checks the volume of the photos every 5 minutes and, only when it exceeds the quota, deletes the **oldest** photos (file date) until it is back to 80 % of the quota; the most recent ones are kept, and nothing is done below the quota. Each cleanup (automatic or "Clear the cache") is written in the "Cleanup log" of this page (the last 30, 100 kept in `cache/cleanup.json`) and in the service log.
+- **Automatic cleanup**: the "Clean the photo cache automatically" option (`auto_clean`, off by default) and the "Photo cache quota (MB)" (`cache_max_mb`, 200 by default, from 20 to 100000) spare you from clearing the cache: webadmin checks the volume of the photos once a day (and when these settings are saved) and, only when it exceeds the quota, deletes the **oldest** photos (file date) until it is back to 80 % of the quota; the most recent ones are kept, and nothing is done below the quota. Each cleanup (automatic or "Clear the cache") is written in the "Cleanup log" of this page (the last 30, 100 kept in `cache/cleanup.json`) and in the service log.
 - Without automatic cleanup, the program deletes photos older than 3 days at each start (9.7); with it, it no longer does and lets webadmin manage the quota.
 
 **Backup** (Settings, Backup)

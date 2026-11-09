@@ -998,6 +998,7 @@ La touche `M` du clavier connecté au Pi coupe ou réactive aussi le son. L'éta
 | `background.png`, `map_meta.json` | Carte et ses dimensions, produites par `build_map_vector.py`. | Jusqu'à la prochaine reconstruction. |
 | `cache/details.json` | Détails d'avions (modèle, compagnie, trajet). | 3 heures. |
 | `cache/*.jpg` | Photos téléchargées. | Nettoyées après 3 jours au démarrage, ou selon un quota avec le nettoyage automatique ; effaçables depuis webadmin (Réglages, Stockage et photos). |
+| `cache/history.json` | Historique des avions vus (page « Avions vus » de webadmin). | Les 1000 derniers vols. |
 | `cache/runtime.json` | État du son (coupé, volume, test). | Persistant. |
 | `/dev/shm/flightdisplay-fps.json` | Images par seconde réellement affichées, publiées toutes les 2 secondes pour webadmin. En mémoire : aucune écriture sur la carte SD (`cache/fps.json` si `/dev/shm` n'existe pas). | Perdu au redémarrage. |
 | `cache/update.json` | État et journal de la dernière mise à jour depuis webadmin. | Persistant. |
@@ -1050,6 +1051,15 @@ Catégories valides : `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `b
 - Curseur de volume (0 à 100 %), appliqué en direct à la prochaine alerte.
 - Bouton « Tester le son » (désactivé tant que le son est coupé). L'enregistrement dans Réglages relance le programme si besoin.
 - Alimentation : redémarrer ou éteindre le Pi, avec confirmation. Après une extinction, il faut débrancher puis rebrancher l'alimentation.
+
+**Avions vus** (entre Pilotage et Réglages)
+
+- L'historique des avions qui ont survolé la zone, en cartes avec leur photo : modèle, compagnie, trajet (ville de départ → ville d'arrivée), immatriculation et « il y a X » ; tout ce que montre le panneau de l'écran, sauf l'altitude et la vitesse.
+- Des pastilles sur les photos : « 1re fois » (appareil jamais vu auparavant), « Type rare » (modèle jamais vu avant), « Habitué ×N » (même immatriculation vue N fois, à partir de 3).
+- En haut : quatre compteurs (avions vus, appareils différents, compagnies, dernières 24 h) et un « Palmarès » repliable (compagnies et modèles les plus vus, appareils habitués).
+- Recherche (modèle, immatriculation, indicatif, compagnie, ville, code aéroport), période (aujourd'hui, 7 jours, tout) et tri (récents ou habitués).
+- Un clic sur une carte ouvre la fiche : grande photo avec son crédit, immatriculation, indicatif, type ICAO, trajet avec codes aéroport, premier et dernier passage, nombre de passages ; flèches (ou touches ← →) pour passer d'un avion à l'autre, boutons vers JetPhotos et Flightradar24.
+- L'historique est tenu par le programme d'affichage dans `cache/history.json` (les 1000 derniers vols, écrit au plus toutes les 10 minutes) ; la page en montre les 400 plus récents. Si une photo a été supprimée du cache (nettoyage), webadmin la retélécharge au besoin.
 
 **Réglages**
 
@@ -1104,7 +1114,7 @@ Quand une modification est prise en compte :
 - **Photos JetPhotos en cache** : nombre de fichiers image (`cache/*.jpg`), volume qu'ils occupent, part que cela représente en pourcentage du disque et de l'espace utilisé, ancienneté de la plus ancienne photo, et volume des autres fichiers du cache (détails d'avions, état du son).
 - **Vider le cache des photos** : supprime toutes les photos du cache après confirmation. Seules les photos sont effacées (pas les détails d'avions, pour ne pas multiplier les requêtes vers Flightradar24). Le programme d'affichage retélécharge une photo effacée quand elle est de nouveau nécessaire ; en attendant, le panneau affiche « Photo indisponible » pour cet avion.
 - **Surveillance** : le réglage « Seuil d'alerte du disque (%) » (90 par défaut, de 50 à 99) déclenche l'alerte : pastille « disque rempli à X % » en en-tête (toutes les pages), tuile Mémoire colorée, bandeau dans cette page. L'alerte orange précède le seuil de 10 points.
-- **Nettoyage automatique** : l'option « Nettoyer automatiquement le cache des photos » (`auto_clean`, désactivée par défaut) et le « Quota du cache des photos (Mo) » (`cache_max_mb`, 200 par défaut, de 20 à 100000) évitent d'avoir à vider le cache : webadmin vérifie le volume des photos toutes les 5 minutes et, seulement quand il dépasse le quota, supprime les photos les **plus anciennes** (date du fichier) jusqu'à revenir à 80 % du quota ; les plus récentes sont gardées, et rien n'est fait en dessous du quota. Chaque nettoyage (automatique ou « Vider le cache ») est inscrit dans le « Journal du nettoyage » de cette page (les 30 derniers, 100 gardés dans `cache/cleanup.json`) et dans le journal du service.
+- **Nettoyage automatique** : l'option « Nettoyer automatiquement le cache des photos » (`auto_clean`, désactivée par défaut) et le « Quota du cache des photos (Mo) » (`cache_max_mb`, 200 par défaut, de 20 à 100000) évitent d'avoir à vider le cache : webadmin vérifie le volume des photos une fois par jour (et à l'enregistrement de ces réglages) et, seulement quand il dépasse le quota, supprime les photos les **plus anciennes** (date du fichier) jusqu'à revenir à 80 % du quota ; les plus récentes sont gardées, et rien n'est fait en dessous du quota. Chaque nettoyage (automatique ou « Vider le cache ») est inscrit dans le « Journal du nettoyage » de cette page (les 30 derniers, 100 gardés dans `cache/cleanup.json`) et dans le journal du service.
 - Sans nettoyage automatique, le programme supprime les photos de plus de 3 jours à chaque démarrage (9.7) ; avec, il ne le fait plus et laisse webadmin gérer le quota.
 
 **Sauvegarde** (Réglages, Sauvegarde)
