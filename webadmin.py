@@ -1691,6 +1691,12 @@ button.b:disabled{opacity:.45}
 .uver{font-size:22px;font-weight:600}.uver.new{color:var(--ok)}.uarr{color:var(--mut);margin:0 8px;font-size:18px}
 .usub{font-size:12px;color:var(--mut);margin-top:4px}
 .ubtns{display:flex;gap:8px}
+.ulab{margin:0 0 2px}.uvr{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.ubig{font-size:28px;font-weight:600;line-height:1.1}
+.ustat{font-size:14px;margin-top:8px;display:flex;gap:7px;align-items:baseline}.ustat.new{color:var(--ok)}.ustat.bad{color:#ffb4ae}
+.uside{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.ulink{background:none;border:0;color:var(--mut);font-size:12px;padding:2px;cursor:pointer;text-decoration:underline}
+.umeta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:12px;color:var(--mut)}.umeta .ulink{margin-left:auto}
+@media(max-width:520px){.uside{width:100%;align-items:stretch}.uside .ulink{align-self:center}}
 .segs{display:flex;gap:4px}.segs i{flex:1;height:5px;border-radius:3px;background:#243040}
 .segs i.done,.segs i.skipped{background:var(--ok)}.segs i.running{background:var(--acc)}.segs i.error{background:var(--bad)}
 .runstep{font-size:14px;margin-top:10px}.runstep.err{color:#ffb4ae}
@@ -2981,22 +2987,31 @@ function renderUpd(lost) {
   const cur = u.current || (c && c.ok ? c.current : null), behind = c && c.ok ? c.behind : 0;
   // --- carte résumé
   const sm = $('#updSummary'); sm.innerHTML = '';
-  const row = el('div', 'urow'), left = el('div'), vr = el('div'); row.style.alignItems = 'flex-start'; left.style.cssText = 'flex:1 1 240px;min-width:0';
-  vr.style.cssText = 'display:flex;align-items:center;flex-wrap:wrap;gap:8px';
-  vr.append(el('span', 'uver', cur ? cur.label : '-'));
-  if (behind) { vr.append(el('span', 'uarr', '→'), el('span', 'uver new', c.latest.label)); }
-  else if (c && c.ok) vr.append(chip('à jour', 'ok'));
-  else if (c && !c.ok) vr.append(chip('vérification impossible', 'bad'));
-  else vr.append(chip('non vérifié'));
-  const sub = el('div', 'usub');
-  const chan = u.channel === 'stable' ? tl('canal stable') : tl('canal développement');
-  sub.textContent = behind ? _t(behind > 1 ? '{0} nouveautés' : '{0} nouveauté', behind) + ' · ' + _t('vérifié {0}', ago(c.checked_at)) + ' · ' + chan
-    : '';
-  left.append(vr); if (sub.textContent) left.append(sub);
-  const btns = el('div', 'ubtns');
-  const bc = el('button', 'b s', updBusy ? 'Vérification...' : (behind ? 'Vérifier' : 'Vérifier les mises à jour')); bc.disabled = updBusy || busy; bc.onclick = checkUpd; btns.append(bc);
-  if (behind) { const bu = el('button', 'b p s', 'Mettre à jour'); bu.disabled = busy || updBusy || !c.can_update; bu.onclick = startUpd; btns.append(bu); }
-  row.append(left, btns); sm.append(row);
+  const row = el('div', 'urow'), left = el('div'), side = el('div', 'uside'); row.style.alignItems = 'flex-start'; left.style.cssText = 'flex:1 1 240px;min-width:0';
+  left.append(el('div', 'usub ulab', 'Version installée'));
+  const vr = el('div', 'uvr'); vr.append(el('span', 'ubig', cur ? cur.label : '-'), chip(u.channel === 'stable' ? 'canal stable' : 'canal développement'));
+  left.append(vr);
+  const stat = el('div', 'ustat');
+  if (behind) {
+    stat.classList.add('new');
+    stat.append(el('span', null, '●'), el('span', null, _t('Une mise à jour est disponible : {0}', c.latest.label) + ' · ' + _t(behind > 1 ? '{0} nouveautés' : '{0} nouveauté', behind)));
+  } else if (c && c.ok) stat.append(el('span', null, '✓'), el('span', null, 'Vous avez la dernière version'));
+  else if (c && !c.ok) { stat.classList.add('bad'); stat.append(el('span', null, '✕'), el('span', null, 'Vérification impossible')); }
+  else stat.append(el('span', null, '○'), el('span', null, 'Pas encore vérifié'));
+  left.append(stat);
+  const bc = el('button', behind ? 'ulink' : 'b s', updBusy ? 'Vérification...' : (behind ? 'Vérifier maintenant' : 'Vérifier les mises à jour')); bc.disabled = updBusy || busy; bc.onclick = checkUpd;
+  if (behind) { const bu = el('button', 'b p s', _t('Mettre à jour vers {0}', c.latest.label)); bu.disabled = busy || updBusy || !c.can_update; bu.onclick = startUpd; side.append(bu); }
+  side.append(bc);
+  row.append(left, side); sm.append(row);
+  const meta = el('div', 'umeta'), up = s => s.charAt(0).toUpperCase() + s.slice(1);
+  if (c && c.checked_at) meta.append(el('span', null, up(_t('vérifié {0}', ago(c.checked_at)))));
+  if (u.auto) {
+    const left_s = Math.round(((c && c.checked_at ? c.checked_at : Date.now() / 1000) + (u.hours || 12) * 3600) - Date.now() / 1000);
+    meta.append(el('span', null, up(_t('prochaine vérification {0}', left_s < 90 ? tl("dans un instant") : (left_s < 5400 ? _t('dans {0} min', Math.round(left_s / 60)) : _t('dans {0} h', Math.round(left_s / 3600)))))));
+    if (u.auto_install) meta.append(el('span', null, 'Installation automatique activée'));
+  } else meta.append(el('span', null, 'Vérification automatique désactivée'));
+  const lk = el('button', 'ulink', 'Réglages automatiques'); lk.onclick = () => { go('cfg'); curCat = 'update'; renderMenu(); renderCat(); };
+  meta.append(lk); sm.append(meta);
   // --- avertissements
   const warn = $('#updWarn'), w = [];
   if (c && !c.ok) w.push(c.error);

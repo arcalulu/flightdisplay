@@ -185,7 +185,7 @@ class Updater:
             return dict(running=st["running"], ok=st["ok"], error=tr(st["error"]), done_msg=tr(st["done_msg"]), started=st["started"],
                         finished=st["finished"], from_label=st["from_label"], to_label=st["to_label"], steps=steps,
                         pct=self._pct(), lines=[tr(l) for l in list(st["lines"])[-400:]], live=st["live"], check=check,
-                        restarting=st["restarting"], mode=st.get("mode", "update"), channel=self.S.UPDATE_CHANNEL, previous=self._previous_info(), fallbacks=self._fallbacks_info(), auto=self.S.UPDATE_AUTO, history=[] if st["running"] or st["restarting"] else self.hist, current=self.current)
+                        restarting=st["restarting"], mode=st.get("mode", "update"), channel=self.S.UPDATE_CHANNEL, previous=self._previous_info(), fallbacks=self._fallbacks_info(), auto=self.S.UPDATE_AUTO, hours=self.S.UPDATE_HOURS, auto_install=self.S.UPDATE_AUTO_INSTALL, history=[] if st["running"] or st["restarting"] else self.hist, current=self.current)
 
     def _pct(self):
         total = sum(w for _, _, w in STEPS)
