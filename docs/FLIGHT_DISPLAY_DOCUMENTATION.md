@@ -1069,7 +1069,7 @@ Sur ordinateur, un menu à gauche liste les catégories ; sur téléphone, il de
 | | Autres réglages | config.ini | Toute clé hors schéma (affichée seulement s'il y en a), dans le groupe « Hors schéma (config.ini) ». |
 | Webadmin | Serveur web | config.ini | Adresse, port, identifiant, mot de passe. L'avertissement « aucun mot de passe » s'affiche ici (et seulement ici) tant qu'aucun mot de passe n'est défini. |
 | | Application et système | config.ini | Dossier, fichiers, service, Python de la carte, sudo, commandes, script et témoin de veille, arrêt de l'affichage pendant la carte. |
-| | Mises à jour | config.ini | Vérification automatique toutes les 12 heures (`auto_check`). |
+| | Mises à jour | config.ini | Canal, vérification automatique (`auto_check`), intervalle de 1 à 48 heures (`check_hours`) et installation automatique (`auto_install`). |
 | | Planning de l'écran | config.ini | Activation du planning et calendrier hebdomadaire des plages d'allumage (voir plus bas). |
 | | Sauvegarde | — | Export de la configuration dans un fichier et restauration (voir plus bas). |
 | | Stockage et photos | config.ini | Occupation du disque, photos en cache, bouton « Vider le cache des photos », seuil d'alerte (voir plus bas). |
@@ -1191,6 +1191,8 @@ stop_display = true
 [update]
 channel = stable
 auto_check = true
+check_hours = 12
+auto_install = false
 
 [schedule]
 enabled = false
@@ -1236,7 +1238,9 @@ interval = 30
 | | `flag` | `/run/flight-screen-off` | Fichier témoin de la veille (supprimé au redémarrage du Pi). |
 | `[build]` | `stop_display` | true | Valeur par défaut de l'interrupteur « Arrêter l'affichage pendant la construction » (reconstruction de la carte). |
 | `[update]` | `channel` | `stable` | Canal de mise à jour : `stable` (seulement les versions publiées `vX.Y.Z`, recommandé) ou `latest` (dernier commit de la branche, développement). |
-| | `auto_check` | true | Vérifie toutes les 12 heures si une nouvelle version existe sur GitHub (signalée par une puce dans l'en-tête). N'installe rien tout seul. |
+| | `auto_check` | true | Vérifie régulièrement si une nouvelle version existe sur GitHub (signalée par une puce dans l'en-tête). |
+| | `check_hours` | 12 | Intervalle entre deux vérifications, de 1 à 48 heures (curseur dans Réglages, « Mises à jour »). Relu à chaque tour : un changement s'applique sans redémarrage. |
+| | `auto_install` | false | Installe automatiquement chaque nouvelle version détectée, sans clic (nécessite `auto_check`). Par défaut désactivée : rien n'est installé sans votre accord. |
 | `[schedule]` | `enabled` | false | Active le planning d'allumage et d'extinction de l'écran. |
 | | `mon` à `sun` | vide | Plages d'allumage du jour (`HH:MM-HH:MM`, séparées par des virgules). Vide : écran éteint toute la journée quand le planning est actif. |
 | `[storage]` | `warn_percent` | 90 | Seuil d'alerte d'occupation du disque, en % (50 à 99). Alerte orange 10 points avant. |
@@ -1359,7 +1363,7 @@ Le volume et le son restent réglables pendant la veille de l'écran : les valeu
 
 **Depuis webadmin (recommandé).** Onglet **Mises à jour** :
 
-1. « Vérifier les mises à jour » compare votre version à celle de GitHub (branche suivie par l'installation, `main` par défaut) et liste les nouveautés. Une puce « mise à jour disponible » apparaît en haut de la page ; par défaut, webadmin vérifie seul toutes les 12 heures (Réglages, « Mises à jour », option `auto_check`, section `[update]` de `config.ini`). Rien n'est installé sans clic sur « Mettre à jour ».
+1. « Vérifier les mises à jour » compare votre version à celle de GitHub (branche suivie par l'installation, `main` par défaut) et liste les nouveautés. Une puce « mise à jour disponible » apparaît en haut de la page ; par défaut, webadmin vérifie seul toutes les 12 heures (Réglages, « Mises à jour » : options `auto_check` et `check_hours`, de 1 à 48 heures, section `[update]` de `config.ini`). Par défaut, rien n'est installé sans clic sur « Mettre à jour » ; l'option `auto_install` (« Installer automatiquement les mises à jour ») lance la mise à jour toute seule dès qu'une nouvelle version est détectée, avec le même retour automatique à la version précédente en cas d'échec. Une version dont l'installation automatique a échoué n'est pas retentée en boucle : l'installer alors à la main.
 2. « Mettre à jour » enchaîne : vérifications (dépôt Git, espace disque, aucun fichier modifié localement), téléchargement, application (fast-forward uniquement), bibliothèques Python (seulement si `requirements.txt` ou les dépendances de `build_map_vector.py` ont changé), contrôle du code, relance de l'affichage, redémarrage de webadmin. La progression et le journal s'affichent en direct ; la page se recharge à la fin.
 3. Si le code de la nouvelle version contient une erreur ou si l'affichage ne reste pas actif après la relance, la version précédente est restaurée automatiquement.
 

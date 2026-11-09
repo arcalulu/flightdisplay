@@ -159,8 +159,12 @@ stop_display = true
 [update]
 ; Canal : stable (versions publiées vX.Y.Z, recommandé) ou latest (dernier commit, développement)
 channel = stable
-; Vérifier toutes les 12 heures si une nouvelle version existe sur GitHub (n'installe rien tout seul)
+; Vérifier régulièrement si une nouvelle version existe sur GitHub
 auto_check = true
+; Intervalle entre deux vérifications, en heures (1 à 48)
+check_hours = 12
+; Installer automatiquement les mises à jour dès qu'elles sont détectées (nécessite auto_check)
+auto_install = false
 
 [schedule]
 ; Planning d'allumage de l'écran : réglé depuis webadmin (Réglages, Planning de l'écran)

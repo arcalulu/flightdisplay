@@ -19,7 +19,6 @@ STEPS = [  # (identifiant, libelle, poids dans la barre de progression)
     ("display", "Relance de l'affichage", 10),
     ("web", "Redémarrage de webadmin", 15),
 ]
-CHECK_EVERY = 12 * 3600
 MAX_FALLBACKS = 8
 MIN_FREE_MB = 100
 BRANCH_RE = re.compile(r"^[A-Za-z0-9._/-]+$")
@@ -76,6 +75,7 @@ class Updater:
         self.st = self._fresh()
         self.hist = []
         self.current = None
+        self.auto_tried = ""  # derniere version tentee en installation automatique (pas de nouvelle tentative en boucle)
         self.previous = None  # version quittee par la derniere operation (pour le retour arriere)
         self.fallbacks = []   # versions de secours : les versions quittees par les dernieres mises a jour (la plus recente d'abord)
         self.rb_target = ""
@@ -96,7 +96,8 @@ class Updater:
             d = dict(ok=self.st["ok"], error=self.st["error"], done_msg=self.st["done_msg"], started=self.st["started"],
                      finished=self.st["finished"], from_label=self.st["from_label"], to_label=self.st["to_label"],
                      steps=self.st["steps"], lines=list(self.st["lines"]), check=self.st["check"],
-                     restarting=self.st["restarting"], running=self.st["running"], mode=self.st["mode"], previous=self.previous, fallbacks=self.fallbacks)
+                     restarting=self.st["restarting"], running=self.st["running"], mode=self.st["mode"], previous=self.previous, fallbacks=self.fallbacks,
+                     auto_tried=self.auto_tried)
         try:
             path = self._state_file()
             os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -120,6 +121,8 @@ class Updater:
         for k in ("ok", "error", "done_msg", "started", "finished", "from_label", "to_label", "check", "mode"):
             if k in d:
                 st[k] = d[k]
+        if isinstance(d.get("auto_tried"), str):
+            self.auto_tried = d["auto_tried"]
         if isinstance(d.get("previous"), dict):
             self.previous = d["previous"]
         if isinstance(d.get("fallbacks"), list):
@@ -352,15 +355,33 @@ class Updater:
                     can_update=behind > 0 and ahead == 0 and not dirty)
 
     def auto_loop(self):
-        """Verification periodique en arriere-plan (desactivable dans les reglages)."""
+        """Verification periodique en arriere-plan (desactivable dans les reglages), avec installation automatique facultative.
+        L'intervalle (reglage check_hours) est relu a chaque tour : un changement s'applique tout de suite."""
         time.sleep(90)
         while True:
             try:
-                if self.S.UPDATE_AUTO and not self.st["running"]:
-                    self.check()
+                if self.S.UPDATE_AUTO and not self.st["running"] and not self.st["restarting"]:
+                    last = (self.st["check"] or {}).get("checked_at") or 0
+                    if time.time() - last >= self.S.UPDATE_HOURS * 3600:
+                        self._auto_cycle()
             except Exception:
                 pass
-            time.sleep(CHECK_EVERY)
+            time.sleep(60)
+
+    def _auto_cycle(self):
+        res = self.check()
+        if not (self.S.UPDATE_AUTO_INSTALL and res.get("ok") and res.get("can_update")):
+            return
+        target = (res.get("latest") or {}).get("hash", "")
+        if not target or target == self.auto_tried:
+            return  # une mise a jour automatique a deja echoue pour cette version : pas de nouvelle tentative en boucle
+        self.auto_tried = target
+        self._save()
+        try:
+            self.start("update")
+        except UpdateError:
+            return
+        self._log("Mise à jour lancée automatiquement (option « Installer automatiquement les mises à jour »).")
 
     # ------------------------------------------------------------ execution d'une commande avec progression
     def _stream(self, cmd, timeout, git_progress=False):

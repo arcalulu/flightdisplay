@@ -1069,7 +1069,7 @@ On a computer, a menu on the left lists the categories; on a phone, it becomes a
 | | Other settings | config.ini | Any key outside the schema (shown only if there are any), in the "Not in the schema (config.ini)" group. |
 | Webadmin | Web server | config.ini | Address, port, username, password. The "no password" warning is shown here (and only here) as long as no password is set. |
 | | Application and system | config.ini | Folder, files, service, map Python, sudo, commands, sleep script and marker, stopping the display during the map build. |
-| | Updates | config.ini | Automatic check every 12 hours (`auto_check`). |
+| | Updates | config.ini | Channel, automatic check (`auto_check`), interval from 1 to 48 hours (`check_hours`) and automatic installation (`auto_install`). |
 | | Screen schedule | config.ini | Schedule switch and weekly calendar of the on ranges (see below). |
 | | Backup | — | Export of the configuration to a file and restore (see below). |
 | | Storage and photos | config.ini | Disk usage, cached photos, "Clear the photo cache" button, alert threshold (see below). |
@@ -1191,6 +1191,8 @@ stop_display = true
 [update]
 channel = stable
 auto_check = true
+check_hours = 12
+auto_install = false
 
 [schedule]
 enabled = false
@@ -1236,7 +1238,9 @@ interval = 30
 | | `flag` | `/run/flight-screen-off` | Sleep marker file (deleted when the Pi reboots). |
 | `[build]` | `stop_display` | true | Default value of the "Stop the display during the build" switch (map rebuild). |
 | `[update]` | `channel` | `stable` | Update channel: `stable` (only published `vX.Y.Z` versions, recommended) or `latest` (latest commit of the branch, development). |
-| | `auto_check` | true | Checks every 12 hours whether a new version exists on GitHub (shown by a chip in the header). Installs nothing by itself. |
+| | `auto_check` | true | Regularly checks whether a new version exists on GitHub (shown by a chip in the header). |
+| | `check_hours` | 12 | Interval between two checks, from 1 to 48 hours (slider in Settings, "Updates"). Read again at each cycle: a change applies without a restart. |
+| | `auto_install` | false | Automatically installs every new version detected, without a click (requires `auto_check`). Disabled by default: nothing is installed without your approval. |
 | `[schedule]` | `enabled` | false | Enables the screen on/off schedule. |
 | | `mon` to `sun` | empty | On ranges of the day (`HH:MM-HH:MM`, separated by commas). Empty: screen off all day while the schedule is active. |
 | `[storage]` | `warn_percent` | 90 | Disk usage alert threshold, in % (50 to 99). Orange alert 10 points earlier. |
@@ -1359,7 +1363,7 @@ The volume and the sound remain adjustable during the screen sleep: the values w
 
 **From webadmin (recommended).** **Updates** tab:
 
-1. "Check for updates" compares your version with the one on GitHub (branch followed by the installation, `main` by default) and lists the changes. An "update available" chip appears at the top of the page; by default, webadmin checks by itself every 12 hours (Settings, "Updates", `auto_check` option, `[update]` section of `config.ini`). Nothing is installed without a click on "Update".
+1. "Check for updates" compares your version with the one on GitHub (branch followed by the installation, `main` by default) and lists the changes. An "update available" chip appears at the top of the page; by default, webadmin checks by itself every 12 hours (Settings, "Updates": `auto_check` and `check_hours` options, from 1 to 48 hours, `[update]` section of `config.ini`). By default, nothing is installed without a click on "Update"; the `auto_install` option ("Install updates automatically") starts the update by itself as soon as a new version is detected, with the same automatic return to the previous version on failure. A version whose automatic installation failed is not retried in a loop: install it by hand then.
 2. "Update" chains: checks (Git repository, disk space, no locally modified file), download, apply (fast-forward only), Python libraries (only if `requirements.txt` or the dependencies of `build_map_vector.py` changed), code check, display restart, webadmin restart. The progress and the log are shown live; the page reloads at the end.
 3. If the code of the new version contains an error or if the display does not stay active after the restart, the previous version is restored automatically.
 

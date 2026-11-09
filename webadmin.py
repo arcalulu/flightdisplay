@@ -89,6 +89,11 @@ class Settings:
         self.SCREEN_FLAG = gs("screen", "flag", "/run/flight-screen-off")
         self.BUILD_STOP_DISPLAY = gb("build", "stop_display", True)
         self.UPDATE_AUTO = gb("update", "auto_check", True)
+        self.UPDATE_AUTO_INSTALL = gb("update", "auto_install", False)
+        try:
+            self.UPDATE_HOURS = max(1, min(48, ini.getint("update", "check_hours", fallback=12)))
+        except ValueError:
+            self.UPDATE_HOURS = 12
         self.UPDATE_CHANNEL = "latest" if gs("update", "channel", "stable").lower() in ("latest", "dev", "main") else "stable"
         self.LANG = i18n.set_language(gs("general", "language", "fr"))
         self.SCHEDULE_ENABLED = gb("schedule", "enabled", False)
@@ -296,7 +301,9 @@ PARAMS = [
     W("paths", "screen", "flag", "text", "/run/flight-screen-off", "Fichier témoin de la veille", "", "Écran"),
     W("update", "update", "channel", "choice", "stable", "Canal de mise à jour", "Stable : seulement les versions publiées (v1.2.0…), plus sûr. Développement : chaque nouveau commit, y compris ceux qui ne sont pas encore publiés.", "Version", apply="live",
       options=["stable", "latest"], labels={"stable": "Stable", "latest": "Développement"}),
-    W("update", "update", "auto_check", "bool", True, "Vérifier automatiquement", "Interroge GitHub toutes les 12 heures pour signaler une nouvelle version. Rien n'est installé sans votre accord.", "Vérification", apply="live"),
+    W("update", "update", "auto_check", "bool", True, "Vérifier automatiquement", "Interroge GitHub régulièrement pour signaler une nouvelle version. Sans l'option d'installation automatique ci-dessous, rien n'est installé sans votre accord.", "Vérification", apply="live"),
+    W("update", "update", "check_hours", "int", 12, "Intervalle de vérification (heures)", "Délai entre deux interrogations de GitHub, de 1 à 48 heures.", "Vérification", apply="live", min=1, max=48, ui="slider", step=1, unit="h"),
+    W("update", "update", "auto_install", "bool", False, "Installer automatiquement les mises à jour", "Dès qu'une nouvelle version est détectée, elle est installée sans intervention (avec retour automatique à la version précédente en cas d'échec). Le programme d'affichage est relancé brièvement si la mise à jour le concerne. Nécessite la vérification automatique.", "Installation", apply="live"),
     W("schedule", "schedule", "enabled", "bool", False, "Activer le planning", "Hors des plages d'allumage, l'écran est éteint.", "Planning", apply="live"),
     *[W("schedule", "schedule", k, "text", "", name, "Plages d'allumage, au format 07:00-09:30,18:00-24:00.", "Plages", apply="live", slots=True) for k, name in SCHED_DAYS],
     W("storage", "storage", "warn_percent", "int", 90, "Seuil d'alerte du disque (%)", "Une alerte s'affiche dans webadmin quand l'utilisation du disque atteint ce pourcentage (alerte orange 10 points avant).", "Surveillance", apply="live", min=50, max=99),
@@ -383,7 +390,7 @@ def get_settings():
         raw = cur["value"] if cur else fmt_default(p["default"])
         out = dict(id=f'{p["file"]}:{p["sec"]}.{p["key"]}', cat=p["cat"], key=p["key"], type=p["type"], label=tr(p["label"]),
                    help=tr(p["help"]), options=p.get("options"), labels=p.get("labels"), needs_map=bool(p.get("needs_map")), apply=p["apply"],
-                   default=fmt_default(p["default"]), present=cur is not None, min=p.get("min"), max=p.get("max"), step=p.get("step"), ui=p.get("ui"),
+                   default=fmt_default(p["default"]), present=cur is not None, min=p.get("min"), max=p.get("max"), step=p.get("step"), ui=p.get("ui"), unit=p.get("unit"),
                    editor=bool(p.get("editor")), secret=p["type"] == "secret", set=bool(cur and cur["value"]), value="" if p["type"] == "secret" else raw)
         cats[p["cat"]]["groups"].setdefault(p["group"], []).append(out)
         cats[p["cat"]]["file"] = p["file"]
@@ -2141,7 +2148,7 @@ function control(p) {
   }
   if (p.ui === 'slider') {
     const w = el('div', 'sl'), r = document.createElement('input'); r.type = 'range'; r.min = p.min; r.max = p.max; r.step = p.step || 1; r.value = v;
-    const l = el('span', null, String(v)); r.oninput = () => { l.textContent = r.value; setEdit(p, String(r.value)); }; w.append(r, l); return {c: w, inline: true};
+    const u = p.unit ? ' ' + p.unit : '', l = el('span', null, String(v) + u); r.oninput = () => { l.textContent = r.value + u; setEdit(p, String(r.value)); }; w.append(r, l); return {c: w, inline: true};
   }
   if (p.secret) {
     const w = el('div', 'pw'), i = document.createElement('input'); i.type = 'password'; i.autocomplete = 'new-password';

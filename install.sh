@@ -928,6 +928,8 @@ write_configs() {
   ini_default config.ini screen flag /run/flight-screen-off
   ini_default config.ini build stop_display true
   ini_default config.ini update auto_check true
+  ini_default config.ini update check_hours 12
+  ini_default config.ini update auto_install false
   ini_default config.ini update channel stable
   ini_default config.ini general language fr
   ini_default config.ini schedule enabled false
