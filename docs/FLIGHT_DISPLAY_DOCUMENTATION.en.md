@@ -1080,7 +1080,7 @@ Input controls: toggle switches for yes/no values, segmented buttons for choices
 Saving:
 
 - Modified fields are outlined in yellow and a dot marks the modified categories. A bar at the bottom shows the number of changes and states clearly what will happen.
-- "Save" writes the values and applies them right away: if the setting concerns the display program, it is restarted (a few seconds without image); if it is the address or port of webadmin, webadmin restarts and the page reopens; otherwise the effect is immediate. The bar at the bottom says so before saving. "Cancel" drops the unsaved changes.
+- The button writes the values and applies them right away, and its name says what will happen: "Save" when the effect is immediate; "Save and restart the program" when the setting concerns the display program (a few seconds without image); "Save and restart webadmin" for the address or port of webadmin (the page reopens by itself); "Save and restart the program and webadmin" when both are concerned. "Cancel" drops the unsaved changes.
 - Map settings (position, radius, size, key) trigger a banner that offers to rebuild the map.
 - Only the modified lines are rewritten: the comments of the files are kept. There is no way back for the settings: a saved value is applied right away (to keep a reference state, use the export of the Backup category).
 - Out-of-range or malformed values are refused with a message, without writing anything.

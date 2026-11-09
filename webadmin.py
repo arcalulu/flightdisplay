@@ -1875,7 +1875,7 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 </main>
 
 <div class="bar" id="saveBar"><div class="in"><span id="barTxt"></span><span id="barHelp"></span>
-  <button class="b p" onclick="saveSettings()">Enregistrer</button>
+  <button class="b p" id="barSave" onclick="saveSettings()">Enregistrer</button>
   <button class="b" style="flex:none;width:auto" onclick="discardEdits()">Annuler</button>
 </div></div>
 <div id="toast"></div>
@@ -2095,6 +2095,7 @@ function updateBar() {
   if (n) {
     const a = applyNeeds();
     $('#barTxt').textContent = _t(n > 1 ? '{0} modifications' : '{0} modification', n);
+    $('#barSave').textContent = tl(a.app && a.web ? 'Enregistrer et relancer le programme et webadmin' : (a.app ? 'Enregistrer et relancer le programme' : (a.web ? 'Enregistrer et redémarrer webadmin' : 'Enregistrer')));
     $('#barHelp').textContent = tl(a.app && a.web ? "L'enregistrement relance le programme d'affichage et webadmin pour appliquer ces valeurs." : (a.app ? "L'enregistrement relance le programme d'affichage pour appliquer ces valeurs (quelques secondes sans image à l'écran)." : (a.web ? "L'enregistrement redémarre webadmin pour appliquer ces valeurs (la page sera indisponible quelques secondes)." : "Appliqué dès l'enregistrement.")));
   }
 }

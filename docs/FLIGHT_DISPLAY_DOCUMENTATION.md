@@ -1080,7 +1080,7 @@ Commandes de saisie : interrupteurs à bascule pour les valeurs oui/non, boutons
 Enregistrement :
 
 - Les champs modifiés sont entourés en jaune et un point signale les catégories modifiées. Une barre en bas indique le nombre de modifications et dit clairement ce qui se passera.
-- « Enregistrer » écrit les valeurs et les applique tout de suite : si le réglage concerne le programme d'affichage, il est relancé (quelques secondes sans image) ; si c'est l'adresse ou le port de webadmin, webadmin redémarre et la page se rouvre ; sinon l'effet est immédiat. La barre du bas le dit avant l'enregistrement. « Annuler » abandonne les modifications non enregistrées.
+- Le bouton écrit les valeurs et les applique tout de suite, et son nom dit ce qui va se passer : « Enregistrer » quand l'effet est immédiat ; « Enregistrer et relancer le programme » quand le réglage concerne le programme d'affichage (quelques secondes sans image) ; « Enregistrer et redémarrer webadmin » pour l'adresse ou le port de webadmin (la page se rouvre toute seule) ; « Enregistrer et relancer le programme et webadmin » quand les deux sont concernés. « Annuler » abandonne les modifications non enregistrées.
 - Les réglages de carte (position, rayon, taille, clé) déclenchent un bandeau qui propose de reconstruire la carte.
 - Seules les lignes modifiées sont réécrites : les commentaires des fichiers sont conservés. Il n'y a pas de retour en arrière sur les réglages : une valeur enregistrée est appliquée tout de suite (pour garder un état de référence, utilisez l'export de la catégorie Sauvegarde).
 - Les valeurs hors limites ou mal formées sont refusées avec un message, sans rien écrire.
