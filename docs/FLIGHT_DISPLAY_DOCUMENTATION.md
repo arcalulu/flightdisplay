@@ -764,7 +764,7 @@ Protection automatique : après une erreur 429, l'intervalle est multiplié par 
 
 | Option | Défaut | Valeurs | Description |
 |---|---|---|---|
-| `fullscreen` | false | true / false | Plein écran. À mettre à `true` sur le Pi. Sinon fenêtre redimensionnable (utile sur PC). |
+| `fullscreen` | false | true / false | Plein écran. Sur un Raspberry Pi, l'affichage est toujours en plein écran : le réglage est masqué dans webadmin et ignoré. Sur PC, `false` donne une fenêtre redimensionnable. |
 | `fps` | 10 | 1 à 60 | Images par seconde. Une valeur basse ménage le Pi Zero : c'est le levier principal pour réduire l'utilisation du processeur. |
 | `altitude_unit` | ft | `ft`, `m` | Unité d'altitude affichée. |
 | `speed_unit` | kmh | `kmh`, `kt` | Unité de vitesse affichée. |
@@ -776,7 +776,7 @@ Protection automatique : après une erreur 429, l'intervalle est multiplié par 
 | `width` | obligatoire | 320 à 7680 | Largeur de la carte en pixels (carte). |
 | `height` | obligatoire | 240 à 4320 | Hauteur de la carte en pixels (carte). |
 
-`width` et `height` sont lues par `build_map_vector.py`, qui s'en sert pour fixer la taille de l'image de fond. `main.py` ne les lit pas : il prend la taille réelle dans `map_meta.json`, produit à la construction. Changer ces valeurs n'a donc d'effet qu'après avoir reconstruit la carte. Dans webadmin, ces deux réglages se trouvent dans la catégorie « Carte et position » (groupe « Taille de la carte »), avec ceux de la position.
+`width` et `height` sont lues par `build_map_vector.py`, qui s'en sert pour fixer la taille de l'image de fond. `main.py` ne les lit pas : il prend la taille réelle dans `map_meta.json`, produit à la construction. Changer ces valeurs n'a donc d'effet qu'après avoir reconstruit la carte. Dans webadmin, ces deux réglages se trouvent dans la catégorie « Carte et position » (groupe « Taille de la carte »), avec ceux de la position. Quand le Pi détecte l'écran branché, ce groupe affiche sa résolution maximale (lue sur la sortie vidéo) avec un bouton « Utiliser pour la carte » qui reporte largeur et hauteur dans les deux champs.
 
 Toute l'interface est dessinée à la résolution de la carte. Sous Windows et sur le Pi, la fenêtre ou l'écran affiche cette image mise à l'échelle en conservant les proportions : redimensionner la fenêtre ne change que le zoom. Pour une autre résolution de travail, changez `width` et `height`, puis reconstruisez la carte. Les tailles de texte et d'icônes s'adaptent à la hauteur de la carte. Sur Pi Zero, 1280×720 réduit nettement le nombre de pixels dessinés par rapport à 1920×1080, donc la charge du processeur.
 

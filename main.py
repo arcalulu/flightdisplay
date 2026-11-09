@@ -51,6 +51,11 @@ DETAILS_PAUSE = cfg.getfloat("api", "details_pause_seconds", fallback=4)
 STALE = cfg.getfloat("api", "stale_seconds", fallback=30)
 
 FULLSCREEN = cfg.getboolean("display", "fullscreen", fallback=False)
+try:  # sur un Raspberry Pi, l'affichage est toujours en plein ecran (le reglage n'est pas propose dans webadmin)
+    with open("/proc/device-tree/model", "rb") as _f:
+        FULLSCREEN = FULLSCREEN or b"Raspberry Pi" in _f.read()
+except OSError:
+    pass
 FPS = cfg.getint("display", "fps", fallback=10)
 ALT_UNIT = cfg.get("display", "altitude_unit", fallback="ft")
 SPEED_UNIT = cfg.get("display", "speed_unit", fallback="kmh")

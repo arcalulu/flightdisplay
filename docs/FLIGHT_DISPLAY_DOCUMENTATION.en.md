@@ -764,7 +764,7 @@ Automatic protection: after a 429 error, the interval is multiplied by 1.5 (maxi
 
 | Option | Default | Values | Description |
 |---|---|---|---|
-| `fullscreen` | false | true / false | Full screen. Set to `true` on the Pi. Otherwise a resizable window (useful on a PC). |
+| `fullscreen` | false | true / false | Full screen. On a Raspberry Pi the display is always full screen: the setting is hidden in webadmin and ignored. On a PC, `false` gives a resizable window. |
 | `fps` | 10 | 1 to 60 | Frames per second. A low value spares the Pi Zero: it is the main lever to reduce processor use. The real rate is shown in the Program tile of Control. |
 | `altitude_unit` | ft | `ft`, `m` | Displayed altitude unit. |
 | `speed_unit` | kmh | `kmh`, `kt` | Displayed speed unit. |
@@ -776,7 +776,7 @@ Automatic protection: after a 429 error, the interval is multiplied by 1.5 (maxi
 | `width` | required | 320 to 7680 | Map width in pixels (map). |
 | `height` | required | 240 to 4320 | Map height in pixels (map). |
 
-`width` and `height` are read by `build_map_vector.py`, which uses them to set the size of the background image. `main.py` does not read them: it takes the real size from `map_meta.json`, produced at build time. Changing these values therefore only takes effect after rebuilding the map. In webadmin, these two settings are in the "Map and position" category (group "Map size"), with those of the position.
+`width` and `height` are read by `build_map_vector.py`, which uses them to set the size of the background image. `main.py` does not read them: it takes the real size from `map_meta.json`, produced at build time. Changing these values therefore only takes effect after rebuilding the map. In webadmin, these two settings are in the "Map and position" category (group "Map size"), with those of the position. When the Pi detects the connected screen, this group shows its maximum resolution (read from the video output) with a "Use for the map" button that copies the width and height into the two fields.
 
 The whole interface is drawn at the resolution of the map. On Windows and on the Pi, the window or the screen shows this image scaled while keeping the proportions: resizing the window only changes the zoom. For another working resolution, change `width` and `height`, then rebuild the map. Text and icon sizes adapt to the height of the map. On the Pi Zero, 1280×720 clearly reduces the number of pixels drawn compared with 1920×1080, hence the processor load.
 

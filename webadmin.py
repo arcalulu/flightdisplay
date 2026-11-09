@@ -387,6 +387,8 @@ def get_settings():
     cats = {cid: dict(id=cid, title=tr(t), menu=m, groups=collections.OrderedDict(), note=tr(CAT_NOTES.get(cid, "")))
             for cid, t, m in CATS}
     for p in PARAMS:
+        if p["key"] == "fullscreen" and is_pi():
+            continue  # sur un Raspberry Pi, l'affichage est toujours en plein ecran
         cur = state[p["file"]].get((p["sec"], p["key"]))
         raw = cur["value"] if cur else fmt_default(p["default"])
         out = dict(id=f'{p["file"]}:{p["sec"]}.{p["key"]}', cat=p["cat"], key=p["key"], type=p["type"], label=tr(p["label"]),
@@ -426,7 +428,7 @@ def get_settings():
     for c in cats.values():
         if c.get("kind") not in ("types", "backup"):
             c["groups"] = [dict(name=tr(n), params=ps) for n, ps in c["groups"].items()]
-    return dict(menu=menu, cats={k: v for k, v in cats.items() if v.get("kind") in ("types", "backup") or v["groups"]})
+    return dict(menu=menu, cats={k: v for k, v in cats.items() if v.get("kind") in ("types", "backup") or v["groups"]}, screen=screen_resolution())
 
 
 def norm_value(p, v):
@@ -1037,6 +1039,42 @@ def pi_model():
                 continue
         _pi_model.append(name)
     return _pi_model[0]
+
+
+_screen_last = []
+
+
+def screen_resolution():
+    """Plus grande resolution annoncee par l'ecran branche (modes DRM du noyau) ; None hors Raspberry Pi."""
+    best = None
+    try:
+        for d in sorted(os.listdir("/sys/class/drm")):
+            base = os.path.join("/sys/class/drm", d)
+            try:
+                with open(os.path.join(base, "status")) as fh:
+                    if fh.read().strip() != "connected":
+                        continue
+                with open(os.path.join(base, "modes")) as fh:
+                    modes = fh.read().split()
+            except OSError:
+                continue
+            for m in modes:
+                mm = re.fullmatch(r"(\d{3,5})x(\d{3,5})", m)
+                if mm:
+                    w, h = int(mm.group(1)), int(mm.group(2))
+                    if best is None or w * h > best[0] * best[1]:
+                        best = (w, h)
+    except OSError:
+        pass
+    if best:
+        _screen_last[:] = [best]
+    elif _screen_last:
+        best = _screen_last[0]  # ecran en veille : on garde la derniere valeur connue
+    return dict(width=best[0], height=best[1]) if best else None
+
+
+def is_pi():
+    return "raspberry pi" in pi_model().lower()
 
 
 def temp_limits():
@@ -2210,6 +2248,18 @@ function renderGroups(box, cat) {
       row.dataset.row = p.id; row.append(t, ctl.c); list.append(row);
     }
     box.append(list);
+    const pw = g.params.find(p => p.id === 'config:display.width'), ph = g.params.find(p => p.id === 'config:display.height');
+    if (pw && ph && SET.screen) {  // résolution maximale de l'écran branché : un bouton la reporte dans la taille de la carte
+      const sr = el('div', 'li'), st = el('div', 'lt'), bt = el('button', 'b s', 'Utiliser pour la carte');
+      st.append(el('b', null, _t("Résolution maximale de l'écran : {0} × {1}", SET.screen.width, SET.screen.height)), el('small', null, 'Détectée sur la sortie vidéo du Pi. Changer la taille demande de reconstruire la carte.'));
+      bt.onclick = () => {
+        for (const [p, v] of [[pw, SET.screen.width], [ph, SET.screen.height]]) {
+          const i = document.querySelector('[data-row="' + p.id + '"] input'); if (!i) continue;
+          i.value = String(v); i.dispatchEvent(new Event('input', {bubbles: true}));
+        }
+      };
+      sr.append(st, bt); list.append(sr);
+    }
   }
 }
 // Cercles de distance : les réglages n'apparaissent que s'ils servent (cercles affichés, au moins 1 cercle, au moins 2 pour l'écartement)
