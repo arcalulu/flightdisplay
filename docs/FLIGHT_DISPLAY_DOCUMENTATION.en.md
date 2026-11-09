@@ -681,7 +681,7 @@ journalctl -u flightadmin -n 50 --no-pager
 
 ### 7.3 Restarting or updating webadmin
 
-- From the interface: a change of port or listening address offers "Save and restart", which restarts webadmin and reopens the page (on the new port if needed).
+- From the interface: a change of port or listening address restarts webadmin when you save and reopens the page (on the new port if needed).
 - On the command line, after replacing `webadmin.py`, `webadmin_mqtt.py`, `webadmin_update.py`, `i18n.py` or a file of `lang/`: `sudo systemctl restart flightadmin`.
 - From the Updates tab (12.1), webadmin restarts itself at the end of the update.
 
@@ -689,7 +689,7 @@ journalctl -u flightadmin -n 50 --no-pager
 
 ## 8. `config.ini` reference
 
-Missing options take the default value shown. Each one is set in webadmin, Settings tab, in the category given by the section title. The changes are read by the program at startup: it must be restarted ("Save and restart", or `fd restart`). The settings marked "map" also require rebuilding the map. Widths (panel, list) are expressed for a screen 1080 pixels high and adapt to the real height of the map. If you edit the file by hand, put comments on their own line, never after a value.
+Missing options take the default value shown. Each one is set in webadmin, Settings tab, in the category given by the section title. The changes are read by the program at startup: it must be restarted (saving in webadmin does it for you, or `fd restart`). The settings marked "map" also require rebuilding the map. Widths (panel, list) are expressed for a screen 1080 pixels high and adapt to the real height of the map. If you edit the file by hand, put comments on their own line, never after a value.
 
 The `config.ini.example` template contains all the sections with example values. The web interface sections (`[server]`, `[app]`, `[screen]`, `[build]`, `[update]`, `[mqtt]`) are described in 10.2.
 
@@ -1048,7 +1048,7 @@ Valid categories: `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `bizje
   - Screen schedule (shown only when a schedule is active): next scheduled action, with the time and the time left (for example "Next action: turn off at 23:00 (in 4 h 12 min)"). The "Edit" button opens the calendar.
   - Alert sound: mutes or unmutes the sound (disabled and greyed out if `sound = false` in `config.ini`).
 - Volume slider (0 to 100%), applied live at the next alert.
-- "Test the sound" button (disabled while the sound is muted). Restarting the program is offered in Settings after saving ("Save and restart").
+- "Test the sound" button (disabled while the sound is muted). Saving in Settings restarts the program when needed.
 - Power: restart or shut down the Pi, with confirmation. After a shutdown, the power supply must be unplugged and plugged back in.
 
 **Settings**
@@ -1080,10 +1080,9 @@ Input controls: toggle switches for yes/no values, segmented buttons for choices
 Saving:
 
 - Modified fields are outlined in yellow and a dot marks the modified categories. A bar at the bottom shows the number of changes and states clearly what will happen.
-- If the values are applied right away (schedule, updates, storage…), the bar says "Applied as soon as you save" and offers only "Save".
-- If they require a restart (display program settings, address or port of webadmin), the bar explains it and offers two buttons: "Save and restart" (for example "Save and restart the program") writes the values then performs the necessary restart; "Save without restarting" only writes the values, the old configuration stays active until the next restart, and a "Saved, but not applied yet" banner then offers the restart buttons.
+- "Save" writes the values and applies them right away: if the setting concerns the display program, it is restarted (a few seconds without image); if it is the address or port of webadmin, webadmin restarts and the page reopens; otherwise the effect is immediate. The bar at the bottom says so before saving. "Cancel" drops the unsaved changes.
 - Map settings (position, radius, size, key) trigger a banner that offers to rebuild the map.
-- Only the modified lines are rewritten: the comments of the files are kept. A `config.ini.bak` backup is created at each save, even when the change affects both program and web interface settings (a single write, a single backup). The "Go back to the previous version" button, at the bottom of the Webadmin and Integrations categories, restores the whole `config.ini` (a second click cancels the operation): it therefore also puts the program settings back in the state of the backup.
+- Only the modified lines are rewritten: the comments of the files are kept. There is no way back for the settings: a saved value is applied right away (to keep a reference state, use the export of the Backup category).
 - Out-of-range or malformed values are refused with a message, without writing anything.
 - A language change reloads the page: webadmin switches to the new language at once, the display program takes it after it restarts.
 
@@ -1111,7 +1110,7 @@ When a change takes effect:
 
 - **Export**: the "Download the backup" button produces a file `flightdisplay-backup-<pi-name>-<date>.zip` containing `config.ini` (all the program and webadmin settings), `types_extra.txt` (aircraft types), the sound state, the map already built (`background.png` and `map_meta.json`, so it does not have to be rebuilt) and a small information file. Photos are not in it.
 - **Secrets**: the "Include passwords and the CARTO key" switch (on by default) decides whether the secrets (CARTO key, webadmin password, MQTT password) are in the file. With the secrets, the restore gets everything back; **the file is then sensitive**: do not share it. Without secrets, it can be shared (for example for a diagnosis). An export with secrets is only possible from the interface (`X-Admin` header), never through a plain link.
-- **Restore**: choose a file then "Restore" (confirmation asked). The current configuration is replaced (the old `config.ini` stays as `config.ini.bak`). A backup made without secrets keeps those of the current installation. The file is checked before any change (format, allowed content, readable `config.ini`, valid type rules): an invalid file is refused without changing anything. Webadmin then offers to restart the program (equivalent to "Save and restart"); a language change reloads the page.
+- **Restore**: choose a file then "Restore" (confirmation asked). The current configuration is replaced (the old `config.ini` stays as `config.ini.bak`). A backup made without secrets keeps those of the current installation. The file is checked before any change (format, allowed content, readable `config.ini`, valid type rules): an invalid file is refused without changing anything. Webadmin then offers to restart the program (as after a save); a language change reloads the page.
 - Typical case, after an SD card failure: install a new Pi (section 0, with `--yes` if you like), open webadmin, restore the file, restart the program, then rebuild the map.
 
 **Screen schedule** (Settings, Screen schedule)
@@ -1491,7 +1490,7 @@ sudo reboot
 | Updates: "check failed" | webadmin cannot reach GitHub (Internet, DNS) or the installation is not a Git repository: read the message shown in the Updates tab. |
 | Updates: "software files modified locally" | Files tracked by Git differ from GitHub (copied by hand, for example). See which with `git status`, then `git checkout <file>` or `git stash` (12.1). `config.ini` is never concerned. |
 | Updates: "going back to the previous version" | The new version did not pass the code check or does not start. The old version still works; the update log gives the cause. |
-| After a language change, the screen stays in the old language | The display program reads the language at startup: "Save and restart", or `fd restart`. |
+| After a language change, the screen stays in the old language | The display program reads the language at startup: "Save" in webadmin, or `fd restart`. |
 | A language added in `lang/` does not appear | The file must be named `<code>.json` (2 or 3 lowercase letters) and contain valid JSON; restart webadmin. Check: `python3 lang/check_lang.py <code>` (12.3). |
 | No label appears next to the aircraft | All the items are hidden in Settings, Aircraft labels (8.7). |
 | The photo panel never appears in a corner | That corner is unticked in Settings, Photo panel (8.6). If all four corners are unticked, there is no restriction. |

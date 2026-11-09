@@ -146,7 +146,7 @@ CATS = [
     ("mqtt", "MQTT / Home Assistant", "Intégrations"),
 ]
 CAT_NOTES = {
-    "language": "Langue de webadmin (immédiat) et du texte affiché à l'écran par le programme (après sa relance : « Enregistrer et relancer le programme »). Pour ajouter une langue, déposez un fichier dans le dossier lang (voir la documentation).",
+    "language": "Langue de webadmin (immédiat) et du texte affiché à l'écran par le programme (le programme d'affichage est relancé à l'enregistrement). Pour ajouter une langue, déposez un fichier dans le dossier lang (voir la documentation).",
     "label": "Petits panneaux affichés à côté de chaque avion sur la carte. Réordonnez les éléments avec les flèches, choisissez ceux à afficher, leur taille, gras et italique, et s'ils partagent la ligne de l'élément précédent. Si tout est masqué, aucun panneau n'est affiché. Pris en compte après relance du programme.",
     "position": "Modifier ces valeurs oblige à reconstruire la carte (section Reconstruction de la carte, en bas de cette page).",
     "mapstyle": "Personnalisez le fond de carte : thème, éléments affichés, couleurs et noms de lieux. L'aperçu est dessiné avec le même programme que la carte. Il faut ensuite enregistrer puis reconstruire la carte.",
@@ -425,8 +425,7 @@ def get_settings():
     for c in cats.values():
         if c.get("kind") not in ("types", "backup"):
             c["groups"] = [dict(name=tr(n), params=ps) for n, ps in c["groups"].items()]
-    return dict(menu=menu, cats={k: v for k, v in cats.items() if v.get("kind") in ("types", "backup") or v["groups"]},
-                has_backup={f: os.path.exists(path_of(f) + ".bak") for f in ("config", "web")})
+    return dict(menu=menu, cats={k: v for k, v in cats.items() if v.get("kind") in ("types", "backup") or v["groups"]})
 
 
 def norm_value(p, v):
@@ -519,8 +518,6 @@ def write_changes(items):
             lines += [f"[{sec}]", f"{key} = {v}"]
         changed.append(f"{f}:{sec}.{key}")
     if changed:
-        if os.path.exists(path):
-            shutil.copy2(path, path + ".bak")
         tmp = path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as fh:
             fh.write("\n".join(lines) + "\n")
@@ -563,24 +560,6 @@ def apply_settings(changes):
         res["reload_ui"] = True
     res["port"] = S.PORT
     return res
-
-
-def restore_backup(f):
-    if f not in ("config", "web"):
-        raise ValueError("fichier inconnu")
-    with file_lock:
-        path = path_of(f)
-        bak = path + ".bak"
-        if not os.path.exists(bak):
-            raise ValueError("aucune sauvegarde")
-        tmp = path + ".swap"
-        if os.path.exists(path):
-            shutil.copy2(path, tmp)
-        shutil.copy2(bak, path)
-        if os.path.exists(tmp):
-            os.replace(tmp, bak)
-    S.reload()
-    MQTT.restart(S.ini)
 
 
 # ---------------------------------------------------------------- sauvegarde et restauration
@@ -1493,9 +1472,6 @@ class Handler(BaseHTTPRequestHandler):
             act = str(body.get("action", ""))
             if path == "/api/settings":
                 return self.send_json(dict(ok=True, **apply_settings(body.get("changes") or {})))
-            if path == "/api/settings/restore":
-                restore_backup(str(body.get("file", "")))
-                return self.send_json(dict(ok=True))
             if path == "/api/types":
                 write_types(str(body.get("text", "")))
                 return self.send_json(dict(ok=True))
@@ -1899,8 +1875,7 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 </main>
 
 <div class="bar" id="saveBar"><div class="in"><span id="barTxt"></span><span id="barHelp"></span>
-  <button class="b p" id="barApply" onclick="saveSettings(true)">Enregistrer et relancer</button>
-  <button class="b" id="barSave" onclick="saveSettings(false)">Enregistrer</button>
+  <button class="b p" onclick="saveSettings()">Enregistrer</button>
   <button class="b" style="flex:none;width:auto" onclick="discardEdits()">Annuler</button>
 </div></div>
 <div id="toast"></div>
@@ -2118,14 +2093,9 @@ function updateBar() {
   const n = Object.keys(edits).length, b = $('#saveBar');
   b.classList.toggle('on', cur === 'cfg' && n > 0);
   if (n) {
-    const a = applyNeeds(), need = a.app || a.web;
+    const a = applyNeeds();
     $('#barTxt').textContent = _t(n > 1 ? '{0} modifications' : '{0} modification', n);
-    $('#barHelp').textContent = !need ? tl("Prise en compte immédiate dès l'enregistrement.")
-      : tl(a.app && a.web ? "Le programme d'affichage et webadmin doivent être relancés pour utiliser ces valeurs." : (a.app ? "Le programme d'affichage doit être relancé pour utiliser ces valeurs (quelques secondes sans image à l'écran)." : "Webadmin doit être redémarré pour utiliser ces valeurs (la page sera indisponible quelques secondes).")) + ' ' + tl("Avec « Enregistrer sans relancer », les valeurs sont écrites mais l'ancienne configuration reste active jusqu'à la prochaine relance.");
-    const ba = $('#barApply'), bs = $('#barSave');
-    ba.style.display = need ? '' : 'none';
-    ba.textContent = tl(a.app && a.web ? 'Enregistrer et relancer' : (a.app ? 'Enregistrer et relancer le programme' : 'Enregistrer et redémarrer webadmin'));
-    bs.textContent = tl(need ? 'Enregistrer sans relancer' : 'Enregistrer'); bs.className = need ? 'b' : 'b p';
+    $('#barHelp').textContent = tl(a.app && a.web ? "L'enregistrement relance le programme d'affichage et webadmin pour appliquer ces valeurs." : (a.app ? "L'enregistrement relance le programme d'affichage pour appliquer ces valeurs (quelques secondes sans image à l'écran)." : (a.web ? "L'enregistrement redémarre webadmin pour appliquer ces valeurs (la page sera indisponible quelques secondes)." : "Appliqué dès l'enregistrement.")));
   }
 }
 function markMenu() {
@@ -2249,11 +2219,6 @@ function renderCatBase() {
   if (cat.id === 'position') renderMapPicker(box);
   renderGroups(box, cat);
   if (cat.id === 'position') ringVis();
-  if (cat.file) {
-    const r = el('button', 'b s', 'Revenir à la version précédente de ' + 'config.ini');
-    r.onclick = async () => { if (!confirm('Remplacer le fichier par sa version précédente ?')) return; try { await api('/api/settings/restore', {file: cat.file}); toast('Version précédente restaurée'); await loadSettings(); } catch (e) { toast(e.message, true); } };
-    if (cat.file === 'web' && SET.has_backup[cat.file]) box.append(r);
-  }
 }
 async function loadSettings() {
   SET = await api('/api/settings'); edits = {};
@@ -2269,26 +2234,23 @@ function showPending() {
   if (pend.app) { const b = el('button', 'b p s', 'Relancer le programme'); b.onclick = async () => { await svc('restart'); pend.app = false; showPending(); }; btns.append(b); }
   if (pend.web) { const b = el('button', 'b p s', 'Redémarrer webadmin'); b.onclick = () => restartWeb(pend.port); btns.append(b); }
 }
-async function saveSettings(apply) {
+async function saveSettings() {
   try {
     const r = await api('/api/settings', {changes: edits});
     await loadSettings();
     pollStatus();
     toast(r.changed.length + ' réglage(s) enregistré(s)');
     if (r.needs_map) $('#mapHint').style.display = 'block';
-    pend.port = r.port;
+    pend = {app: false, web: false};
     if (r.reload_ui) setTimeout(() => location.reload(), 1500);
-    if (apply) {
-      if (r.restart_app) await svc('restart');
-      if (r.restart_web) { pend = {app: false, web: false}; showPending(); await restartWeb(r.port); return; }
-      pend = {app: false, web: false};
-    } else { pend.app = pend.app || r.restart_app; pend.web = pend.web || r.restart_web; }
+    if (r.restart_app) await svc('restart');
     showPending();
+    if (r.restart_web) await restartWeb(r.port, true);
   } catch (e) { toast(e.message, true); }
 }
 function discardEdits() { edits = {}; renderCat(); markMenu(); updateBar(); }
-async function restartWeb(port) {
-  if (!confirm('Redémarrer webadmin ? La page sera indisponible quelques secondes.')) return;
+async function restartWeb(port, noAsk) {
+  if (!noAsk && !confirm('Redémarrer webadmin ? La page sera indisponible quelques secondes.')) return;
   try { await api('/api/webadmin/restart', {}); } catch (e) { toast(e.message, true); return; }
   toast('Redémarrage de webadmin...');
   for (let i = 0; i < 30; i++) {

@@ -681,7 +681,7 @@ journalctl -u flightadmin -n 50 --no-pager
 
 ### 7.3 Redémarrer ou mettre à jour webadmin
 
-- Depuis l'interface : un changement de port ou d'adresse d'écoute propose « Enregistrer et relancer », qui redémarre webadmin et rouvre la page (sur le nouveau port si besoin).
+- Depuis l'interface : un changement de port ou d'adresse d'écoute redémarre webadmin à l'enregistrement et rouvre la page et rouvre la page (sur le nouveau port si besoin).
 - En ligne de commande, après avoir remplacé `webadmin.py`, `webadmin_mqtt.py`, `webadmin_update.py`, `i18n.py` ou un fichier de `lang/` : `sudo systemctl restart flightadmin`.
 - Depuis l'onglet Mises à jour (12.1), webadmin se redémarre tout seul à la fin de la mise à jour.
 
@@ -689,7 +689,7 @@ journalctl -u flightadmin -n 50 --no-pager
 
 ## 8. Référence de `config.ini`
 
-Les options manquantes prennent la valeur par défaut indiquée. Chacune se règle dans webadmin, onglet Réglages, dans la catégorie indiquée par le titre de section. Les changements sont lus par le programme au démarrage : il faut le relancer (« Enregistrer et relancer », ou `fd restart`). Les réglages marqués « carte » demandent en plus de reconstruire la carte. Les largeurs (panneau, liste) sont exprimées pour un écran de 1080 pixels de haut et s'adaptent à la hauteur réelle de la carte. Si vous modifiez le fichier à la main, mettez les commentaires sur leur propre ligne, jamais à la suite d'une valeur.
+Les options manquantes prennent la valeur par défaut indiquée. Chacune se règle dans webadmin, onglet Réglages, dans la catégorie indiquée par le titre de section. Les changements sont lus par le programme au démarrage : il faut le relancer (l'enregistrement dans webadmin le fait pour vous, ou `fd restart`). Les réglages marqués « carte » demandent en plus de reconstruire la carte. Les largeurs (panneau, liste) sont exprimées pour un écran de 1080 pixels de haut et s'adaptent à la hauteur réelle de la carte. Si vous modifiez le fichier à la main, mettez les commentaires sur leur propre ligne, jamais à la suite d'une valeur.
 
 Le modèle `config.ini.example` contient toutes les sections avec des valeurs d'exemple. Les sections de l'interface web (`[server]`, `[app]`, `[screen]`, `[build]`, `[update]`, `[mqtt]`) sont décrites en 10.2.
 
@@ -1048,7 +1048,7 @@ Catégories valides : `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `b
   - Planning de l'écran (affiché seulement quand un planning est actif) : prochaine action programmée, avec l'heure et le temps restant (par exemple « Prochaine action : extinction à 23:00 (dans 4 h 12 min) »). Le bouton « Modifier » ouvre le calendrier.
   - Son des alertes : coupe ou réactive le son (désactivé et grisé si `sound = false` dans `config.ini`).
 - Curseur de volume (0 à 100 %), appliqué en direct à la prochaine alerte.
-- Bouton « Tester le son » (désactivé tant que le son est coupé). La relance du programme est proposée dans Réglages après un enregistrement (« Enregistrer et relancer »).
+- Bouton « Tester le son » (désactivé tant que le son est coupé). L'enregistrement dans Réglages relance le programme si besoin.
 - Alimentation : redémarrer ou éteindre le Pi, avec confirmation. Après une extinction, il faut débrancher puis rebrancher l'alimentation.
 
 **Réglages**
@@ -1080,10 +1080,9 @@ Commandes de saisie : interrupteurs à bascule pour les valeurs oui/non, boutons
 Enregistrement :
 
 - Les champs modifiés sont entourés en jaune et un point signale les catégories modifiées. Une barre en bas indique le nombre de modifications et dit clairement ce qui se passera.
-- Si les valeurs sont prises en compte tout de suite (planning, mises à jour, stockage…), la barre dit « Prise en compte immédiate » et ne propose que « Enregistrer ».
-- Si elles demandent une relance (réglages du programme d'affichage, adresse ou port de webadmin), la barre l'explique et propose deux boutons : « Enregistrer et relancer » (par exemple « Enregistrer et relancer le programme ») écrit les valeurs puis fait la relance nécessaire ; « Enregistrer sans relancer » écrit seulement les valeurs, l'ancienne configuration reste active jusqu'à la prochaine relance, et un bandeau « Enregistré, mais pas encore pris en compte » propose alors les boutons de relance.
+- « Enregistrer » écrit les valeurs et les applique tout de suite : si le réglage concerne le programme d'affichage, il est relancé (quelques secondes sans image) ; si c'est l'adresse ou le port de webadmin, webadmin redémarre et la page se rouvre ; sinon l'effet est immédiat. La barre du bas le dit avant l'enregistrement. « Annuler » abandonne les modifications non enregistrées.
 - Les réglages de carte (position, rayon, taille, clé) déclenchent un bandeau qui propose de reconstruire la carte.
-- Seules les lignes modifiées sont réécrites : les commentaires des fichiers sont conservés. Une sauvegarde `config.ini.bak` est créée à chaque enregistrement, même quand la modification touche à la fois des réglages du programme et de l'interface web (une seule écriture, une seule sauvegarde). Le bouton « Revenir à la version précédente », en bas des catégories Webadmin et Intégrations, restaure tout `config.ini` (un second clic annule l'opération) : il remet donc aussi les réglages du programme dans l'état de la sauvegarde.
+- Seules les lignes modifiées sont réécrites : les commentaires des fichiers sont conservés. Il n'y a pas de retour en arrière sur les réglages : une valeur enregistrée est appliquée tout de suite (pour garder un état de référence, utilisez l'export de la catégorie Sauvegarde).
 - Les valeurs hors limites ou mal formées sont refusées avec un message, sans rien écrire.
 - Un changement de langue recharge la page : webadmin passe tout de suite dans la nouvelle langue, le programme d'affichage la prend après sa relance.
 
@@ -1111,7 +1110,7 @@ Quand une modification est prise en compte :
 
 - **Exporter** : le bouton « Télécharger la sauvegarde » produit un fichier `flightdisplay-backup-<nom-du-pi>-<date>.zip` contenant `config.ini` (tous les réglages du programme et de webadmin), `types_extra.txt` (types d'avion), l'état du son, la carte déjà construite (`background.png` et `map_meta.json`, pour ne pas avoir à la reconstruire) et un petit fichier d'information. Les photos n'y sont pas.
 - **Secrets** : l'interrupteur « Inclure les mots de passe et la clé CARTO » (activé par défaut) décide si les secrets (clé CARTO, mot de passe de webadmin, mot de passe MQTT) sont dans le fichier. Avec les secrets, la restauration retrouve tout ; **le fichier est alors sensible** : ne le partagez pas. Sans secrets, il peut être partagé (par exemple pour un diagnostic). Un export avec secrets n'est possible que depuis l'interface (en-tête `X-Admin`), jamais par un simple lien.
-- **Restaurer** : choisissez un fichier puis « Restaurer » (confirmation demandée). La configuration actuelle est remplacée (l'ancien `config.ini` reste en `config.ini.bak`). Une sauvegarde faite sans secrets conserve ceux de l'installation actuelle. Le fichier est vérifié avant tout changement (format, contenu autorisé, `config.ini` lisible, règles de types valides) : un fichier invalide est refusé sans rien modifier. Webadmin propose ensuite de relancer le programme (« Enregistrer et relancer » équivalent) ; un changement de langue recharge la page.
+- **Restaurer** : choisissez un fichier puis « Restaurer » (confirmation demandée). La configuration actuelle est remplacée (l'ancien `config.ini` reste en `config.ini.bak`). Une sauvegarde faite sans secrets conserve ceux de l'installation actuelle. Le fichier est vérifié avant tout changement (format, contenu autorisé, `config.ini` lisible, règles de types valides) : un fichier invalide est refusé sans rien modifier. Webadmin propose ensuite de relancer le programme (comme après un enregistrement) ; un changement de langue recharge la page.
 - Cas typique, après une panne de carte SD : installer un Pi neuf (section 0, avec `--yes` si vous voulez), ouvrir webadmin, restaurer le fichier, relancer le programme, puis reconstruire la carte.
 
 **Planning de l'écran** (Réglages, Planning de l'écran)
@@ -1491,7 +1490,7 @@ sudo reboot
 | Mises à jour : « vérification impossible » | webadmin ne joint pas GitHub (Internet, DNS) ou l'installation n'est pas un dépôt Git : lire le message affiché dans l'onglet Mises à jour. |
 | Mises à jour : « fichiers du logiciel modifiés localement » | Des fichiers suivis par Git diffèrent de GitHub (copie faite à la main, par exemple). Voir lesquels avec `git status`, puis `git checkout <fichier>` ou `git stash` (12.1). `config.ini` n'est jamais concerné. |
 | Mises à jour : « retour à la version précédente » | La nouvelle version n'a pas passé le contrôle du code ou ne démarre pas. L'ancienne version fonctionne toujours ; le journal de la mise à jour donne la cause. |
-| Après un changement de langue, l'écran reste dans l'ancienne langue | Le programme d'affichage lit la langue au démarrage : « Enregistrer et relancer », ou `fd restart`. |
+| Après un changement de langue, l'écran reste dans l'ancienne langue | Le programme d'affichage lit la langue au démarrage : « Enregistrer » dans webadmin, ou `fd restart`. |
 | Une langue ajoutée dans `lang/` n'apparaît pas | Le fichier doit s'appeler `<code>.json` (2 ou 3 lettres minuscules) et contenir un JSON valide ; redémarrer webadmin. Contrôle : `python3 lang/check_lang.py <code>` (12.3). |
 | Aucune étiquette n'apparaît à côté des avions | Tous les éléments sont masqués dans Réglages, Étiquettes des avions (8.7). |
 | Le panneau photo n'apparaît jamais dans un angle | Cet angle est décoché dans Réglages, Panneau photo (8.6). Si les quatre angles sont décochés, il n'y a aucune restriction. |
