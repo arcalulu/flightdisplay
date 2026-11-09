@@ -1002,7 +1002,7 @@ def history_data():
     codes = collections.Counter(e.get("code") for e in L)
     label = lambda e: (e.get("model") if e.get("model") and e.get("model") != "?" else e.get("code")) or "?"
     types = collections.Counter(label(e) for e in L)
-    airl = collections.Counter(e["airline"] for e in L if e.get("airline"))
+    airl = collections.Counter(re.sub(r"\s*\(.*$", "", e["airline"]).strip() for e in L if e.get("airline"))
     now = time.time()
     model_of = {}
     for e in L:
@@ -3235,12 +3235,13 @@ function buildHist() {
   });
   setInterval(() => { if (cur === 'hist' && !document.querySelector('.hover') && document.activeElement !== q) loadHist(); }, 30000);
 }
+function histCo(e) { return (e.airline || '').replace(/\s*\(.*$/, '').trim() || 'Inconnue'; }  // livrée spéciale entre parenthèses : même compagnie
 function histBase() {  // période, recherche et alerte : ce qui sert aussi à compter dans la colonne de gauche
   const now = Date.now() / 1000, lim = histPeriod === 'day' ? now - 86400 : (histPeriod === 'week' ? now - 7 * 86400 : 0), q = histQ.trim().toLowerCase();
   return HIST.entries.filter(e => e.t >= lim && (!histAlert || e.al) && (!q || [e.model, e.reg, e.cs, e.airline, e.frm, e.to, e.fi, e.ti, e.code].join(' ').toLowerCase().includes(q)));
 }
 function histPick(base) {
-  let L = base.filter(e => (!histBrand || e.br === histBrand) && (!histFam || e.fa === histFam) && (!histAirline || (e.airline || 'Inconnue') === histAirline));
+  let L = base.filter(e => (!histBrand || e.br === histBrand) && (!histFam || e.fa === histFam) && (!histAirline || histCo(e) === histAirline));
   if (histSort === 'often') L = L.slice().sort((a, b) => b.n - a.n || b.t - a.t);
   return L;
 }
@@ -3288,7 +3289,7 @@ function drawAside(base) {
       if (histBrand === name) for (const [fam, n] of [...b.f].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]))) a.append(node(fam, n, histFam === fam, () => { histFam = fam; }, 'sub'));
     }
   } else {
-    const al = new Map(); for (const e of base) { const k = e.airline || 'Inconnue'; al.set(k, (al.get(k) || 0) + 1); }
+    const al = new Map(); for (const e of base) { const k = histCo(e); al.set(k, (al.get(k) || 0) + 1); }
     for (const [name, n] of [...al].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]))) a.append(node(name, n, histAirline === name, () => { histAirline = name; histBrand = histFam = ''; }));
   }
 }
@@ -3320,7 +3321,7 @@ function drawHist() {
   g.append(board('Compagnies les plus vues', st.top_airlines), board('Modèles les plus vus', st.top_types), board('Habitués (même appareil)', st.regulars.map(r => [r[0] + ' · ' + r[1], r[2]])));
   lb.append(g); lb.open = open;
   const base = histBase();
-  if ((histBrand && !base.some(e => e.br === histBrand)) || (histAirline && !base.some(e => (e.airline || 'Inconnue') === histAirline))) { histBrand = histFam = histAirline = ''; }
+  if ((histBrand && !base.some(e => e.br === histBrand)) || (histAirline && !base.some(e => histCo(e) === histAirline))) { histBrand = histFam = histAirline = ''; }
   if (histFam && !base.some(e => e.br === histBrand && e.fa === histFam)) histFam = '';
   drawAside(base);
   const L = histPick(base), pages = Math.max(1, Math.ceil(L.length / histPer));
