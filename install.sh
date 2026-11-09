@@ -934,6 +934,8 @@ write_configs() {
   ini_default config.ini general language fr
   ini_default config.ini schedule enabled false
   ini_default config.ini storage warn_percent 90
+  ini_default config.ini storage auto_clean false
+  ini_default config.ini storage cache_max_mb 200
   ini_default config.ini mqtt enabled false
   ini_default config.ini mqtt port 1883
   ini_default config.ini mqtt tls false

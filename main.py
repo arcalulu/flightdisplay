@@ -680,7 +680,8 @@ def main():
     T0 = time.time()
     threading.Thread(target=poll_loop, daemon=True).start()
     threading.Thread(target=details_loop, daemon=True).start()
-    clean_cache()
+    if not cfg.getboolean("storage", "auto_clean", fallback=False):  # sinon webadmin nettoie selon le quota
+        clean_cache()
     pygame.display.init()
     pygame.font.init()
     flags = (pygame.FULLSCREEN | pygame.SCALED) if FULLSCREEN else (pygame.SCALED | pygame.RESIZABLE)

@@ -98,6 +98,11 @@ class Settings:
         self.UPDATE_CHANNEL = "latest" if gs("update", "channel", "stable").lower() in ("latest", "dev", "main") else "stable"
         self.LANG = i18n.set_language(gs("general", "language", "fr"))
         self.SCHEDULE_ENABLED = gb("schedule", "enabled", False)
+        self.CLEAN_AUTO = gb("storage", "auto_clean", False)
+        try:
+            self.CLEAN_MAX_MB = max(20, min(100000, ini.getint("storage", "cache_max_mb", fallback=200)))
+        except ValueError:
+            self.CLEAN_MAX_MB = 200
         try:
             self.STORAGE_WARN = max(50, min(99, ini.getint("storage", "warn_percent", fallback=90)))
         except ValueError:
@@ -154,7 +159,7 @@ CAT_NOTES = {
     "server": "Le port et l'adresse d'écoute demandent un redémarrage de webadmin. L'identifiant et le mot de passe s'appliquent immédiatement.",
     "paths": "Réglages avancés. Une valeur vide utilise le comportement par défaut.",
     "backup": "Exporte la configuration du Raspberry Pi dans un fichier, et la restaure (par exemple sur une nouvelle carte SD après une panne).",
-    "storage": "Espace disque du Raspberry Pi et photos de JetPhotos conservées dans le cache. Le programme supprime lui-même les photos de plus de 3 jours et retélécharge une photo effacée quand elle est de nouveau nécessaire.",
+    "storage": "Espace disque du Raspberry Pi et photos de JetPhotos conservées dans le cache. Sans nettoyage automatique, le programme supprime lui-même les photos de plus de 3 jours à son démarrage ; avec le nettoyage automatique, seules les plus anciennes sont supprimées quand le quota est dépassé. Une photo effacée est retéléchargée quand elle est de nouveau nécessaire.",
     "schedule": "Allume et éteint l'écran tout seul selon un calendrier hebdomadaire : faites glisser sur le calendrier pour tracer les plages d'allumage. Appliqué immédiatement.",
     "update": "La mise à jour elle-même se lance depuis l'onglet « Mises à jour ».",
     "mqtt": "Les changements sont appliqués immédiatement : webadmin se reconnecte au serveur MQTT.",
@@ -307,6 +312,8 @@ PARAMS = [
     W("update", "update", "auto_install", "bool", False, "Installer automatiquement les mises à jour", "Dès qu'une nouvelle version est détectée, elle est installée sans intervention (avec retour automatique à la version précédente en cas d'échec). Le programme d'affichage est relancé brièvement si la mise à jour le concerne. Nécessite la vérification automatique.", "Installation", apply="live"),
     W("schedule", "schedule", "enabled", "bool", False, "Activer le planning", "Hors des plages d'allumage, l'écran est éteint.", "Planning", apply="live"),
     *[W("schedule", "schedule", k, "text", "", name, "Plages d'allumage, au format 07:00-09:30,18:00-24:00.", "Plages", apply="live", slots=True) for k, name in SCHED_DAYS],
+    W("storage", "storage", "auto_clean", "bool", False, "Nettoyer automatiquement le cache des photos", "Quand les photos dépassent le quota ci-dessous, les plus anciennes sont supprimées jusqu'à revenir à 80 % du quota ; les plus récentes sont gardées. Chaque nettoyage est inscrit dans le journal de cette page. Activé, le programme ne supprime plus les photos de plus de 3 jours à son démarrage.", "Nettoyage automatique", apply="live"),
+    W("storage", "storage", "cache_max_mb", "int", 200, "Quota du cache des photos (Mo)", "Volume maximal accepté pour les photos en cache. Le nettoyage ne se déclenche qu'au-delà de cette valeur.", "Nettoyage automatique", apply="live", min=20, max=100000),
     W("storage", "storage", "warn_percent", "int", 90, "Seuil d'alerte du disque (%)", "Une alerte s'affiche dans webadmin quand l'utilisation du disque atteint ce pourcentage (alerte orange 10 points avant).", "Surveillance", apply="live", min=50, max=99),
     W("mqtt", "mqtt", "enabled", "bool", False, "Activer MQTT", "Publie l'état et accepte les commandes de Home Assistant.", "Connexion", apply="mqtt"),
     W("mqtt", "mqtt", "host", "text", "", "Serveur", "Adresse du serveur MQTT.", "Connexion", apply="mqtt"),
@@ -939,7 +946,41 @@ def cache_stats():
 
 
 def storage_info():
-    return dict(disk=disk_info(), cache=cache_stats())
+    return dict(disk=disk_info(), cache=cache_stats(),
+                clean=dict(auto=S.CLEAN_AUTO, quota=S.CLEAN_MAX_MB * 1024 * 1024, log=list(reversed(clean_log_read()[-30:]))))
+
+
+CLEAN_LOG_MAX = 100
+clean_lock = threading.Lock()
+
+
+def _clean_log_path():
+    return os.path.join(S.APP_DIR, "cache", "cleanup.json")  # .json : le programme ne le supprime pas avec les vieux fichiers
+
+
+def clean_log_read():
+    try:
+        with open(_clean_log_path(), encoding="utf-8") as fh:
+            d = json.load(fh)
+        return d if isinstance(d, list) else []
+    except (OSError, ValueError):
+        return []
+
+
+def clean_log_add(entry):
+    """Inscrit un nettoyage dans le journal (fichier du cache) et dans le journal du service."""
+    with clean_lock:
+        d = clean_log_read()[-(CLEAN_LOG_MAX - 1):] + [entry]
+        try:
+            os.makedirs(os.path.dirname(_clean_log_path()), exist_ok=True)
+            tmp = _clean_log_path() + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as fh:
+                json.dump(d, fh)
+            os.replace(tmp, _clean_log_path())
+        except OSError:
+            pass
+    print("nettoyage du cache (%s) : %d photo(s) supprimee(s), %d octets liberes, cache %d -> %d octets, quota %d"
+          % (entry.get("kind"), entry.get("count", 0), entry.get("bytes", 0), entry.get("before", 0), entry.get("after", 0), entry.get("quota", 0)), flush=True)
 
 
 def clear_photo_cache():
@@ -956,7 +997,52 @@ def clear_photo_cache():
                     pass
     except OSError:
         pass
+    if n:
+        clean_log_add(dict(t=time.time(), kind="manual", count=n, bytes=b, before=b, after=0, quota=0))
     return n, b
+
+
+def auto_clean_cache():
+    """Au-dela du quota, supprime les photos les plus anciennes jusqu'a 80 % du quota (les plus recentes sont gardees)."""
+    if not S.CLEAN_AUTO:
+        return None
+    quota = S.CLEAN_MAX_MB * 1024 * 1024
+    files, total = [], 0
+    try:
+        for e in os.scandir(os.path.join(S.APP_DIR, "cache")):
+            if e.is_file() and e.name.lower().endswith(PHOTO_EXT):
+                try:
+                    st = e.stat()
+                except OSError:
+                    continue
+                files.append((st.st_mtime, st.st_size, e.path))
+                total += st.st_size
+    except OSError:
+        return None
+    if total <= quota:
+        return None
+    target, n, b = int(quota * 0.8), 0, 0
+    for _, size, path in sorted(files):
+        if total - b <= target:
+            break
+        try:
+            os.remove(path)
+            n, b = n + 1, b + size
+        except OSError:
+            pass
+    entry = dict(t=time.time(), kind="auto", count=n, bytes=b, before=total, after=total - b, quota=quota)
+    clean_log_add(entry)
+    return entry
+
+
+def cache_loop():
+    time.sleep(60)
+    while True:
+        try:
+            auto_clean_cache()
+        except Exception:
+            pass
+        time.sleep(300)
 
 
 def sound_update(body):
@@ -2271,6 +2357,11 @@ function renderGroups(box, cat) {
 }
 // Cercles de distance : les réglages n'apparaissent que s'ils servent (cercles affichés, au moins 1 cercle, au moins 2 pour l'écartement)
 function ringVis() {
+  if (curCat === 'storage') {  // le quota n'a de sens que si le nettoyage automatique est activé
+    const ac = allParams().find(p => p.id === 'web:storage.auto_clean'), r = document.querySelector('[data-row="web:storage.cache_max_mb"]');
+    if (ac && r) r.style.display = String(pval(ac)) === 'true' ? '' : 'none';
+    return;
+  }
   if (curCat !== 'position') return;
   const g = k => allParams().find(p => p.id === 'config:rings.' + k);
   if (!g('show') || !g('count')) return;
@@ -2306,7 +2397,7 @@ function renderCatBase() {
   if (cat.id === 'server') { const w = el('div', 'hint', "Aucun mot de passe n'est défini : toute personne du réseau local peut piloter le Raspberry Pi. Définissez-en un ci-dessous."); w.id = 'authWarn'; w.style.display = (lastSt && !lastSt.auth) ? 'block' : 'none'; box.append(w); }  
   if (cat.id === 'position') renderMapPicker(box);
   renderGroups(box, cat);
-  if (cat.id === 'position') ringVis();
+  if (cat.id === 'position' || cat.id === 'storage') ringVis();
 }
 async function loadSettings() {
   SET = await api('/api/settings'); edits = {};
@@ -2819,7 +2910,22 @@ async function renderStorage(box) {
         if (!confirm(_t('Supprimer les {0} photo(s) en cache ({1}) ? Elles seront retéléchargées au besoin.', ph.count, fmtBytes(ph.bytes)))) return;
         try { const r = await api('/api/storage/clear', {}); toast(_t('{0} photo(s) supprimée(s) ({1} libérés)', r.count, fmtBytes(r.bytes))); pollStatus(); load(); } catch (e) { toast(e.message, true); }
       };
+      const cl = d.clean;
+      c2.append(line(cl.auto ? _t('Nettoyage automatique activé : quota de {0}', fmtBytes(cl.quota)) : 'Nettoyage automatique désactivé',
+        cl.auto ? _t("Au-delà du quota, les photos les plus anciennes sont supprimées jusqu'à {0} ; les plus récentes sont gardées.", fmtBytes(cl.quota * 0.8))
+                : "Activez-le dans les réglages ci-dessous : le cache reste alors sous un quota, sans intervention."));
       br.append(bb); c2.append(br); wrap.append(c2);
+      wrap.append(el('h2', 't', 'Journal du nettoyage'));
+      const jl = el('div', 'list');
+      if (!cl.log.length) jl.append(line('Aucun nettoyage pour le moment', 'Les nettoyages automatiques et manuels des photos sont inscrits ici.'));
+      for (const e of cl.log) {
+        const when = new Date(e.t * 1000).toLocaleString();
+        jl.append(line(e.kind === 'auto'
+          ? _t('Nettoyage automatique : {0} photo(s) supprimée(s) ({1} libérés)', e.count, fmtBytes(e.bytes))
+          : _t('Cache vidé à la main : {0} photo(s) supprimée(s) ({1} libérés)', e.count, fmtBytes(e.bytes)),
+          e.kind === 'auto' ? _t('{0} · cache de {1} ramené à {2} (quota {3})', when, fmtBytes(e.before), fmtBytes(e.after), fmtBytes(e.quota)) : when));
+      }
+      wrap.append(jl);
     }
   }
   await load();
@@ -3258,6 +3364,7 @@ if __name__ == "__main__":
     threading.Thread(target=cpu_sampler, daemon=True).start()
     threading.Thread(target=UPD.auto_loop, daemon=True).start()
     threading.Thread(target=sched_loop, daemon=True).start()
+    threading.Thread(target=cache_loop, daemon=True).start()
     MQTT.configure(S.ini)
     MQTT.start()
     print(f"Administration sur http://{S.HOST}:{S.PORT}  (app : {S.APP_DIR})", flush=True)

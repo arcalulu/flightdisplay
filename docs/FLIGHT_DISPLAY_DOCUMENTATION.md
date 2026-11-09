@@ -997,7 +997,7 @@ La touche `M` du clavier connecté au Pi coupe ou réactive aussi le son. L'éta
 |---|---|---|
 | `background.png`, `map_meta.json` | Carte et ses dimensions, produites par `build_map_vector.py`. | Jusqu'à la prochaine reconstruction. |
 | `cache/details.json` | Détails d'avions (modèle, compagnie, trajet). | 3 heures. |
-| `cache/*.jpg` | Photos téléchargées. | Nettoyées après 3 jours au démarrage ; effaçables depuis webadmin (Réglages, Stockage et photos). |
+| `cache/*.jpg` | Photos téléchargées. | Nettoyées après 3 jours au démarrage, ou selon un quota avec le nettoyage automatique ; effaçables depuis webadmin (Réglages, Stockage et photos). |
 | `cache/runtime.json` | État du son (coupé, volume, test). | Persistant. |
 | `/dev/shm/flightdisplay-fps.json` | Images par seconde réellement affichées, publiées toutes les 2 secondes pour webadmin. En mémoire : aucune écriture sur la carte SD (`cache/fps.json` si `/dev/shm` n'existe pas). | Perdu au redémarrage. |
 | `cache/update.json` | État et journal de la dernière mise à jour depuis webadmin. | Persistant. |
@@ -1104,7 +1104,8 @@ Quand une modification est prise en compte :
 - **Photos JetPhotos en cache** : nombre de fichiers image (`cache/*.jpg`), volume qu'ils occupent, part que cela représente en pourcentage du disque et de l'espace utilisé, ancienneté de la plus ancienne photo, et volume des autres fichiers du cache (détails d'avions, état du son).
 - **Vider le cache des photos** : supprime toutes les photos du cache après confirmation. Seules les photos sont effacées (pas les détails d'avions, pour ne pas multiplier les requêtes vers Flightradar24). Le programme d'affichage retélécharge une photo effacée quand elle est de nouveau nécessaire ; en attendant, le panneau affiche « Photo indisponible » pour cet avion.
 - **Surveillance** : le réglage « Seuil d'alerte du disque (%) » (90 par défaut, de 50 à 99) déclenche l'alerte : pastille « disque rempli à X % » en en-tête (toutes les pages), tuile Mémoire colorée, bandeau dans cette page. L'alerte orange précède le seuil de 10 points.
-- Le programme supprime de toute façon les photos de plus de 3 jours à chaque démarrage (9.7).
+- **Nettoyage automatique** : l'option « Nettoyer automatiquement le cache des photos » (`auto_clean`, désactivée par défaut) et le « Quota du cache des photos (Mo) » (`cache_max_mb`, 200 par défaut, de 20 à 100000) évitent d'avoir à vider le cache : webadmin vérifie le volume des photos toutes les 5 minutes et, seulement quand il dépasse le quota, supprime les photos les **plus anciennes** (date du fichier) jusqu'à revenir à 80 % du quota ; les plus récentes sont gardées, et rien n'est fait en dessous du quota. Chaque nettoyage (automatique ou « Vider le cache ») est inscrit dans le « Journal du nettoyage » de cette page (les 30 derniers, 100 gardés dans `cache/cleanup.json`) et dans le journal du service.
+- Sans nettoyage automatique, le programme supprime les photos de plus de 3 jours à chaque démarrage (9.7) ; avec, il ne le fait plus et laisse webadmin gérer le quota.
 
 **Sauvegarde** (Réglages, Sauvegarde)
 
@@ -1206,6 +1207,8 @@ sun =
 
 [storage]
 warn_percent = 90
+auto_clean = false
+cache_max_mb = 200
 
 [mqtt]
 enabled = false
@@ -1244,6 +1247,8 @@ interval = 30
 | `[schedule]` | `enabled` | false | Active le planning d'allumage et d'extinction de l'écran. |
 | | `mon` à `sun` | vide | Plages d'allumage du jour (`HH:MM-HH:MM`, séparées par des virgules). Vide : écran éteint toute la journée quand le planning est actif. |
 | `[storage]` | `warn_percent` | 90 | Seuil d'alerte d'occupation du disque, en % (50 à 99). Alerte orange 10 points avant. |
+| | `auto_clean` | false | Nettoyage automatique du cache des photos : au-delà du quota, les plus anciennes sont supprimées. |
+| | `cache_max_mb` | 200 | Quota du cache des photos, en Mo (20 à 100000). Le nettoyage revient à 80 % du quota. |
 | `[mqtt]` | | | Voir la section 11. |
 
 Ne sont modifiables que par la ligne de commande : les services systemd, le fichier sudoers, le contenu des scripts de veille et de garde (numéros de terminaux virtuels) et les variables d'environnement.
