@@ -1059,7 +1059,7 @@ Valid categories: `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `bizje
 - At the top: four counters (aircraft seen, different aircraft, airlines, last 24 h) and a collapsible "Leaderboard" (most seen airlines and models, regular aircraft).
 - Search (model, registration, callsign, airline, city, airport code), period (today, 7 days, all) and sort (recent or regulars).
 - Clicking a card opens the sheet: large photo with its credit, registration, callsign, ICAO type, route with airport codes, first and last sighting, number of sightings; arrows (or the ← → keys) to go from one aircraft to the next, buttons to JetPhotos and Flightradar24.
-- The history is kept by the display program in `cache/history.json` (the last 1000 flights, written at most every 10 minutes); the page shows the 400 most recent. If a photo was deleted from the cache (cleanup), webadmin downloads it again when needed.
+- The history is kept by the display program in `cache/history.json` (the last 1000 flights, written 30 seconds after a new aircraft arrives); the page shows the 400 most recent. If a photo was deleted from the cache (cleanup), webadmin downloads it again when needed.
 
 **Settings**
 

@@ -1059,7 +1059,7 @@ Catégories valides : `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `b
 - En haut : quatre compteurs (avions vus, appareils différents, compagnies, dernières 24 h) et un « Palmarès » repliable (compagnies et modèles les plus vus, appareils habitués).
 - Recherche (modèle, immatriculation, indicatif, compagnie, ville, code aéroport), période (aujourd'hui, 7 jours, tout) et tri (récents ou habitués).
 - Un clic sur une carte ouvre la fiche : grande photo avec son crédit, immatriculation, indicatif, type ICAO, trajet avec codes aéroport, premier et dernier passage, nombre de passages ; flèches (ou touches ← →) pour passer d'un avion à l'autre, boutons vers JetPhotos et Flightradar24.
-- L'historique est tenu par le programme d'affichage dans `cache/history.json` (les 1000 derniers vols, écrit au plus toutes les 10 minutes) ; la page en montre les 400 plus récents. Si une photo a été supprimée du cache (nettoyage), webadmin la retélécharge au besoin.
+- L'historique est tenu par le programme d'affichage dans `cache/history.json` (les 1000 derniers vols, écrit 30 secondes après l'arrivée d'un nouvel avion) ; la page en montre les 400 plus récents. Si une photo a été supprimée du cache (nettoyage), webadmin la retélécharge au besoin.
 
 **Réglages**
 

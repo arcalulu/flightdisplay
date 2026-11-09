@@ -191,7 +191,8 @@ def types_flush():
         pass
 
 
-# Historique des avions vus (page "Avions vus" de webadmin) : un avion par vol, plafonne, ecrit au plus toutes les 10 minutes.
+# Historique des avions vus (page "Avions vus" de webadmin) : un avion par vol, plafonne ; ecrit 30 s apres un nouvel avion
+# (les mises a jour du dernier passage attendent le prochain nouvel avion : pas d'ecriture inutile sur la carte SD).
 HISTORY_FILE = os.path.join(CACHE, "history.json")
 HISTORY_MAX = 1000
 history = {}
@@ -220,7 +221,7 @@ def history_note(f, info):
 
 
 def history_flush():
-    if not _hs["dirty"] or time.time() - _hs["last"] < 600:
+    if not _hs["dirty"] or time.time() - _hs["last"] < 30:
         return
     _hs.update(dirty=False, last=time.time())
     try:
@@ -557,6 +558,8 @@ def poll_loop():
                     seen.add(f.id)
                     if f.id in history:
                         history[f.id]["l"] = int(now)  # dernier passage (ecrit avec le prochain enregistrement)
+                    elif f.id in details:  # details deja en memoire (redemarrage, cache de 3 h) : l'avion entre quand meme dans l'historique
+                        history_note(f, details[f.id])
                     if not (old and ts <= old["t"]):
                         trail = old["trail"] if old else []
                         trail.append((f.latitude, f.longitude)); trail[:] = trail[-25:]
