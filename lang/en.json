@@ -413,6 +413,7 @@
   "il y a {0} h": "{0} h ago",
   "il y a {0} j": "{0} d ago",
   "Version installée": "Installed version",
+  "Sur un Raspberry Pi Zero, la reconstruction d'une grande carte peut être lente (plusieurs minutes).": "On a Raspberry Pi Zero, rebuilding a large map can be slow (several minutes).",
   "Résolution maximale de l'écran : {0} × {1}": "Maximum screen resolution: {0} × {1}",
   "Utiliser pour la carte": "Use for the map",
   "Détectée sur la sortie vidéo du Pi. Changer la taille demande de reconstruire la carte.": "Detected on the Pi's video output. Changing the size requires rebuilding the map.",

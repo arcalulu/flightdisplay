@@ -428,7 +428,7 @@ def get_settings():
     for c in cats.values():
         if c.get("kind") not in ("types", "backup"):
             c["groups"] = [dict(name=tr(n), params=ps) for n, ps in c["groups"].items()]
-    return dict(menu=menu, cats={k: v for k, v in cats.items() if v.get("kind") in ("types", "backup") or v["groups"]}, screen=screen_resolution())
+    return dict(menu=menu, cats={k: v for k, v in cats.items() if v.get("kind") in ("types", "backup") or v["groups"]}, screen=_screen_info())
 
 
 def norm_value(p, v):
@@ -1071,6 +1071,13 @@ def screen_resolution():
     elif _screen_last:
         best = _screen_last[0]  # ecran en veille : on garde la derniere valeur connue
     return dict(width=best[0], height=best[1]) if best else None
+
+
+def _screen_info():
+    r = screen_resolution()
+    if r:
+        r["zero"] = "zero" in pi_model().lower()
+    return r
 
 
 def is_pi():
@@ -2251,7 +2258,7 @@ function renderGroups(box, cat) {
     const pw = g.params.find(p => p.id === 'config:display.width'), ph = g.params.find(p => p.id === 'config:display.height');
     if (pw && ph && SET.screen) {  // résolution maximale de l'écran branché : un bouton la reporte dans la taille de la carte
       const sr = el('div', 'li'), st = el('div', 'lt'), bt = el('button', 'b s', 'Utiliser pour la carte');
-      st.append(el('b', null, _t("Résolution maximale de l'écran : {0} × {1}", SET.screen.width, SET.screen.height)), el('small', null, 'Détectée sur la sortie vidéo du Pi. Changer la taille demande de reconstruire la carte.'));
+      st.append(el('b', null, _t("Résolution maximale de l'écran : {0} × {1}", SET.screen.width, SET.screen.height)), el('small', null, tl('Détectée sur la sortie vidéo du Pi. Changer la taille demande de reconstruire la carte.') + (SET.screen.zero ? ' ' + tl("Sur un Raspberry Pi Zero, la reconstruction d'une grande carte peut être lente (plusieurs minutes).") : '')));
       bt.onclick = () => {
         for (const [p, v] of [[pw, SET.screen.width], [ph, SET.screen.height]]) {
           const i = document.querySelector('[data-row="' + p.id + '"] input'); if (!i) continue;
