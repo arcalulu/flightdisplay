@@ -36,6 +36,37 @@ L'installeur `install.sh` fait tout le travail des sections 3 à 7 : il installe
 2. Pour une installation manuelle, tenez prêts : votre adresse (ou vos coordonnées), votre clé API CARTO (gratuite, voir 2 et le README), et si vous le souhaitez les identifiants de votre serveur MQTT. L'installation automatique n'a besoin de rien.
 3. Connectez-vous au Pi en SSH : `ssh <utilisateur>@<nom-du-pi>.local`.
 
+#### Installation dans une VM Proxmox (Debian 13)
+
+Pour une VM Proxmox à la place d'un Raspberry Pi, préparez d'abord la VM, puis lancez la commande de 0.2 :
+
+1. Installez **Debian 13 sans environnement de bureau**.
+2. Passez root et installez `curl` et `sudo` :
+
+```
+su -
+apt-get update && apt-get install curl sudo -y
+```
+
+3. Fixez la résolution de la console : ouvrez `nano /etc/default/grub` et ajoutez (ou modifiez) ces lignes, puis enregistrez (Ctrl+X, `y`, Entrée) :
+
+```
+GRUB_GFXMODE=1920x1080
+GRUB_GFXPAYLOAD_LINUX=keep
+GRUB_CMDLINE_LINUX_DEFAULT="quiet video=Virtual-1:1920x1080"
+```
+
+4. Appliquez le réglage, donnez les droits `sudo` à votre utilisateur, notez l'adresse IP de la VM (elle servira à ouvrir webadmin ensuite) et redémarrez :
+
+```
+update-grub
+usermod -aG sudo nom_utilisateur
+ip a
+reboot
+```
+
+5. Reconnectez-vous avec votre utilisateur normal (pas en root), puis lancez la commande de 0.2.
+
 ### 0.2 La commande
 
 ```

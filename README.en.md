@@ -73,7 +73,7 @@ This project is not affiliated with Flightradar24 or with any airline. Flight da
 
 1. With Raspberry Pi Imager, install **Raspberry Pi OS Lite** on the SD card: 32-bit on the Zero W and Zero 2 W, 64-bit possible on newer models. In the customization options, set the hostname, a user, the Wi-Fi and enable SSH.
 2. For a manual installation, have your **CARTO API key** ready (previous section); the automatic installation does not need it at first.
-3. Connect to the Pi over SSH, then type:
+3. Connect to the Pi over SSH, then type (for a Proxmox VM running Debian 13, first follow the preparation described in the documentation, section 0.1):
 
 ```
 bash <(curl -fsSL https://raw.githubusercontent.com/arcalulu/flightdisplay/main/install.sh)
