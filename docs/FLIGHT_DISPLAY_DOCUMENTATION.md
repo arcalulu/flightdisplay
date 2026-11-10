@@ -1062,6 +1062,8 @@ Pour les avions que Flightradar24 ne voit pas, les détails viennent de adsbdb.c
 
 **Couleur des icônes.** L'option `[display] color_by_source = true` (page « Sources des avions ») colore les avions à l'écran selon leur source : `plane_color_fr24` (vus par Flightradar24 seulement, `#ffd250`), `plane_color_tar1090` (vus par tar1090 seulement, `#5ac8ff`) et `plane_color_multi` (vus par plusieurs sources, `#78e68c`). L'avion du panneau photo garde sa couleur habituelle.
 
+**Positions MLAT.** Quand tar1090 indique qu'une position est calculée par multilatération (MLAT, avions sans ADS-B), un petit « M » s'affiche à l'angle de l'icône à l'écran, et l'onglet « Avions vus » porte un badge « MLAT » (la fiche l'indique aussi).
+
 Dans l'onglet « Avions vus », un badge violet « ⇄ 2 » repère les avions vus par plusieurs sources, la fiche d'un avion indique ses sources, et trois filtres sont proposés dès que tar1090 est utilisé : « Vus par plusieurs sources », « Flightradar24 seulement » et « tar1090 seulement ». Les avions enregistrés avant l'activation des sources comptent pour Flightradar24.
 
 ---

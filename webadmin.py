@@ -1035,7 +1035,7 @@ def history_data():
                             code=e.get("code", ""), model=e.get("model", ""), airline=e.get("airline", ""), frm=e.get("frm", ""), to=e.get("to", ""),
                             fi=e.get("fi", ""), ti=e.get("ti", ""), photo=bool(e.get("photo") or e.get("url")), credit=e.get("credit", ""),
                             n=regs.get(reg, 1) if reg else 1, rare=codes.get(e.get("code"), 0) == 1,
-                            src=[x for x in (e.get("src") or []) if x in sources.NAMES]))
+                            src=[x for x in (e.get("src") or []) if x in sources.NAMES], ml=bool(e.get("mlat"))))
     stats = dict(total=len(L), regs=len(regs), airlines=len(airl), types=len(codes), today=sum(1 for e in L if now - e.get("t", 0) < 86400),
                  first=int(L[-1].get("t", 0)) if L else 0, top_airlines=airl.most_common(5), top_types=types.most_common(5),
                  regulars=[(r, model_of.get(r, "?"), n) for r, n in regs.most_common(5) if n > 1])
@@ -1935,7 +1935,7 @@ h2.t{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.04
 .hrow b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hrow small{display:block;color:var(--mut);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hrow code{font:12px ui-monospace,Consolas,monospace}.hrow .hbadges{position:static;justify-content:flex-end;align-content:center;gap:3px}.hrow .hbadge{font-size:10px;padding:1px 6px}.hrow .hroutel b{white-space:normal;line-height:1.25}
 .hfilt{display:none}
 @media(max-width:820px){.hlayout{flex-direction:column}.haside{width:100%;position:static;max-height:none;display:none}.haside.open{display:block}.hfilt{display:inline-block}.hrow{grid-template-columns:64px minmax(0,1fr) 92px}.hrow>:nth-child(3),.hrow>:nth-child(4){display:none}}
-.hbadge.multi{background:#2a1d44;border-color:#5b3f96;color:#c9b2f5}.hbadge.alert{background:#4a1a17;border-color:#8a2f29;color:#ffb4ae}.hbadge.cnt{background:#243040;border-color:#3a4a5f;color:#c4cfdc}
+.hbadge.mlat{background:#16303a;border-color:#2f7186;color:#8fd8ee}.hbadge.multi{background:#2a1d44;border-color:#5b3f96;color:#c9b2f5}.hbadge.alert{background:#4a1a17;border-color:#8a2f29;color:#ffb4ae}.hbadge.cnt{background:#243040;border-color:#3a4a5f;color:#c4cfdc}
 .hbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:4px 0 12px}.hbar input[type=search]{flex:1 1 200px;min-width:0;padding:9px 12px;font-size:14px;border-radius:9px;border:1px solid var(--line);background:#0e141b;color:var(--txt)}
 .hstats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px}
 .hstat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}.hstat b{display:block;font-size:24px;font-weight:600}.hstat small{color:var(--mut);font-size:12px}
@@ -3430,6 +3430,7 @@ function histRoute(e) { return [e.frm || e.fi || '?', e.to || e.ti || '?']; }
 function histBadges(e) {
   const bd = el('div', 'hbadges');
   if (e.al) bd.append(el('span', 'hbadge alert', 'Alerte'));
+  if (e.ml) { const m = el('span', 'hbadge mlat', 'MLAT'); m.title = tl('Position calculée par multilatération (MLAT) par le serveur tar1090'); bd.append(m); }
   if (e.src && e.src.length >= 2) { const m = el('span', 'hbadge multi', '⇄ ' + e.src.length); m.title = _t('Vu par {0} sources : {1}', e.src.length, e.src.map(x => SRC_SHORT[x] || x).join(', ')); bd.append(m); }
   if (e.n === 1 && e.reg) bd.append(el('span', 'hbadge new', '1re fois'));
   if (e.rare) bd.append(el('span', 'hbadge rare', 'Type rare'));
@@ -3566,6 +3567,7 @@ function histSheet(L, i) {
   row('Constructeur', e.br !== 'Inconnu' ? e.br + (e.fa ? ' · ' + e.fa : '') : '');
   row('Trajet', r[0] + (e.fi ? ' (' + e.fi + ')' : '') + ' → ' + r[1] + (e.ti ? ' (' + e.ti + ')' : ''));
   row('Premier passage', when(e.t) + ' · ' + ago(e.t));
+  if (e.ml) row('MLAT', tl('Position calculée par multilatération'));
   if (e.src && e.src.length) row('Sources', e.src.map(x => SRC_SHORT[x] || x).join(' + '));
   if (e.l - e.t > 120) row('Dernier passage', when(e.l));
   if (e.reg) {  // nombre de passages + petit bouton qui ouvre le tableau des passages vus par le programme

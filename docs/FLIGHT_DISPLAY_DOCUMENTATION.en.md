@@ -1062,6 +1062,8 @@ For aircraft Flightradar24 does not see, the details come from adsbdb.com (free 
 
 **Icon colour.** The `[display] color_by_source = true` option ("Aircraft sources" page) colours aircraft on screen according to their source: `plane_color_fr24` (seen by Flightradar24 only, `#ffd250`), `plane_color_tar1090` (seen by tar1090 only, `#5ac8ff`) and `plane_color_multi` (seen by several sources, `#78e68c`). The aircraft shown in the photo panel keeps its usual colour.
 
+**MLAT positions.** When tar1090 reports a position computed by multilateration (MLAT, aircraft without ADS-B), a small "M" is drawn at the corner of the icon on screen, and the "Aircraft seen" tab shows an "MLAT" badge (the aircraft's sheet says so too).
+
 In the "Aircraft seen" tab, a purple "⇄ 2" badge marks aircraft seen by several sources, an aircraft's sheet lists its sources, and three filters are offered as soon as tar1090 is used: "Seen by several sources", "Flightradar24 only" and "tar1090 only". Aircraft recorded before sources were enabled count as Flightradar24.
 
 ---

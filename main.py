@@ -256,6 +256,8 @@ def history_note(f, info):
     if f.id in alerted and not e.get("al"):
         e["al"] = alerted[f.id]
     e["src"] = sorted(set(e.get("src") or ()) | set(f.sources or ()))  # sources qui ont vu l'avion (page Avions vus)
+    if f.mlat:
+        e["mlat"] = 1  # position deja calculee par MLAT au moins une fois
     e.update(l=now, cs=f.callsign or "", reg=info.get("reg") or "", code=f.aircraft_code or "", model=info.get("model") or "",
              airline=info.get("airline") or "", frm=info.get("origin") or "", to=info.get("dest") or "",
              fi=f.origin_airport_iata or "", ti=f.destination_airport_iata or "",
@@ -657,6 +659,8 @@ def poll_loop():
                     seen.add(f.id)
                     if f.id in history:
                         history[f.id]["l"] = int(now)  # dernier passage (ecrit avec le prochain enregistrement)
+                        if f.mlat and not history[f.id].get("mlat"):
+                            history[f.id]["mlat"] = 1; _hs["dirty"] = True
                         if not set(f.sources) <= set(history[f.id].get("src") or ()):
                             history[f.id]["src"] = sorted(set(history[f.id].get("src") or ()) | set(f.sources)); _hs["dirty"] = True
                     elif f.id in details:  # details deja en memoire (redemarrage, cache de 3 h) : l'avion entre quand meme dans l'historique
@@ -669,6 +673,7 @@ def poll_loop():
                                             trail=trail, callsign=f.callsign or f.registration or "",
                                             code=f.aircraft_code or (old["code"] if old else ""), ground=bool(f.on_ground), reg=f.registration or "",
                                             o_iata=f.origin_airport_iata, d_iata=f.destination_airport_iata)
+                    states[f.id]["mlat"] = bool(f.mlat)  # position MLAT : petit M a cote de l'icone
                     states[f.id]["src"] = tuple(f.sources)  # sources qui voient l'avion en ce moment (couleur de l'icone)
                     if (f.id not in details and f.id not in queued and now >= adsb_wait.get(f.id, 0)
                             and (f.fr is not None or ENRICH)
@@ -887,6 +892,7 @@ def main():
         return pygame.font.SysFont(names, size, bold=bold)
 
     f_big, f_mid, f_small = mk(S(26), True), mk(S(22)), mk(max(10, S(17)))
+    f_mlat = mk(max(10, S(15)), True)  # lettre M des positions MLAT
     clock = pygame.time.Clock()
     label_cache, photo_cache, box_cache, smooth = {}, {}, {}, {}
     fps_n, fps_t0 = 0, time.time()
@@ -1183,7 +1189,11 @@ def main():
             if len(s["trail"]) > 1:
                 pts = [to_xy(*p) for p in s["trail"]] + [(x, y)]
                 pygame.draw.lines(screen, TRAIL_PANEL if hl else (90, 130, 170), False, pts, lw)
-            draw_plane(screen, PLANE_PANEL if hl else plane_color(s), x, y, s["heading"], s["code"])
+            pc = PLANE_PANEL if hl else plane_color(s)
+            draw_plane(screen, pc, x, y, s["heading"], s["code"])
+            if s.get("mlat"):
+                mt = f_mlat.render("M", True, pc)
+                screen.blit(mt, (x - S(12) - mt.get_width(), y - S(12) - mt.get_height()))
             txt = label_lines(s, d)
             if not txt:
                 continue
