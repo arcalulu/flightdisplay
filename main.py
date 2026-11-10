@@ -42,6 +42,7 @@ if ALERT_SOUND and os.environ.get("SDL_AUDIODRIVER") == "dummy":
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 import pygame
 from FlightRadarAPI import FlightRadar24API
+import sources
 
 LAT = cfg.getfloat("position", "latitude"); LON = cfg.getfloat("position", "longitude")
 RADIUS_M = cfg.getfloat("position", "radius_km") * 1000
@@ -49,6 +50,20 @@ RADIUS_M = cfg.getfloat("position", "radius_km") * 1000
 POLL = cfg.getfloat("api", "poll_seconds", fallback=30)
 DETAILS_PAUSE = cfg.getfloat("api", "details_pause_seconds", fallback=4)
 STALE = cfg.getfloat("api", "stale_seconds", fallback=30)
+
+# Sources des avions : Flightradar24 et/ou un serveur tar1090 (https://github.com/wiedehopf/tar1090) (voir sources.py pour les modes de combinaison)
+SRC_ENABLED = [n for n in sources.NAMES if cfg.getboolean("sources", n + "_enabled", fallback=(n == "fr24"))]
+TAR_URL = cfg.get("tar1090", "url", fallback="").strip()
+TAR_EVERY = max(0.5, cfg.getfloat("tar1090", "interval_seconds", fallback=2))
+if "tar1090" in SRC_ENABLED and not TAR_URL:
+    print("ATTENTION : source tar1090 activee sans adresse (section [tar1090], url) : ignoree")
+    SRC_ENABLED.remove("tar1090")
+if not SRC_ENABLED:
+    print("ATTENTION : aucune source de donnees activee, Flightradar24 utilise")
+    SRC_ENABLED = ["fr24"]
+ENRICH = cfg.getboolean("sources", "enrich", fallback=True)  # complete les avions hors FlightRadar24 via adsbdb.com
+hub = sources.Hub(SRC_ENABLED, sources.parse_order(cfg.get("sources", "order", fallback=""), None),
+                  cfg.get("sources", "mode", fallback="combine").strip().lower(), cfg.get("sources", "overlap", fallback="freshest").strip().lower())
 
 FULLSCREEN = cfg.getboolean("display", "fullscreen", fallback=False)
 try:  # sur un Raspberry Pi, l'affichage est toujours en plein ecran (le reglage n'est pas propose dans webadmin)
@@ -152,7 +167,7 @@ def fps_publish(fps, aircraft=0, ground=0, zone=0, paused=False):
     try:
         tmp = FPS_FILE + f".{os.getpid()}.tmp"
         with open(tmp, "w", encoding="utf-8") as fh:
-            json.dump({"fps": round(fps, 1), "t": time.time(), "pid": os.getpid(), "aircraft": aircraft, "ground": ground, "zone": zone, "paused": bool(paused)}, fh)
+            json.dump({"fps": round(fps, 1), "t": time.time(), "pid": os.getpid(), "aircraft": aircraft, "ground": ground, "zone": zone, "paused": bool(paused), "sources": hub.health(), "mode": hub.mode, "overlap": hub.overlap}, fh)
         os.replace(tmp, FPS_FILE)
     except OSError:
         pass
@@ -240,6 +255,7 @@ def history_note(f, info):
     e = history.get(f.id) or {"id": f.id, "t": now}
     if f.id in alerted and not e.get("al"):
         e["al"] = alerted[f.id]
+    e["src"] = sorted(set(e.get("src") or ()) | set(f.sources or ()))  # sources qui ont vu l'avion (page Avions vus)
     e.update(l=now, cs=f.callsign or "", reg=info.get("reg") or "", code=f.aircraft_code or "", model=info.get("model") or "",
              airline=info.get("airline") or "", frm=info.get("origin") or "", to=info.get("dest") or "",
              fi=f.origin_airport_iata or "", ti=f.destination_airport_iata or "",
@@ -551,7 +567,8 @@ def download_photo(url):
     return path
 
 
-def poll_loop():
+def fr24_loop():
+    """Source Flightradar24 : interroge l'API et publie le resultat dans le hub."""
     bounds = api.get_bounds_by_point(LAT, LON, W * MPP / 2 + 2000)
     fails = 0
     rate = False
@@ -570,6 +587,56 @@ def poll_loop():
             if not use_ts and not warned:
                 print("ATTENTION : horloge du systeme decalee par rapport a FR24 (NTP ?)")
                 warned = True
+            conv = [sources.from_fr24(f, (getattr(f, "time", 0) or now) if use_ts else now) for f in flights if f.aircraft_code != "GRND"]
+            hub.publish("fr24", conv, ttl=max(90, interval * 3))
+            fails = 0
+            rate = False
+            interval = max(POLL, interval * 0.98)
+        except Exception as e:
+            fails += 1
+            rate = "429" in str(e)
+            print(time.strftime("%H:%M:%S"), "erreur get_flights :", type(e).__name__, str(e)[:200])
+            if rate:
+                interval = min(interval * 1.5, 120)
+                cool["until"] = time.time() + 60
+                print("intervalle porte a", round(interval), "s")
+            hub.fail("fr24", str(e))
+        time.sleep(interval if (not fails or rate) else min(interval * 2 ** fails, 300))
+
+
+def tar_loop():
+    """Source tar1090 (solution de wiedehopf, compatible dump1090 / readsb) : lit aircraft.json."""
+    fails = 0
+    while True:
+        try:
+            fl, total = sources.fetch_tar1090(TAR_URL, STALE)
+            hub.publish("tar1090", fl, ttl=max(15, TAR_EVERY * 5), total=total)
+            if fails:
+                print(time.strftime("%H:%M:%S"), "tar1090 : connexion retablie")
+            fails = 0
+        except Exception as e:
+            fails += 1
+            if fails in (1, 10, 100):
+                print(time.strftime("%H:%M:%S"), "erreur tar1090 :", type(e).__name__, str(e)[:200])
+            hub.fail("tar1090", "%s: %s" % (type(e).__name__, e))
+        time.sleep(TAR_EVERY if not fails else min(TAR_EVERY * 2 ** min(fails, 6), 60))
+
+
+adsb_wait = {}  # avion -> heure avant laquelle on ne redemande pas ses informations (echec de adsbdb.com)
+
+
+def poll_loop():
+    """Fusionne les sources (hub) et met a jour les avions affiches, a chaque nouveau resultat."""
+    while True:
+        hub.event.wait(5); hub.event.clear()
+        now = time.time()
+        if not hub.any_ok():
+            h = hub.health()
+            msg = next((v["err"] for v in h.values() if v.get("err")), "") or "aucune source ne repond"
+            status.update(msg=tr("erreur réseau : {0}", msg[:60]), t=now, err=True)
+            continue
+        try:
+            flights = hub.merged()
             seen = set(); high = 0
             with lock:
                 for f in flights:
@@ -581,8 +648,8 @@ def poll_loop():
                     if MAX_ALT and not f.on_ground and (f.altitude or 0) > MAX_ALT:
                         high += 1
                         continue
-                    ts = (getattr(f, "time", 0) or now) if use_ts else now
-                    if use_ts and not f.on_ground and now - ts > STALE:
+                    ts = f.time or now
+                    if not f.on_ground and now - ts > STALE:
                         continue
                     old = states.get(f.id)
                     if old is None:
@@ -590,6 +657,8 @@ def poll_loop():
                     seen.add(f.id)
                     if f.id in history:
                         history[f.id]["l"] = int(now)  # dernier passage (ecrit avec le prochain enregistrement)
+                        if not set(f.sources) <= set(history[f.id].get("src") or ()):
+                            history[f.id]["src"] = sorted(set(history[f.id].get("src") or ()) | set(f.sources)); _hs["dirty"] = True
                     elif f.id in details:  # details deja en memoire (redemarrage, cache de 3 h) : l'avion entre quand meme dans l'historique
                         history_note(f, details[f.id])
                     if not (old and ts <= old["t"]):
@@ -598,9 +667,10 @@ def poll_loop():
                         states[f.id] = dict(lat=f.latitude, lon=f.longitude, speed=f.ground_speed or 0,
                                             heading=f.heading or 0, alt=f.altitude or 0, t=ts,
                                             trail=trail, callsign=f.callsign or f.registration or "",
-                                            code=f.aircraft_code, ground=bool(f.on_ground), reg=f.registration or "",
+                                            code=f.aircraft_code or (old["code"] if old else ""), ground=bool(f.on_ground), reg=f.registration or "",
                                             o_iata=f.origin_airport_iata, d_iata=f.destination_airport_iata)
-                    if (f.id not in details and f.id not in queued
+                    if (f.id not in details and f.id not in queued and now >= adsb_wait.get(f.id, 0)
+                            and (f.fr is not None or ENRICH)
                             and not (f.on_ground and (f.ground_speed or 0) < G_MIN)):
                         queued.add(f.id); q.put(f)
                 types_flush()
@@ -621,20 +691,11 @@ def poll_loop():
                 for k in list(details):
                     if k not in states and now - details[k].get("t", now) > 3600:
                         del details[k]
+                for k in [k for k, v in adsb_wait.items() if v < now]:
+                    del adsb_wait[k]
             status.update(msg="", t=now, high=high, err=False)
-            fails = 0
-            rate = False
-            interval = max(POLL, interval * 0.98)
         except Exception as e:
-            fails += 1
-            rate = "429" in str(e)
-            print(time.strftime("%H:%M:%S"), "erreur get_flights :", type(e).__name__, str(e)[:200])
-            if rate:
-                interval = min(interval * 1.5, 120)
-                cool["until"] = time.time() + 60
-                print("intervalle porte a", round(interval), "s")
-            status.update(msg=tr("erreur réseau : {0}", str(e)[:60]), t=time.time(), err=True)
-        time.sleep(interval if (not fails or rate) else min(interval * 2 ** fails, 300))
+            print(time.strftime("%H:%M:%S"), "erreur fusion des sources :", type(e).__name__, str(e)[:200])
 
 
 def details_loop():
@@ -645,13 +706,36 @@ def details_loop():
         if wait > 0:
             time.sleep(wait)
         try:
-            info = parse_details(f, api.get_flight_details(f))
+            if f.fr is not None:
+                info = parse_details(f.fr, api.get_flight_details(f.fr))
+            else:  # avion vu seulement par une source locale : immatriculation, modele, compagnie, trajet via adsbdb.com
+                x = sources.adsbdb_details(f.hex or f.id, f.callsign)
+                info = {"model": x.get("model") or f.aircraft_code or "?", "airline": x.get("airline") or x.get("owner") or "",
+                        "origin": x.get("origin") or "?", "dest": x.get("dest") or "?", "reg": x.get("reg") or f.registration or "",
+                        "photo_url": x.get("photo_url"), "credit": "", "photo_path": None, "code": x.get("code") or ""}
+                if not f.aircraft_code and info["code"]:
+                    f.aircraft_code = info["code"]
+                if not f.origin_airport_iata and x.get("oi"):
+                    f.origin_airport_iata = x["oi"]
+                if not f.destination_airport_iata and x.get("di"):
+                    f.destination_airport_iata = x["di"]
             if info["photo_url"]:
                 try: info["photo_path"] = download_photo(info["photo_url"])
                 except Exception: pass
             info["t"] = time.time()
             with lock:
                 details[f.id] = info
+                st_ = states.get(f.id)
+                if st_ is not None:  # un avion sans type connu prend celui des details
+                    if not st_.get("code") and f.aircraft_code:
+                        st_["code"] = f.aircraft_code
+                        types_note(f.aircraft_code)
+                    if not st_.get("reg") and info.get("reg"):
+                        st_["reg"] = info["reg"]
+                    if not st_.get("o_iata") and f.origin_airport_iata:
+                        st_["o_iata"] = f.origin_airport_iata
+                    if not st_.get("d_iata") and f.destination_airport_iata:
+                        st_["d_iata"] = f.destination_airport_iata
                 types_detail(f.aircraft_code, info)
                 history_note(f, info)
             if time.time() - last_save[0] > 60:
@@ -659,7 +743,10 @@ def details_loop():
                 save_details()
         except Exception as e:
             print(time.strftime("%H:%M:%S"), "erreur details :", type(e).__name__, str(e)[:200])
-            if "429" in str(e):
+            if f.fr is None:
+                adsb_wait[f.id] = time.time() + 120
+                time.sleep(5)
+            elif "429" in str(e):
                 cool["until"] = time.time() + 120
                 retry = True
                 q.put(f)
@@ -758,6 +845,10 @@ def draw_plane(surf, color, x, y, heading, code):
 
 def main():
     T0 = time.time()
+    if "fr24" in SRC_ENABLED:
+        threading.Thread(target=fr24_loop, daemon=True).start()
+    if "tar1090" in SRC_ENABLED:
+        threading.Thread(target=tar_loop, daemon=True).start()
     threading.Thread(target=poll_loop, daemon=True).start()
     threading.Thread(target=details_loop, daemon=True).start()
     if not cfg.getboolean("storage", "auto_clean", fallback=False):  # sinon webadmin nettoie selon le quota

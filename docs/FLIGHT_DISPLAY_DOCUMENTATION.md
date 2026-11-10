@@ -173,6 +173,7 @@ Le mot de passe de webadmin, la clé CARTO et les identifiants MQTT sont stocké
 | `main.py` | Programme d'affichage (pygame, sortie directe KMS/DRM, sans bureau graphique). |
 | `build_map_vector.py` | Génère la carte `background.png` et `map_meta.json` à partir de `config.ini` (position, rayon, taille, clé CARTO). |
 | `mapstyle.py` | Thèmes, couches et couleurs du fond de carte, partagé par `build_map_vector.py` et webadmin (page « Style de la carte »). |
+| `sources.py` | Sources des avions (Flightradar24, tar1090) et leur fusion, partagé par `main.py` et webadmin (section 9.10). |
 | `config.ini` | Tous les réglages : programme (dont `[general]` pour la langue et `[label]` pour les étiquettes), plus les sections `[server]`, `[app]`, `[screen]`, `[build]`, `[update]` et `[mqtt]` de l'interface web. Modèle : `config.ini.example`. |
 | `types_extra.txt` | Optionnel : associe des types d'avion inconnus à une forme d'icône. |
 | `webadmin.py` | Serveur web d'administration (bibliothèque standard Python). |
@@ -231,7 +232,7 @@ Adaptez ces valeurs si vous en choisissez d'autres.
 - Un ordinateur avec Raspberry Pi Imager et un client SSH.
 - Une clé API CARTO, nécessaire pour construire la carte (le script télécharge le fond de carte vectoriel CARTO avec cette clé). Elle est gratuite pour un usage personnel et se demande sur `https://carto.com/basemaps/apikey/` : voir le README pour le pas à pas.
 - Si vous utilisez Home Assistant : un serveur MQTT (par exemple Mosquitto) et ses identifiants.
-- Pour l'installation manuelle : les fichiers du projet (`main.py`, `build_map_vector.py`, `config.ini.example`, `webadmin.py`, `webadmin_mqtt.py`, `webadmin_update.py`, `i18n.py`, le dossier `lang`, `requirements.txt`), soit par `git clone https://github.com/arcalulu/flightdisplay.git`, soit copiés depuis un ordinateur.
+- Pour l'installation manuelle : les fichiers du projet (`main.py`, `build_map_vector.py`, `config.ini.example`, `webadmin.py`, `webadmin_mqtt.py`, `webadmin_update.py`, `sources.py`, `i18n.py`, le dossier `lang`, `requirements.txt`), soit par `git clone https://github.com/arcalulu/flightdisplay.git`, soit copiés depuis un ordinateur.
 
 ---
 
@@ -339,7 +340,7 @@ Au lieu du `git clone`, créez le dossier et copiez les fichiers depuis votre or
 
 ```
 mkdir -p ~/flightdisplay
-scp -r main.py build_map_vector.py config.ini.example webadmin.py webadmin_mqtt.py webadmin_update.py i18n.py lang requirements.txt flightdisplay@flightradarpi.local:~/flightdisplay/
+scp -r main.py build_map_vector.py config.ini.example webadmin.py webadmin_mqtt.py webadmin_update.py sources.py i18n.py lang requirements.txt flightdisplay@flightradarpi.local:~/flightdisplay/
 ```
 
 Puis créez l'environnement Python comme en 4.1. Cette méthode désactive les mises à jour depuis webadmin (le dossier n'est pas un dépôt Git). Le fichier `types_extra.txt` est optionnel : il se crée depuis webadmin (section 9.8).
@@ -683,7 +684,7 @@ journalctl -u flightadmin -n 50 --no-pager
 ### 7.3 Redémarrer ou mettre à jour webadmin
 
 - Depuis l'interface : un changement de port ou d'adresse d'écoute redémarre webadmin à l'enregistrement et rouvre la page et rouvre la page (sur le nouveau port si besoin).
-- En ligne de commande, après avoir remplacé `webadmin.py`, `webadmin_mqtt.py`, `webadmin_update.py`, `i18n.py` ou un fichier de `lang/` : `sudo systemctl restart flightadmin`.
+- En ligne de commande, après avoir remplacé `webadmin.py`, `webadmin_mqtt.py`, `webadmin_update.py`, `sources.py`, `i18n.py` ou un fichier de `lang/` : `sudo systemctl restart flightadmin`.
 - Depuis l'onglet Mises à jour (12.1), webadmin se redémarre tout seul à la fin de la mise à jour.
 
 ---
@@ -1025,6 +1026,41 @@ Catégories valides : `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `b
 | `SDL_VIDEODRIVER`, `SDL_RENDER_DRIVER` | Définis automatiquement (`kmsdrm`, `opengles2`) sur Linux sans bureau, sauf si déjà présents. |
 | `SDL_AUDIODRIVER` | Défini à `dummy` seulement si `[alert] sound = false`. Ne pas le définir autrement. |
 | `WEBADMIN_INI` | Chemin alternatif du fichier de réglages lu par webadmin (par défaut `config.ini`). |
+
+### 9.10 Sources des avions (Flightradar24, tar1090)
+
+Le programme peut lire les avions depuis plusieurs sources, réglées dans webadmin, catégorie « Sources des avions » (section `[sources]` et `[tar1090]` de `config.ini`) :
+
+- **Flightradar24** : données mondiales par Internet, avec immatriculation, modèle, compagnie, trajet et photo. Positions rafraîchies toutes les 30 s environ (section `[api]`).
+- **tar1090** ([wiedehopf/tar1090](https://github.com/wiedehopf/tar1090)) : serveur de votre réseau alimenté par une antenne ADS-B, lu par son fichier `aircraft.json`. Positions quasi instantanées (2 s), sans quota ni Internet. Il ne voit que les avions captés par l'antenne et ne donne ni modèle, ni compagnie, ni trajet. Les installations `dump1090-fa` ou `readsb` seules produisent le même fichier et fonctionnent aussi.
+
+| Option | Défaut | Description |
+|---|---|---|
+| `[sources] fr24_enabled` | `true` | Utiliser Flightradar24. |
+| `[sources] tar1090_enabled` | `false` | Utiliser le serveur tar1090. |
+| `[sources] order` | `fr24,tar1090` | Ordre de priorité des sources (la première a la priorité n°1). |
+| `[sources] mode` | `combine` | Mode de combinaison : `combine`, `primary` ou `failover` (ci-dessous). |
+| `[sources] overlap` | `freshest` | Pour `combine` : `freshest` (position la plus récente) ou `priority` (source la mieux classée). |
+| `[sources] enrich` | `true` | Compléter les avions vus seulement par tar1090 (immatriculation, modèle, compagnie, trajet, photo) via adsbdb.com. |
+| `[tar1090] url` | vide | Adresse du fichier, par exemple `http://adresse/tar1090/data/aircraft.json`. |
+| `[tar1090] interval_seconds` | 2 | Intervalle de lecture (0,5 à 60). |
+
+Si aucune source n'est cochée, Flightradar24 est utilisé. Le bouton « Tester la connexion » de webadmin lit le fichier et indique le nombre d'avions, ceux qui ont une position, et si le fichier donne déjà l'immatriculation et le type.
+
+**Ce que fait toujours le programme.** Un même avion est reconnu d'une source à l'autre par son adresse ICAO (code hexadécimal de son transpondeur) : il n'est jamais compté ni affiché deux fois (carte, alerte, historique, MQTT). Position, vitesse, altitude et cap viennent toujours d'une seule source par avion : ils ne sont jamais mélangés ni moyennés. Les informations manquantes (immatriculation, type, indicatif, trajet) sont complétées par les autres sources, quel que soit le mode. Une source qui ne répond plus est ignorée au bout de quelques secondes et signalée dans webadmin ; les autres continuent.
+
+**Les modes de combinaison.**
+
+| Mode | Avion vu par plusieurs sources | Avion vu par une source secondaire seulement |
+|---|---|---|
+| `combine` + `freshest` | Position de la source dont le dernier message est le plus récent (l'antenne, 2 s, l'emporte presque toujours sur Flightradar24, 30 s). | Affiché |
+| `combine` + `priority` | Position de la source la mieux classée, même si une autre est plus récente. | Affiché |
+| `primary` | Position de la source n°1 ; les autres complètent seulement les informations. Si la source n°1 ne répond plus, la suivante devient principale. | Ignoré |
+| `failover` | Une seule source à la fois, la n°1 ; la suivante prend le relais en cas de panne, la n°1 reprend à son retour. | Ignoré tant que la source n°1 répond |
+
+Pour les avions que Flightradar24 ne voit pas, les détails viennent de adsbdb.com (service gratuit sans clé) : l'adresse ICAO et l'indicatif de l'avion lui sont envoyés. Décochez `enrich` pour rester entièrement local ; l'avion s'affiche alors sans détails.
+
+Dans l'onglet « Avions vus », un badge violet « ⇄ 2 » repère les avions vus par plusieurs sources, la fiche d'un avion indique ses sources, et trois filtres sont proposés dès que tar1090 est utilisé : « Vus par plusieurs sources », « Flightradar24 seulement » et « tar1090 seulement ». Les avions enregistrés avant l'activation des sources comptent pour Flightradar24.
 
 ---
 
@@ -1403,7 +1439,7 @@ Vos réglages (`config.ini`) ne sont pas versionnés et restent intacts. Si la m
 
 Si `git pull` refuse de s'exécuter parce que des fichiers ont été modifiés à la main, voir ce qui diffère avec `git status`, puis écarter les modifications (`git checkout <fichier>`) ou les mettre de côté (`git stash`). `config.ini` n'est jamais concerné : il n'est pas suivi par Git.
 
-Avec une installation par copie de fichiers : recopier tous les fichiers du projet (`main.py`, `webadmin.py`, `webadmin_mqtt.py`, `webadmin_update.py`, `i18n.py`, le dossier `lang`...) depuis l'ordinateur, puis `fd restart` et `sudo systemctl restart flightadmin`.
+Avec une installation par copie de fichiers : recopier tous les fichiers du projet (`main.py`, `webadmin.py`, `webadmin_mqtt.py`, `webadmin_update.py`, `sources.py`, `i18n.py`, le dossier `lang`...) depuis l'ordinateur, puis `fd restart` et `sudo systemctl restart flightadmin`.
 
 ### 12.2 Publier une version (mainteneur)
 

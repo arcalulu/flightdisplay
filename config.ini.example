@@ -40,6 +40,22 @@ poll_seconds = 10
 details_pause_seconds = 4
 stale_seconds = 30
 
+[sources]
+# Sources des avions : fr24 (Flightradar24) et/ou tar1090 (serveur ADS-B local). Voir la documentation (9.10).
+fr24_enabled = true
+tar1090_enabled = false
+order = fr24,tar1090
+# combine : toutes les sources cumulees | primary : source principale + complements | failover : secours
+mode = combine
+# pour combine : freshest (position la plus recente) | priority (source la mieux classee)
+overlap = freshest
+# complete les avions vus seulement par tar1090 via adsbdb.com
+enrich = true
+
+[tar1090]
+# url = http://adresse/tar1090/data/aircraft.json
+interval_seconds = 2
+
 [display]
 fullscreen = true
 fps = 10
