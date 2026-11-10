@@ -752,7 +752,7 @@ The key is only read by `build_map_vector.py`, not by `main.py`. It is stored in
 
 The webadmin page offers thumbnails of the five themes, switches for the elements, a color picker and the place name settings. There are two previews. The **indicative preview** is shown right away, without internet or key: one sample map per theme (`defaults/themes/*.png`, generated once with CARTO on the original area of `config.ini.example`) is shown in the preview when you choose a theme. The five theme thumbnails are those same images: they never change. Custom colors and ticked elements do not appear in it. The **faithful preview**, started by the "Refresh the preview" button, is drawn by `build_map_vector.py --preview` (same program as the build, image reduced to 640 px wide, area and ratio of the "Map and position" page, all unsaved settings included: theme, elements, colors, place names): it needs the CARTO key and internet, and shows what the screen will display. The "Show the current map" button displays the map actually used by the program (`background.png`) with its build date. None of the previews changes the real map: once the preview is validated, save then rebuild the map. The images and tiles downloaded for the faithful preview are kept in `cache/mapprev/`. Light themes make the yellow aircraft less readable.
 
-### 8.4 `[api]` — category "Flightradar24"
+### 8.4 `[api]` — "Flightradar24" page (from "Aircraft sources")
 
 | Option | Default | Range | Description |
 |---|---|---|---|
@@ -1045,7 +1045,7 @@ The program can read aircraft from several sources, set in webadmin, category "A
 | `[tar1090] url` | empty | Address of the file, for example `http://adresse/tar1090/data/aircraft.json`. |
 | `[tar1090] interval_seconds` | 2 | Reading interval (0.5 to 60). |
 
-If no source is ticked, Flightradar24 is used. The "Test the connection" button in webadmin reads the file and shows the number of aircraft, how many have a position, and whether the file already gives the registration and type.
+If no source is ticked, Flightradar24 is used. Each source has its own settings page, reachable only through the "Settings" button of its card in "Aircraft sources" (Flightradar24: `[api]`, section 8.4; tar1090: address, reading interval and test). The "Test the connection" button on the tar1090 page reads the file and shows the number of aircraft, how many have a position, and whether the file already gives the registration and type.
 
 **What the program always does.** The same aircraft is recognised from one source to another by its ICAO address (the hexadecimal code of its transponder): it is never counted or shown twice (map, alert, history, MQTT). Position, speed, altitude and heading always come from a single source per aircraft: they are never mixed or averaged. Missing information (registration, type, callsign, route) is completed by the other sources, whatever the mode. A source that stops responding is ignored after a few seconds and flagged in webadmin; the others carry on.
 

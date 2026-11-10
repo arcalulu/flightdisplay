@@ -140,6 +140,7 @@ CATS = [
     ("mapstyle", "Style de la carte", "Programme"),
     ("sources", "Sources des avions", "Programme"),
     ("api", "Flightradar24", "Programme"),
+    ("tar1090", "tar1090", "Programme"),
     ("display", "Affichage", "Programme"),
     ("label", "Étiquettes des avions", "Programme"),
     ("panel", "Panneau photo", "Programme"),
@@ -160,6 +161,8 @@ CAT_NOTES = {
     "label": "Petits panneaux affichés à côté de chaque avion sur la carte. Réordonnez les éléments avec les flèches, choisissez ceux à afficher, leur taille, gras et italique, et s'ils partagent la ligne de l'élément précédent. Si tout est masqué, aucun panneau n'est affiché.",
     "position": "Modifier ces valeurs oblige à reconstruire la carte (section Reconstruction de la carte, en bas de cette page).",
     "sources": "D'où viennent les avions affichés. Cochez une ou plusieurs sources, classez-les par priorité et choisissez comment combiner leurs résultats. Un même avion reconnu par plusieurs sources n'est jamais affiché deux fois. Les changements demandent de relancer le programme.",
+    "api": "Flightradar24 fournit les positions mondiales par Internet, ainsi que l'immatriculation, le modèle, la compagnie, le trajet et la photo de chaque avion. Les positions sont rafraîchies toutes les 30 s environ ; un intervalle trop court provoque des erreurs 429. Cette source s'active et se classe dans « Sources des avions ».",
+    "tar1090": "Serveur tar1090 (https://github.com/wiedehopf/tar1090) de votre réseau, alimenté par une antenne ADS-B et lu par son fichier aircraft.json. Positions quasi instantanées, sans quota ni Internet. Il ne voit que les avions captés par l'antenne et ne donne ni modèle, ni compagnie, ni trajet : ils sont alors demandés à adsbdb.com (option « Compléter les avions captés seulement par l'antenne », dans « Sources des avions »). Cette source s'active et se classe dans « Sources des avions ».",
     "mapstyle": "Personnalisez le fond de carte : thème, éléments affichés, couleurs et noms de lieux. Choisir un thème affiche tout de suite une carte d'exemple (indicatif) ; « Mettre à jour l'aperçu » donne le rendu fidèle de votre zone, avec vos couleurs et vos éléments. Il faut ensuite enregistrer puis reconstruire la carte pour que l'écran l'utilise.",
     "server": "Le port et l'adresse d'écoute demandent un redémarrage de webadmin. L'identifiant et le mot de passe s'appliquent immédiatement.",
     "paths": "Réglages avancés. Une valeur vide utilise le comportement par défaut.",
@@ -260,8 +263,8 @@ PARAMS = [
     C("sources", "display", "plane_color_fr24", "color", "#ffd250", "Vus par Flightradar24 seulement", "", "Couleurs"),
     C("sources", "display", "plane_color_tar1090", "color", "#5ac8ff", "Vus par tar1090 seulement", "", "Couleurs"),
     C("sources", "display", "plane_color_multi", "color", "#78e68c", "Vus par plusieurs sources", "", "Couleurs"),
-    C("sources", "tar1090", "url", "text", "", "Adresse du fichier aircraft.json", "Pour tar1090 : http://adresse/tar1090/data/aircraft.json. Les installations dump1090-fa ou readsb seules fonctionnent aussi (http://adresse/dump1090-fa/data/aircraft.json).", "Serveur tar1090"),
-    C("sources", "tar1090", "interval_seconds", "float", 2, "Intervalle de lecture (s)", "", "Serveur tar1090", min=0.5, max=60),
+    C("tar1090", "tar1090", "url", "text", "", "Adresse du fichier aircraft.json", "Pour tar1090 : http://adresse/tar1090/data/aircraft.json. Les installations dump1090-fa ou readsb seules fonctionnent aussi (http://adresse/dump1090-fa/data/aircraft.json).", "Connexion"),
+    C("tar1090", "tar1090", "interval_seconds", "float", 2, "Intervalle de lecture (s)", "", "Connexion", min=0.5, max=60),
     C("api", "api", "poll_seconds", "float", 30, "Intervalle de requête (s)", "Trop bas : risque d'erreur 429.", "Fréquence", min=5, max=600),
     C("api", "api", "details_pause_seconds", "float", 4, "Pause entre les détails (s)", "Délai entre deux requêtes de détails d'avion.", "Fréquence", min=0, max=60),
     C("api", "api", "stale_seconds", "float", 30, "Durée de validité d'une position (s)", "Au-delà, l'avion est retiré de la carte.", "Validité des données", min=5, max=600),
@@ -446,7 +449,7 @@ def get_settings():
         items = []
         for cid, title, m in CATS:
             c = cats[cid]
-            if m == gname and (cid in ("types", "backup") or c["groups"]):
+            if m == gname and cid not in ("api", "tar1090") and (cid in ("types", "backup") or c["groups"]):
                 items.append(dict(id=cid, title=title))
         if items:
             menu.append(dict(group=tr(gname), items=items))
@@ -1908,7 +1911,7 @@ h2.t{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.04
 .offring.try .offfg{animation:offspin 1.1s linear infinite;stroke-dasharray:90 237;transition:none}@keyframes offspin{to{stroke-dashoffset:-326.7}}
 .srcs{display:flex;flex-direction:column;gap:10px;margin:6px 0 14px}.src{border:1px solid var(--line);border-radius:12px;background:#0e141b;padding:12px 14px}.src.off{opacity:.65}
 .src .sh{display:flex;align-items:center;gap:10px}.src .st{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}.src .rk{flex:none;width:26px;height:26px;border-radius:50%;background:#1b2431;border:1px solid var(--line);display:grid;place-items:center;font-size:13px;font-weight:600}
-.src .mv{display:flex;flex-direction:column;gap:3px}.src .mv button{padding:0 8px;height:20px;line-height:1;font-size:10px}.src .sd{margin:8px 0;color:var(--mut);font-size:13px}
+.src .sd{margin:8px 0;color:var(--mut);font-size:13px}.sft{display:flex;gap:8px;flex-wrap:wrap}
 .sst{font-size:12px;color:var(--mut)}.sst.ok{color:#7ad49a}.sst.bad{color:#ff8a80}
 .sf{display:flex;flex-direction:column;gap:4px;margin:8px 0}.sf label{font-size:12px;color:var(--mut)}.sres{margin-top:8px;font-size:13px;color:var(--mut)}.sres.ok{color:#7ad49a}.sres.bad{color:#ff8a80}
 .opts{display:flex;flex-direction:column;gap:8px;margin:6px 0 14px}.opt{display:block;width:100%;text-align:left;border:1px solid var(--line);border-radius:10px;background:#0e141b;color:var(--txt);padding:10px 12px;cursor:pointer;font:inherit}.opt:hover{border-color:#3a4a60}.opt.on{border-color:var(--acc);background:#13202e}
@@ -2552,7 +2555,7 @@ function updateBar() {
   }
 }
 function markMenu() {
-  const dirty = new Set(); for (const p of allParams()) if (p.id in edits) dirty.add(p.cat);
+  const dirty = new Set(); for (const p of allParams()) if (p.id in edits) dirty.add(p.cat === 'api' || p.cat === 'tar1090' ? 'sources' : p.cat);
   if (TYPES_DIRTY) dirty.add('types');
   document.querySelectorAll('#menu button').forEach(b => b.classList.toggle('dot', dirty.has(b.dataset.c)));
 }
@@ -2560,7 +2563,7 @@ function renderMenu() {
   const m = $('#menu'); m.innerHTML = '';
   for (const g of SET.menu) {
     m.append(el('div', 'mg', g.group));
-    for (const it of g.items) { const b = el('button', it.id === curCat ? 'on' : '', it.title); b.dataset.c = it.id; b.onclick = () => { curCat = it.id; renderMenu(); renderCat(); }; m.append(b); }
+    for (const it of g.items) { const b = el('button', (it.id === curCat || (it.id === 'sources' && (curCat === 'api' || curCat === 'tar1090'))) ? 'on' : '', it.title); b.dataset.c = it.id; b.onclick = () => { curCat = it.id; renderMenu(); renderCat(); }; m.append(b); }
   }
   markMenu();
 }
@@ -2690,6 +2693,10 @@ function renderCatBase() {
     if (tab === 'content') { if (cat.editor.note) box.append(el('p', 'note', cat.editor.note)); return renderFields(box, cat); }
     renderGroups(box, cat); return;
   }
+  if (cat.id === 'api' || cat.id === 'tar1090') {  // pages de source : accessibles seulement depuis « Sources des avions »
+    const bk = el('button', 'b s', '← Sources des avions'); bk.style.marginBottom = '12px'; bk.onclick = () => { curCat = 'sources'; renderMenu(); renderCat(); window.scrollTo(0, 0); };
+    box.append(bk);
+  }
   if (cat.id === 'mqtt') {
     const st = lastSt ? lastSt.mqtt : 'off', h = el('div', 'tools'); const c = chip('État : ' + (st === 'off' ? 'désactivé' : st), st === 'connecte' ? 'ok' : (st === 'off' ? '' : 'bad')); c.style.flex = 'none';
     const b = el('button', 'b s', 'Reconnecter / republier'); b.style.flex = 'none'; b.onclick = async () => { try { await api('/api/mqtt/reconnect', {}); toast('Reconnexion demandée'); setTimeout(pollStatus, 2000); } catch (e) { toast(e.message, true); } };
@@ -2701,6 +2708,20 @@ function renderCatBase() {
   renderGroups(box, cat);
   if (cat.id === 'position' || cat.id === 'storage') ringVis();
   if (cat.id === 'alert') linkSync();
+  if (cat.id === 'tar1090') {
+    const up_ = allParams().find(p => p.id === 'config:tar1090.url'), i1 = document.querySelector('[data-row="' + up_.id + '"] input');
+    if (i1) i1.placeholder = 'http://adresse/tar1090/data/aircraft.json';
+    const tb = el('button', 'b s', 'Tester la connexion'), res = el('div', 'sres');
+    tb.onclick = async () => {
+      res.className = 'sres'; res.textContent = tl('Test en cours…');
+      try {
+        const r = await api('/api/sources/test', {url: pval(up_)});
+        res.className = 'sres ok';
+        res.textContent = _t('Connexion réussie : {0} avions dans le fichier, {1} avec une position.', r.total, r.positions) + ' ' + tl(r.has_db ? "Le fichier donne déjà l'immatriculation et le type de certains avions." : "Le fichier ne donne ni immatriculation ni type : ils seront cherchés sur adsbdb.com.");
+      } catch (e) { res.className = 'sres bad'; res.textContent = _t('Échec : {0}', e.message); }
+    };
+    box.append(tb, res);
+  }
 }
 async function loadSettings() {
   SET = await api('/api/settings'); edits = {};
@@ -2750,8 +2771,8 @@ async function restartWeb(port, noAsk) {
 /* ---------- Sources des avions ---------- */
 const SRC_NAMES = {fr24: 'Flightradar24', tar1090: 'tar1090'};
 const SRC_DESC = {
-  fr24: "Données mondiales reçues par Internet. Fournit aussi l'immatriculation, le modèle, la compagnie, le trajet et la photo de chaque avion. Positions rafraîchies toutes les 30 s environ, avec des limites de débit.",
-  tar1090: "Serveur tar1090 (https://github.com/wiedehopf/tar1090) de votre réseau, alimenté par une antenne ADS-B et lu par son fichier aircraft.json. Positions quasi instantanées, sans quota ni Internet. Ne voit que les avions captés par l'antenne et ne donne ni modèle, ni compagnie, ni trajet."
+  fr24: "Positions mondiales par Internet, avec détails et photo de chaque avion.",
+  tar1090: "Votre antenne ADS-B locale : positions quasi instantanées, sans Internet."
 };
 const gp = id => allParams().find(p => p.id === 'config:' + id);
 function srcOrder() {
@@ -2790,30 +2811,17 @@ function renderSources(box, cat) {
   order.forEach((n, i) => {
     const on = srcOn(n), card = el('div', 'src' + (on ? '' : ' off')), hd = el('div', 'sh');
     const rk = el('span', 'rk', String(i + 1)); rk.title = _t('Priorité {0}', i + 1);
-    const mv = el('span', 'mv'), up = el('button', 'b s', '▲'), dn = el('button', 'b s', '▼');
-    up.title = tl('Monter dans la priorité'); dn.title = tl('Descendre dans la priorité'); up.disabled = i === 0; dn.disabled = i === order.length - 1;
-    const move = d => { const o = order.slice(); [o[i], o[i + d]] = [o[i + d], o[i]]; setEdit(gp('sources.order'), o.join(',')); renderCat(); };
-    up.onclick = () => move(-1); dn.onclick = () => move(1); mv.append(up, dn);
     const tt = el('div', 'st'), sst = el('span', 'sst'); sst.dataset.src = n; tt.append(el('b', null, SRC_NAMES[n]), sst);
-    hd.append(rk, tt, mv, control(gp('sources.' + n + '_enabled')).c); card.append(hd, el('p', 'sd', SRC_DESC[n]));
-    if (n === 'tar1090') {
-      const field = p => { const c = control(p), r = el('div', 'sf'); r.append(el('label', null, p.label), c.c); return [r, c.c]; };
-      const up_ = gp('tar1090.url'), [r1, i1] = field(up_), [r2] = field(gp('tar1090.interval_seconds'));
-      i1.placeholder = 'http://adresse/tar1090/data/aircraft.json';
-      card.append(r1, el('small', 'sd', up_.help), r2);
-      const tb = el('button', 'b s', 'Tester la connexion'), res = el('div', 'sres');
-      tb.onclick = async () => {
-        res.className = 'sres'; res.textContent = tl('Test en cours…');
-        try {
-          const r = await api('/api/sources/test', {url: pval(up_)});
-          res.className = 'sres ok';
-          res.textContent = _t('Connexion réussie : {0} avions dans le fichier, {1} avec une position.', r.total, r.positions) + ' ' + tl(r.has_db ? "Le fichier donne déjà l'immatriculation et le type de certains avions." : "Le fichier ne donne ni immatriculation ni type : ils seront cherchés sur adsbdb.com.");
-        } catch (e) { res.className = 'sres bad'; res.textContent = _t('Échec : {0}', e.message); }
-      };
-      card.append(tb, res);
-    } else {
-      const b = el('button', 'b s', 'Réglages de Flightradar24'); b.onclick = () => { curCat = 'api'; renderMenu(); renderCat(); }; card.append(b);
+    hd.append(rk, tt, control(gp('sources.' + n + '_enabled')).c); card.append(hd, el('p', 'sd', SRC_DESC[n]));
+    const ft = el('div', 'sft'), cfgb = el('button', 'b s', n === 'tar1090' ? 'Réglages de tar1090' : 'Réglages de Flightradar24');
+    cfgb.onclick = () => { curCat = n === 'tar1090' ? 'tar1090' : 'api'; renderMenu(); renderCat(); window.scrollTo(0, 0); };
+    ft.append(cfgb);
+    if (i > 0) {  // un seul bouton : passer devant la source du dessus
+      const up = el('button', 'b s', _t('↑ Passer en n°{0}', i)); up.title = tl('Donne à cette source la priorité sur celle du dessus');
+      up.onclick = () => { const o = order.slice(); [o[i - 1], o[i]] = [o[i], o[i - 1]]; setEdit(gp('sources.order'), o.join(',')); renderCat(); };
+      ft.append(up);
     }
+    card.append(ft);
     wrap.append(card);
   });
   box.append(wrap);
