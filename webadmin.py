@@ -256,6 +256,10 @@ PARAMS = [
     C("sources", "sources", "mode", "choice", "combine", "Mode de combinaison", "", "Combinaison", options=["combine", "primary", "failover"]),
     C("sources", "sources", "overlap", "choice", "freshest", "Avion vu par plusieurs sources", "", "Combinaison", options=["freshest", "priority"]),
     C("sources", "sources", "enrich", "bool", True, "Compléter les avions captés seulement par l'antenne", "Un avion absent de Flightradar24 n'a que sa position : l'immatriculation, le modèle, la compagnie, le trajet et une photo sont alors demandés à adsbdb.com (service gratuit, sans clé). L'adresse ICAO et l'indicatif de l'avion sont envoyés à ce service. Décochez pour rester entièrement local : l'avion s'affiche alors sans détails.", "Compléments"),
+    C("sources", "display", "color_by_source", "bool", False, "Colorer les avions selon leur source", "Les icônes prennent une couleur selon la ou les sources qui voient l'avion (l'avion du panneau photo reste dans sa couleur habituelle).", "Couleurs"),
+    C("sources", "display", "plane_color_fr24", "color", "#ffd250", "Vus par Flightradar24 seulement", "", "Couleurs"),
+    C("sources", "display", "plane_color_tar1090", "color", "#5ac8ff", "Vus par tar1090 seulement", "", "Couleurs"),
+    C("sources", "display", "plane_color_multi", "color", "#78e68c", "Vus par plusieurs sources", "", "Couleurs"),
     C("sources", "tar1090", "url", "text", "", "Adresse du fichier aircraft.json", "Pour tar1090 : http://adresse/tar1090/data/aircraft.json. Les installations dump1090-fa ou readsb seules fonctionnent aussi (http://adresse/dump1090-fa/data/aircraft.json).", "Serveur tar1090"),
     C("sources", "tar1090", "interval_seconds", "float", 2, "Intervalle de lecture (s)", "", "Serveur tar1090", min=0.5, max=60),
     C("api", "api", "poll_seconds", "float", 30, "Intervalle de requête (s)", "Trop bas : risque d'erreur 429.", "Fréquence", min=5, max=600),
@@ -2848,7 +2852,16 @@ function renderSources(box, cat) {
     const r = document.createElement('tr'); if (m === mode && (!o || o === ov)) r.className = 'cur';
     r.append(el('td', null, a), el('td', null, b), el('td', null, c)); tb.append(r);
   }
-  sec.append(tb); box.append(sec);
+  sec.append(tb);
+  sec.append(el('h2', 't', 'Couleur des icônes selon la source'));
+  const cl = el('div', 'list'), tp = gp('display.color_by_source'), cols = ['plane_color_fr24', 'plane_color_tar1090', 'plane_color_multi'].map(k => gp('display.' + k));
+  const mk = (p, id) => { const c = control(p), r = el('div', 'li'), t = el('div', 'lt'); t.append(el('b', null, p.label)); if (p.help) t.append(el('small', null, p.help)); r.dataset.row = id; r.append(t, c.c); return r; };
+  cl.append(mk(tp, 'tg'));
+  for (const p of cols) cl.append(mk(p, p.id));
+  sec.append(cl); box.append(sec);
+  const tg = cl.querySelector('input[type=checkbox]');
+  const vis = () => { cols.forEach(p => { const r = cl.querySelector('[data-row="' + p.id + '"]'); if (r) r.style.display = String(pval(tp)) === 'true' ? '' : 'none'; }); };
+  if (tg) tg.addEventListener('change', vis); vis();
   paintSrc();
 }
 

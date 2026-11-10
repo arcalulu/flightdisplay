@@ -669,6 +669,7 @@ def poll_loop():
                                             trail=trail, callsign=f.callsign or f.registration or "",
                                             code=f.aircraft_code or (old["code"] if old else ""), ground=bool(f.on_ground), reg=f.registration or "",
                                             o_iata=f.origin_airport_iata, d_iata=f.destination_airport_iata)
+                    states[f.id]["src"] = tuple(f.sources)  # sources qui voient l'avion en ce moment (couleur de l'icone)
                     if (f.id not in details and f.id not in queued and now >= adsb_wait.get(f.id, 0)
                             and (f.fr is not None or ENRICH)
                             and not (f.on_ground and (f.ground_speed or 0) < G_MIN)):
@@ -820,12 +821,27 @@ def cfg_color(key, default, sec="display"):
 PLANE_PANEL = cfg_color("plane_color_panel", (255, 70, 70))
 PLANE_KNOWN = cfg_color("plane_color_known", (255, 210, 80))
 PLANE_UNKNOWN = cfg_color("plane_color_unknown", (255, 170, 90))
+# couleur des avions selon la source qui les voit (option, voir sources.py) : Flightradar24 seul, tar1090 seul, plusieurs sources
+COLOR_BY_SRC = cfg.getboolean("display", "color_by_source", fallback=False)
+SRC_COLORS = {"fr24": cfg_color("plane_color_fr24", (255, 210, 80)), "tar1090": cfg_color("plane_color_tar1090", (90, 200, 255)),
+              "multi": cfg_color("plane_color_multi", (120, 230, 140))}
 RING_COL = cfg_color("color", (45, 55, 70), "rings")
 RING_W = max(1, min(8, cfg.getint("rings", "width", fallback=1)))
 RING_LABELS = cfg.getboolean("rings", "show_labels", fallback=False)
 RING_TXT = tuple(min(255, (c + 255) // 2) for c in RING_COL)  # texte plus clair que le trait, lisible sur la carte
 print("cercles de distance : %d de %g km, ecart %g km, distances affichees : %s" % (RING_N, RING_FIRST, RING_STEP, "oui" if RING_LABELS else "non"))
 TRAIL_PANEL = tuple((c + g) // 2 for c, g in zip(PLANE_PANEL, (85, 90, 90)))
+
+
+def plane_color(s):
+    """Couleur d'un avion (hors avion du panneau) : selon sa source si l'option est active, sinon selon que son type est connu."""
+    if COLOR_BY_SRC:
+        src = s.get("src") or ()
+        if len(src) >= 2:
+            return SRC_COLORS["multi"]
+        if src and src[0] in SRC_COLORS:
+            return SRC_COLORS[src[0]]
+    return PLANE_KNOWN if known_type(s["code"]) else PLANE_UNKNOWN
 
 
 def known_type(code):
@@ -1167,7 +1183,7 @@ def main():
             if len(s["trail"]) > 1:
                 pts = [to_xy(*p) for p in s["trail"]] + [(x, y)]
                 pygame.draw.lines(screen, TRAIL_PANEL if hl else (90, 130, 170), False, pts, lw)
-            draw_plane(screen, PLANE_PANEL if hl else (PLANE_KNOWN if known_type(s["code"]) else PLANE_UNKNOWN), x, y, s["heading"], s["code"])
+            draw_plane(screen, PLANE_PANEL if hl else plane_color(s), x, y, s["heading"], s["code"])
             txt = label_lines(s, d)
             if not txt:
                 continue

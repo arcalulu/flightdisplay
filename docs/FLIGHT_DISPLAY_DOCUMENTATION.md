@@ -1060,6 +1060,8 @@ Si aucune source n'est cochée, Flightradar24 est utilisé. Le bouton « Tester 
 
 Pour les avions que Flightradar24 ne voit pas, les détails viennent de adsbdb.com (service gratuit sans clé) : l'adresse ICAO et l'indicatif de l'avion lui sont envoyés. Décochez `enrich` pour rester entièrement local ; l'avion s'affiche alors sans détails.
 
+**Couleur des icônes.** L'option `[display] color_by_source = true` (page « Sources des avions ») colore les avions à l'écran selon leur source : `plane_color_fr24` (vus par Flightradar24 seulement, `#ffd250`), `plane_color_tar1090` (vus par tar1090 seulement, `#5ac8ff`) et `plane_color_multi` (vus par plusieurs sources, `#78e68c`). L'avion du panneau photo garde sa couleur habituelle.
+
 Dans l'onglet « Avions vus », un badge violet « ⇄ 2 » repère les avions vus par plusieurs sources, la fiche d'un avion indique ses sources, et trois filtres sont proposés dès que tar1090 est utilisé : « Vus par plusieurs sources », « Flightradar24 seulement » et « tar1090 seulement ». Les avions enregistrés avant l'activation des sources comptent pour Flightradar24.
 
 ---

@@ -1060,6 +1060,8 @@ If no source is ticked, Flightradar24 is used. The "Test the connection" button 
 
 For aircraft Flightradar24 does not see, the details come from adsbdb.com (free service, no key): the aircraft's ICAO address and callsign are sent to it. Untick `enrich` to stay fully local; the aircraft is then shown without details.
 
+**Icon colour.** The `[display] color_by_source = true` option ("Aircraft sources" page) colours aircraft on screen according to their source: `plane_color_fr24` (seen by Flightradar24 only, `#ffd250`), `plane_color_tar1090` (seen by tar1090 only, `#5ac8ff`) and `plane_color_multi` (seen by several sources, `#78e68c`). The aircraft shown in the photo panel keeps its usual colour.
+
 In the "Aircraft seen" tab, a purple "⇄ 2" badge marks aircraft seen by several sources, an aircraft's sheet lists its sources, and three filters are offered as soon as tar1090 is used: "Seen by several sources", "Flightradar24 only" and "tar1090 only". Aircraft recorded before sources were enabled count as Flightradar24.
 
 ---
