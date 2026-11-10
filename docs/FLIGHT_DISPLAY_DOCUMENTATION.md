@@ -32,13 +32,22 @@ L'installeur `install.sh` fait tout le travail des sections 3 à 7 : il installe
 
 ### 0.1 Avant de commencer
 
+Deux cas : un Raspberry Pi (cas A) ou une machine virtuelle Proxmox sous Debian 13 (cas B). Dans les deux cas, l'installation se termine par la même commande, décrite en 0.2.
+
+#### Cas A : Raspberry Pi
+
 1. Avec Raspberry Pi Imager, installez Raspberry Pi OS Lite (32-bit) sur la carte SD (voir 3.1). Dans la personnalisation, renseignez le nom d'hôte, un utilisateur, le Wi-Fi et activez SSH.
 2. Pour une installation manuelle, tenez prêts : votre adresse (ou vos coordonnées), votre clé API CARTO (gratuite, voir 2 et le README), et si vous le souhaitez les identifiants de votre serveur MQTT. L'installation automatique n'a besoin de rien.
 3. Connectez-vous au Pi en SSH : `ssh <utilisateur>@<nom-du-pi>.local`.
+4. Lancez l'installation :
 
-#### Installation dans une VM Proxmox (Debian 13)
+```
+bash <(curl -fsSL https://raw.githubusercontent.com/arcalulu/flightdisplay/main/install.sh)
+```
 
-Pour une VM Proxmox à la place d'un Raspberry Pi, préparez d'abord la VM, puis lancez la commande de 0.2 :
+#### Cas B : VM Proxmox (Debian 13)
+
+Préparez d'abord la VM :
 
 1. Installez **Debian 13 sans environnement de bureau**.
 2. Passez root et installez `curl` et `sudo` :
@@ -65,7 +74,11 @@ ip a
 reboot
 ```
 
-5. Reconnectez-vous avec votre utilisateur normal (pas en root), puis lancez la commande de 0.2.
+5. Reconnectez-vous avec votre utilisateur normal (pas en root) et lancez l'installation :
+
+```
+bash <(curl -fsSL https://raw.githubusercontent.com/arcalulu/flightdisplay/main/install.sh)
+```
 
 ### 0.2 La commande
 
