@@ -243,6 +243,16 @@ def parse_order(text, enabled_flags):
     return seen
 
 
+def hexdb_details(hx, timeout=8):
+    """Type, modele, immatriculation et proprietaire d'un avion d'apres son adresse ICAO, sur hexdb.io (gratuit, sans cle). {} si inconnu."""
+    code, d = http_json("https://hexdb.io/api/v1/aircraft/" + hx, timeout)
+    if code == 200 and isinstance(d, dict) and (d.get("Type") or d.get("ICAOTypeCode")):
+        man, typ = (d.get("Manufacturer") or "").strip(), (d.get("Type") or "").strip()
+        return dict(model=typ if (not man or typ.lower().startswith(man.lower())) else (man + " " + typ).strip(),
+                    code=(d.get("ICAOTypeCode") or "").strip().upper(), reg=d.get("Registration") or "", owner=d.get("RegisteredOwners") or "")
+    return {}
+
+
 def adsbdb_details(hx, callsign, timeout=8):
     """Complete un avion qui ne vient pas de FlightRadar24 (immatriculation, modele, compagnie, trajet, photo) via adsbdb.com (gratuit, sans cle)."""
     info = {}

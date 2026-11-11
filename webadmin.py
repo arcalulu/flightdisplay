@@ -1129,22 +1129,28 @@ def manual_save(fid, cat, code, model):
 
 
 def aircraft_lookup(fid):
-    """Cherche le type, le modèle et l'immatriculation d'un avion de l'historique sur adsbdb.com (gratuit, sans clé) : par adresse ICAO, puis par
-    immatriculation. Appelé par le bouton « Suggérer » (l'adresse ICAO ou l'immatriculation sont alors envoyées à ce service)."""
+    """Cherche le type, le modèle et l'immatriculation d'un avion de l'historique sur adsbdb.com puis hexdb.io (gratuits, sans clé) : par adresse ICAO,
+    puis par immatriculation (adsbdb seulement). Appelé par la fiche d'un avion à classer (l'adresse ICAO ou l'immatriculation sont alors envoyées
+    à ces services)."""
     e = _history_entry(fid)
     if not e:
         raise ValueError("avion inconnu")
     reg = aircraft_types.norm_reg(e.get("reg"), e.get("cs"))
     cs = (e.get("cs") or "").strip().upper()
-    keys = ([fid.lower()] if re.fullmatch(r"[0-9a-fA-F]{6}", fid) else []) + ([reg] if reg else [])
-    if not reg and re.fullmatch(r"[A-Z0-9-]{4,7}", cs) and not re.fullmatch(r"[A-Z]{3}[0-9]{1,4}[A-Z]{0,2}", cs):
-        keys.append(cs)  # indicatif qui ressemble à une immatriculation (N88ST) : tenté en dernier
-    if not keys:
+    hx = fid.lower() if re.fullmatch(r"[0-9a-fA-F]{6}", fid) else ""
+    tries = []  # (service, fonction)
+    if hx:
+        tries += [("adsbdb.com", lambda: sources.adsbdb_details(hx, "")), ("hexdb.io", lambda: sources.hexdb_details(hx))]
+    if reg:
+        tries.append(("adsbdb.com", lambda: sources.adsbdb_details(urllib.parse.quote(reg, safe="-"), "")))
+    elif re.fullmatch(r"[A-Z0-9-]{4,7}", cs) and not re.fullmatch(r"[A-Z]{3}[0-9]{1,4}[A-Z]{0,2}", cs):
+        tries.append(("adsbdb.com", lambda: sources.adsbdb_details(urllib.parse.quote(cs, safe="-"), "")))  # indicatif qui ressemble à une immatriculation
+    if not tries:
         return dict(found=False, reg=reg)
     errors = 0
-    for k in keys:
+    for name, fn in tries:
         try:
-            x = sources.adsbdb_details(urllib.parse.quote(k, safe="-"), "")
+            x = fn()
         except Exception:
             errors += 1
             continue
@@ -1154,8 +1160,8 @@ def aircraft_lookup(fid):
             cat = xcat.get(code) or aircraft_types.suggest(x.get("model"))
             if aircraft_types.is_ulm(x.get("reg") or reg):
                 cat = "ulm"
-            return dict(found=True, model=x.get("model") or "", code=code, reg=aircraft_types.norm_reg(x.get("reg") or reg), owner=x.get("owner") or "", cat=cat or "", source="adsbdb.com")
-    if errors == len(keys):
+            return dict(found=True, model=x.get("model") or "", code=code, reg=aircraft_types.norm_reg(x.get("reg") or reg), owner=x.get("owner") or "", cat=cat or "", source=name)
+    if errors == len(tries):
         raise OSError("hors ligne")
     return dict(found=False, reg=reg)
 
