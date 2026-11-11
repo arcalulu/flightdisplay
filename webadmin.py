@@ -3973,7 +3973,7 @@ function histSheet(L, i) {
     const nav = el('div', 'hnav'); nav.append(inp, add);
     if (e.mp) { const rm = el('button', 'b s', 'Retirer ma photo'); rm.onclick = async () => { try { await api('/api/myphoto', {id: e.id, remove: true}); toast('Photo retirée'); await after(); } catch (er) { toast(er.message, true); } }; nav.append(rm); }
     pPh.append(nav);
-  }
+  } else pPh.append(el('p', 'note', 'Impossible d\'ajouter une photo : cet avion n\'a ni adresse ICAO ni immatriculation connue, le programme ne saurait pas la retrouver quand l\'avion repasse.'));
   // ---- onglets
   const tabs = el('div', 'htabs'), panes = [pInfo, pPas, pCls, pPh], btns = [];
   const show = k => {
