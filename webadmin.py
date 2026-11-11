@@ -383,7 +383,7 @@ NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 import aircraft_types
 TYPE_CATS = list(aircraft_types.ORDER)
 TYPE_LABELS = {"narrow": "Monocouloir", "wide": "Gros-porteur", "quad": "Quadriréacteur", "regional": "Jet régional",
-               "turbo": "Turbopropulseur", "light": "Avion léger", "ulm": "Ultra léger motorisé (ULM)", "bizjet": "Jet d'affaires", "heli": "Hélicoptère"}
+               "turbo": "Turbopropulseur", "light": "Avion léger", "ulm": "Ultra léger motorisé (ULM)", "mil": "Militaire","bizjet": "Jet d'affaires", "heli": "Hélicoptère"}
 
 
 def read_lines(path):
@@ -1038,15 +1038,20 @@ def history_data():
             model_of[e["reg"]] = label(e)
     entries = []
     mine = perso_listing()
+    xcat = dict(aircraft_types.BUILTIN); xcat.update(aircraft_types.read_extra(S.TYPES_FILE))  # type ICAO -> categorie (liste intégrée + types_extra.txt)
     for e in L[:1000]:
         reg = e.get("reg") or ""
         br, fa = split_model(e.get("model"), e.get("code"))
         if aircraft_types.is_ulm(reg):  # immatriculation F-J : toujours rangé dans les ULM (filtre Constructeur), le constructeur d'origine passe dans la famille
             fa = (fa if br == "Inconnu" else (br + " " + fa).strip()) or "?"
             br = "ULM"
+        mil = (not aircraft_types.is_ulm(reg)) and (bool(e.get("mil")) or xcat.get((e.get("code") or "").upper()) == "mil")
+        if mil:  # militaire (signale par une source, ou type militaire) : rangé sous « Militaire » dans le filtre Constructeur
+            fa = (fa if br == "Inconnu" else (br + " " + fa).strip()) or "?"
+            br = "Militaire"
         entries.append(dict(br=br, fa=fa, al=int(e.get("al") or 0), id=str(e["id"]), t=int(e.get("t", 0)), l=int(e.get("l", e.get("t", 0))), cs=e.get("cs", ""), reg=reg,
                             code=e.get("code", ""), model=e.get("model", ""), airline=e.get("airline", ""), frm=e.get("frm", ""), to=e.get("to", ""),
-                            fi=e.get("fi", ""), ti=e.get("ti", ""), photo=bool(e.get("photo") or e.get("url")) or bool(perso_entry(e, mine)), credit=e.get("credit", ""), mp=perso_entry(e, mine), ulm=aircraft_types.is_ulm(reg),
+                            fi=e.get("fi", ""), ti=e.get("ti", ""), photo=bool(e.get("photo") or e.get("url")) or bool(perso_entry(e, mine)), credit=e.get("credit", ""), mp=perso_entry(e, mine), ulm=aircraft_types.is_ulm(reg), mil=mil,
                             n=regs.get(reg, 1) if reg else 1, rare=codes.get(e.get("code"), 0) == 1,
                             src=[x for x in (e.get("src") or []) if x in sources.NAMES], ml=bool(e.get("mlat"))))
     stats = dict(total=len(L), regs=len(regs), airlines=len(airl), types=len(codes), today=sum(1 for e in L if now - e.get("t", 0) < 86400),
@@ -3535,6 +3540,7 @@ function histBadges(e) {
   if (e.ml) { const m = el('span', 'hbadge mlat', 'MLAT'); m.title = tl('Position calculée par multilatération (MLAT) par la source'); bd.append(m); }
   if (e.src && e.src.length >= 2) { const m = el('span', 'hbadge multi', '⇄ ' + e.src.length); m.title = _t('Vu par {0} sources : {1}', e.src.length, e.src.map(x => SRC_SHORT[x] || x).join(', ')); bd.append(m); }
   if (e.n === 1 && e.reg) bd.append(el('span', 'hbadge new', '1re fois'));
+  if (e.mil) { const m = el('span', 'hbadge cnt', 'MIL'); m.title = tl('Avion militaire'); bd.append(m); }
   if (e.ulm) { const u = el('span', 'hbadge cnt', 'ULM'); u.title = tl('Immatriculation F-J : ultra léger motorisé'); bd.append(u); }
   if (e.rare) bd.append(el('span', 'hbadge rare', 'Type rare'));
   if (e.n >= 2) { const c = el('span', 'hbadge cnt', '×' + e.n); c.title = _t('{0} fois vu', e.n); bd.append(c); }  // déjà vu : le nombre de passages, en gris

@@ -7,8 +7,8 @@ PERSO_DIR = "photos_perso"  # photos personnelles (webadmin, fiche d'un avion) :
 
 
 def is_ulm(reg):
-    """Une immatriculation française qui commence par F-J est toujours celle d'un ULM (ultra léger motorisé)."""
-    return (reg or "").strip().upper().startswith("F-J")
+    """Une immatriculation française qui commence par F-J (ou FJ, tiret absent chez certaines sources) est toujours celle d'un ULM (ultra léger motorisé)."""
+    return (reg or "").strip().upper().startswith(("F-J", "FJ"))
 
 
 def perso_names(hx, reg):
@@ -49,7 +49,8 @@ SHAPES = {
     "light":    _build(14, 1.2, -3, 10, 0, 2.4, 2.4, 5, 3.5, 0, 1.8),
     "ulm":      _build(10, 0.9, -2.2, 9.5, 0, 2.6, 2.6, 3.6, 3.4, 0, 1.3),  # ultra leger motorise : petit, longues ailes droites
     "bizjet":   _build(18, 1.4, 0, 8, 4, 1.6, 4, 6, 3.5, 1.5, 1.5),
-    "heli":     [(-2,-4),(2,-4),(2.5,2),(0.7,3),(0.7,12),(2.2,12),(2.2,13),(-2.2,13),(-2.2,12),(-0.7,12),(-0.7,3),(-2.5,2)],
+    "mil":      _build(16, 1.1, 0.5, 6.5, 5, 3, 5, 5.5, 3, 1.5, 1.5),  # militaire : fuselage fin, aile delta courte
+    "heli":    [(-2,-4),(2,-4),(2.5,2),(0.7,3),(0.7,12),(2.2,12),(2.2,13),(-2.2,13),(-2.2,12),(-0.7,12),(-0.7,3),(-2.5,2)],
 }
 
 CATS = {
@@ -60,6 +61,7 @@ CATS = {
     "turbo": "AT43 AT44 AT45 AT46 AT72 AT73 AT75 AT76 DH8A DH8B DH8C DH8D SF34 SB20 JS31 JS32 JS41 D328 F50 F27 E120 B190 BE20 BE9L PC12 C208 TBM7 TBM8 TBM9 AN26 AN12 C130 C30J A400",
     "light": "C150 C152 C162 C172 C177 C182 C185 C206 C210 PA18 PA28 P28A P28R PA32 PA34 PA44 PA46 SR20 SR22 DR40 DA20 DA40 DA42 DA62 TB10 TB20 TB21 BE33 BE35 BE36 BE58 M20P M20T AA5 RV7 RV8 RV9 GLID PIVI S22T",
     "ulm": "ULAC P92 CTSW CTLS",
+    "mil": "RFAL EUFI MIR2 M2KC ALPH M346 F16 F15 F18H F18S FA18 F35 F22 TOR GR4 HAWK A10 B52 B1 B2 C17 C5M K35R E3TF E3CF P8 P3 U2 T38 PC21 PC7 T6 TEX2",
     "bizjet": "C25A C25B C25C C25M C510 C525 C550 C560 C56X C680 C68A C700 C750 CL30 CL35 CL60 CL64 GLF2 GLF3 GLF4 GLF5 GLF6 GL5T GL7T GALX G150 G280 E35L E55P FA50 FA7X FA8X FA6X F900 F2TH LJ35 LJ40 LJ45 LJ60 LJ75 E50P H25B H25C PRM1 SF50 EA50 BE40 ASTR",
     "heli": "EC20 EC25 EC30 EC35 EC45 EC55 EC75 EC13 AS32 AS35 AS50 AS55 AS65 AS3B H60 H47 H46 H53 H500 H160 H135 H145 H175 H225 R22 R44 R66 B06 B407 B412 B429 B105 B212 A109 A119 A139 A169 A189 S76 S92 S61 AW09 NH90 MI8 MI26 KA32 EXPL",
 }
@@ -84,6 +86,8 @@ def read_extra(path):
 HINTS = [
     ("heli", ["helicopter", "eurocopter", "robinson r", "sikorsky", "agusta", "bell 2", "bell 4", "hughes", "guimbal", "cabri", "mil mi", "kamov",
               "bo 105", "bo-105", "md 500", "md 600", "md 900", "airbus h", "as350", "as355", "ec135", "ec145", "ec130"]),
+    ("mil", ["rafale", "typhoon", "eurofighter", "fighting falcon", "hornet", "lightning ii", "raptor", "mirage", "tornado", "alpha jet", "hawk ", "gripen",
+             "phantom", "awacs", "sentry", "globemaster", "stratotanker", "stratofortress", "thunderbolt", "orion", "military", "fighter", "bomber"]),
     ("bizjet", ["gulfstream", "learjet", "citation", "falcon", "challenger", "global 5", "global 6", "global 7", "global express", "hawker", "pc-24",
                 "phenom", "praetor", "legacy", "hondajet", "eclipse 5", "vision sf50", "beechjet", "premier", "astra", "bd-100", "cessna cj"]),
     ("quad", ["a380", "a340", "boeing 747", "747-", "an-124", "il-76", "c-5 galaxy"]),

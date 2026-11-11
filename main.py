@@ -259,6 +259,8 @@ def history_note(f, info):
     e["src"] = sorted(set(e.get("src") or ()) | set(f.sources or ()))  # sources qui ont vu l'avion (page Avions vus)
     if f.mlat:
         e["mlat"] = 1  # position deja calculee par MLAT au moins une fois
+    if f.mil:
+        e["mil"] = 1  # signale militaire par une source (indicateur dbFlags)
     e.update(l=now, cs=f.callsign or "", reg=info.get("reg") or "", code=f.aircraft_code or "", model=info.get("model") or "",
              airline=info.get("airline") or "", frm=info.get("origin") or "", to=info.get("dest") or "",
              fi=f.origin_airport_iata or "", ti=f.destination_airport_iata or "",
@@ -704,6 +706,9 @@ def poll_loop():
                         if f.id in history:
                             history[f.id]["photo"] = os.path.basename(details[f.id]["photo_path"] or ""); _hs["dirty"] = True
                     states[f.id]["mlat"] = bool(f.mlat)  # position MLAT : petit M a cote de l'icone
+                    states[f.id]["mil"] = bool(f.mil)  # signale militaire par une source : icone militaire
+                    if f.mil and f.id in history and not history[f.id].get("mil"):
+                        history[f.id]["mil"] = 1; _hs["dirty"] = True
                     states[f.id]["src"] = tuple(f.sources)  # sources qui voient l'avion en ce moment (couleur de l'icone)
                     if (f.id not in details and f.id not in queued and now >= adsb_wait.get(f.id, 0)
                             and (f.fr is not None or ENRICH)
@@ -893,7 +898,7 @@ def plane_color(s):
             return SRC_COLORS["multi"]
         if src and src[0] in SRC_COLORS:
             return SRC_COLORS[src[0]]
-    return PLANE_KNOWN if (is_ulm(s.get("reg")) or known_type(s["code"])) else PLANE_UNKNOWN
+    return PLANE_KNOWN if (is_ulm(s.get("reg")) or s.get("mil") or known_type(s["code"])) else PLANE_UNKNOWN
 
 
 def known_type(code):
@@ -901,8 +906,10 @@ def known_type(code):
     return not code or code.upper() in CATEGORY
 
 
-def draw_plane(surf, color, x, y, heading, code, reg=""):
+def draw_plane(surf, color, x, y, heading, code, reg="", mil=False):
     cat = "ulm" if is_ulm(reg) else category(code)  # immatriculation F-J... : toujours un ULM, quel que soit le type annonce
+    if mil and cat not in ("ulm", "heli"):
+        cat = "mil"  # avion signale militaire par une source (les helicopteres gardent leur forme)
     t = math.radians(heading); c, s = math.cos(t), math.sin(t)
     pts = [(x + (px * c - py * s) * ICON, y + (px * s + py * c) * ICON)
            for px, py in SHAPES[cat]]
@@ -1240,7 +1247,7 @@ def main():
                 pts = [to_xy(*p) for p in s["trail"]] + [(x, y)]
                 pygame.draw.lines(screen, TRAIL_PANEL if hl else (90, 130, 170), False, pts, lw)
             pc = PLANE_PANEL if hl else plane_color(s)
-            draw_plane(screen, pc, x, y, s["heading"], s["code"], s.get("reg"))
+            draw_plane(screen, pc, x, y, s["heading"], s["code"], s.get("reg"), s.get("mil"))
             if s.get("mlat"):
                 mt = f_mlat.render("M", True, pc)
                 screen.blit(mt, (x - S(12) - mt.get_width(), y - S(12) - mt.get_height()))

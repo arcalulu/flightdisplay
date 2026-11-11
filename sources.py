@@ -72,6 +72,7 @@ class Flight:
         self.airline_icao = ""
         self.time = 0.0
         self.mlat = False  # position calculee par multilateration (MLAT) et non recue de l'avion
+        self.mil = False  # avion militaire d'apres la base readsb (indicateur dbFlags)
         self.fr = None  # objet FlightRadar24 d'origine (necessaire pour ses details)
         self.__dict__.update(kw)
 
@@ -116,11 +117,15 @@ def fetch_aircraft(url, source, max_age=30.0, timeout=6):
             if not ground and age > max_age:
                 continue
             mlat = a.get("type") == "mlat" or "lat" in (a.get("mlat") or ())  # type readsb, ou liste des champs issus de MLAT
+            try:
+                mil = bool(int(a.get("dbFlags") or 0) & 1)  # bit 1 de dbFlags : avion militaire
+            except (TypeError, ValueError):
+                mil = False
             hd = a.get("track", a.get("true_heading", 0))
             out.append(Flight(id=hx, hex=hx, source=source, sources=[source], latitude=float(a["lat"]), longitude=float(a["lon"]),
                               ground_speed=int(round(float(a.get("gs") or 0))), heading=float(hd or 0), altitude=int(alt), on_ground=ground,
                               callsign=str(a.get("flight", "") or "").strip(), registration=str(a.get("r", "") or "").strip(),
-                              aircraft_code=str(a.get("t", "") or "").strip().upper(), time=now - age, mlat=mlat))
+                              aircraft_code=str(a.get("t", "") or "").strip().upper(), time=now - age, mlat=mlat, mil=mil))
         except (TypeError, ValueError):
             continue
     return out, len(items)
@@ -154,6 +159,7 @@ def merge(snaps, order, mode, overlap):
         m = copy.copy(best)
         m.sources = [f.source for f in cands]
         m.mlat = best.mlat  # l'icone suit la source qui donne la position
+        m.mil = any(f.mil for f in cands)  # militaire des qu'une source le dit
         for attr in COMPLETE:
             if not getattr(m, attr):
                 for f in cands:
