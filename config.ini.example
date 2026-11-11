@@ -64,6 +64,10 @@ interval_seconds = 2
 # intervalle de lecture (s) des services en ligne, commun aux trois (ne pas descendre sous 1 s)
 interval_seconds = 5
 
+[history]
+# nombre d'avions gardes dans la page Avions vus (50 a 5000 ; 500 au plus sur un Raspberry Pi Zero)
+max_aircraft = 1000
+
 [display]
 # couleur des icones selon la source (voir [sources])
 color_by_source = false

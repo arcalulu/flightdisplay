@@ -148,6 +148,7 @@ CATS = [
     ("ground", "Avions au sol", "Programme"),
     ("alert", "Alerte de proximité", "Programme"),
     ("types", "Types d'avion", "Programme"),
+    ("history", "Historique des avions", "Programme"),
     ("other", "Autres réglages", "Programme"),
     ("server", "Serveur web", "Webadmin"),
     ("paths", "Application et système", "Webadmin"),
@@ -157,6 +158,8 @@ CATS = [
     ("backup", "Sauvegarde", "Webadmin"),
     ("mqtt", "MQTT / Home Assistant", "Intégrations"),
 ]
+HELP_HIST = "De 50 à 5000. Les avions les plus anciens sont supprimés quand la limite est dépassée."
+HELP_HIST_ZERO = "De 50 à 500 : un Raspberry Pi Zero est limité à 500 avions (mémoire, carte SD et page web lentes). Les avions les plus anciens sont supprimés quand la limite est dépassée."
 CAT_NOTES = {
     "language": "Langue de webadmin (immédiat) et du texte affiché à l'écran par le programme (le programme d'affichage est relancé à l'enregistrement). Pour ajouter une langue, déposez un fichier dans le dossier lang (voir la documentation).",
     "label": "Petits panneaux affichés à côté de chaque avion sur la carte. Réordonnez les éléments avec les flèches, choisissez ceux à afficher, leur taille, gras et italique, et s'ils partagent la ligne de l'élément précédent. Si tout est masqué, aucun panneau n'est affiché.",
@@ -166,6 +169,7 @@ CAT_NOTES = {
     "tar1090": "Serveur tar1090 (https://github.com/wiedehopf/tar1090) de votre réseau, alimenté par une antenne ADS-B et lu par son fichier aircraft.json. Positions quasi instantanées, sans quota ni Internet. Il ne voit que les avions captés par l'antenne et ne donne ni modèle, ni compagnie, ni trajet : ils sont alors demandés à adsbdb.com (option « Compléter les avions captés seulement par l'antenne », dans « Sources des avions »). Cette source s'active et se classe dans « Sources des avions ».",
     "online": "airplanes.live, adsb.lol et adsb.fi sont des services communautaires gratuits, sans clé, qui diffusent les avions captés par des milliers d'antennes ADS-B, positions MLAT comprises. Le programme leur demande les avions dans un cercle autour de votre position qui couvre tout l'écran. Ils ne donnent ni modèle précis, ni compagnie, ni trajet : ils sont alors demandés à adsbdb.com (option « Compléter les avions absents de Flightradar24 », dans « Sources des avions »). Usage non commercial ; airplanes.live demande au plus une requête par seconde. Ces sources s'activent et se classent dans « Sources des avions ».",
     "mapstyle": "Personnalisez le fond de carte : thème, éléments affichés, couleurs et noms de lieux. Choisir un thème affiche tout de suite une carte d'exemple (indicatif) ; « Mettre à jour l'aperçu » donne le rendu fidèle de votre zone, avec vos couleurs et vos éléments. Il faut ensuite enregistrer puis reconstruire la carte pour que l'écran l'utilise.",
+    "history": "Nombre d'avions gardés dans la page « Avions vus » : au-delà, les plus anciens sont supprimés. Un historique plus long ralentit la page et pèse sur la carte SD ; sur un Raspberry Pi Zero, il est limité à 500 avions. Le changement demande de relancer le programme.",
     "server": "Le port et l'adresse d'écoute demandent un redémarrage de webadmin. L'identifiant et le mot de passe s'appliquent immédiatement.",
     "paths": "Réglages avancés. Une valeur vide utilise le comportement par défaut.",
     "backup": "Exporte la configuration du Raspberry Pi dans un fichier, et la restaure (par exemple sur une nouvelle carte SD après une panne).",
@@ -274,6 +278,7 @@ PARAMS = [
     C("sources", "display", "color_military", "bool", True, "Colorer les avions militaires", "Les avions militaires (signalés par une source, ou de type militaire) prennent leur propre couleur, quelle que soit leur source (l'avion du panneau photo reste dans sa couleur habituelle).", "Couleurs"),
     C("sources", "display", "plane_color_military", "color", "#8fd15a", "Avions militaires", "", "Couleurs"),
     C("tar1090", "tar1090", "url", "text", "", "Adresse du fichier aircraft.json", "Pour tar1090 : http://adresse/tar1090/data/aircraft.json. Les installations dump1090-fa ou readsb seules fonctionnent aussi (http://adresse/dump1090-fa/data/aircraft.json).", "Connexion"),
+    C("history", "history", "max_aircraft", "int", 1000, "Nombre d'avions gardés", HELP_HIST, "Historique", min=50, max=5000),
     C("tar1090", "tar1090", "interval_seconds", "float", 2, "Intervalle de lecture (s)", "", "Connexion", min=0.5, max=60),
     C("online", "online", "interval_seconds", "float", 5, "Intervalle de lecture (s)", "Commun aux trois services. Ne descendez pas sous 1 s : ils limitent le nombre de requêtes.", "Connexion", min=1, max=60),
     C("api", "api", "poll_seconds", "float", 30, "Intervalle de requête (s)", "Trop bas : risque d'erreur 429.", "Fréquence", min=5, max=600),
@@ -427,8 +432,12 @@ def get_settings():
     for p in PARAMS:
         if p["key"] == "fullscreen" and is_pi():
             continue  # sur un Raspberry Pi, l'affichage est toujours en plein ecran
+        if p["key"] == "max_aircraft" and is_zero():  # Pi Zero : plafond de l'historique
+            p = dict(p, default=aircraft_types.HISTORY_ZERO_MAX, max=aircraft_types.HISTORY_ZERO_MAX, help=HELP_HIST_ZERO)
         cur = state[p["file"]].get((p["sec"], p["key"]))
         raw = cur["value"] if cur else fmt_default(p["default"])
+        if p["key"] == "max_aircraft":
+            raw = str(aircraft_types.history_limit(raw, pi_model()))  # valeur reellement appliquee
         out = dict(id=f'{p["file"]}:{p["sec"]}.{p["key"]}', cat=p["cat"], key=p["key"], type=p["type"], label=tr(p["label"]),
                    help=tr(p["help"]), options=p.get("options"), labels=p.get("labels"), needs_map=bool(p.get("needs_map")), apply=p["apply"],
                    default=fmt_default(p["default"]), present=cur is not None, min=p.get("min"), max=p.get("max"), step=p.get("step"), ui=p.get("ui"), unit=p.get("unit"),
@@ -1064,7 +1073,11 @@ def history_data():
     mine = perso_listing()
     xcat = dict(aircraft_types.BUILTIN); xcat.update(aircraft_types.read_extra(S.TYPES_FILE))  # type ICAO -> categorie (liste intégrée + types_extra.txt)
     manual = aircraft_types.read_manual(manual_path())
-    for e in L[:1000]:
+    try:
+        lim = aircraft_types.history_limit(S.ini.getint("history", "max_aircraft", fallback=1000), pi_model())
+    except (ValueError, configparser.Error):
+        lim = aircraft_types.HISTORY_DEFAULT
+    for e in L[:lim]:
         reg = aircraft_types.norm_reg(e.get("reg"), e.get("cs"))  # FHURY (indicatif) -> F-HURY
         mn = manual.get(str(e["id"]).lower()) or {}
         mcat, mcode, mmodel = mn.get("cat", ""), mn.get("code", ""), mn.get("model", "")
@@ -1443,6 +1456,10 @@ def cpu_sampler():
         prev = cur
 
 _pi_model = []
+
+
+def is_zero():
+    return "zero" in pi_model().lower()
 
 
 def pi_model():

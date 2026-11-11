@@ -67,9 +67,11 @@ hub = sources.Hub(SRC_ENABLED, sources.parse_order(cfg.get("sources", "order", f
                   cfg.get("sources", "mode", fallback="combine").strip().lower(), cfg.get("sources", "overlap", fallback="freshest").strip().lower())
 
 FULLSCREEN = cfg.getboolean("display", "fullscreen", fallback=False)
+PI_NAME = ""
 try:  # sur un Raspberry Pi, l'affichage est toujours en plein ecran (le reglage n'est pas propose dans webadmin)
     with open("/proc/device-tree/model", "rb") as _f:
-        FULLSCREEN = FULLSCREEN or b"Raspberry Pi" in _f.read()
+        PI_NAME = _f.read().replace(b"\0", b"").decode("utf-8", "replace")
+        FULLSCREEN = FULLSCREEN or "Raspberry Pi" in PI_NAME
 except OSError:
     pass
 FPS = cfg.getint("display", "fps", fallback=10)
@@ -222,7 +224,7 @@ def types_flush():
 # Historique des avions vus (page "Avions vus" de webadmin) : un avion par vol, plafonne ; ecrit 30 s apres un nouvel avion
 # (les mises a jour du dernier passage attendent le prochain nouvel avion : pas d'ecriture inutile sur la carte SD).
 HISTORY_FILE = os.path.join(CACHE, "history.json")
-HISTORY_MAX = 1000
+HISTORY_MAX = history_limit(cfg.getint("history", "max_aircraft", fallback=1000), PI_NAME)  # reglable dans webadmin, 500 au plus sur un Pi Zero
 history = {}
 _hs = {"dirty": False, "last": 0.0}
 try:
@@ -888,7 +890,7 @@ def clean_cache(days=3):
             pass
 
 
-from aircraft_types import SHAPES, BUILTIN, read_extra, perso_find, is_ulm, norm_reg, read_manual, MANUAL_FILE
+from aircraft_types import SHAPES, BUILTIN, read_extra, perso_find, is_ulm, norm_reg, read_manual, MANUAL_FILE, history_limit
 CATEGORY = dict(BUILTIN)
 CATEGORY.update(read_extra("types_extra.txt"))
 _unknown = set()

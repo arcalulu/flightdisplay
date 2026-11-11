@@ -43,6 +43,22 @@ def norm_reg(reg, callsign=""):
     return r
 
 
+HISTORY_DEFAULT = 1000  # avions gardes dans l'historique (page Avions vus)
+HISTORY_ZERO_MAX = 500  # plafond sur un Raspberry Pi Zero (memoire, carte SD et page web lentes)
+
+
+def history_limit(value, model_name=""):
+    """Nombre d'avions gardes dans l'historique : la valeur reglee (50 a 5000), au plus 500 sur un Raspberry Pi Zero."""
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        n = HISTORY_DEFAULT
+    n = max(50, min(5000, n))
+    if "zero" in (model_name or "").lower():
+        n = min(n, HISTORY_ZERO_MAX)
+    return n
+
+
 def perso_names(hx, reg):
     """Noms de fichier possibles de la photo personnelle d'un avion, dans l'ordre de recherche : adresse ICAO (6 chiffres hexa), puis immatriculation."""
     out = []
