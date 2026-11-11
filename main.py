@@ -273,7 +273,29 @@ def history_note(f, info):
     _hs["dirty"] = True
 
 
+HISTORY_DEL = os.path.join(CACHE, "history_deleted.json")  # avions supprimes depuis webadmin (page Avions vus)
+_hd = {"t": 0.0}
+
+
+def history_purge():
+    """Retire de la memoire les avions supprimes depuis webadmin (sinon la prochaine ecriture les remettrait dans le fichier)."""
+    now = time.time()
+    if now - _hd["t"] < 5:
+        return
+    _hd["t"] = now
+    try:
+        with open(HISTORY_DEL, encoding="utf-8") as fh:
+            ids = json.load(fh)
+        os.remove(HISTORY_DEL)
+    except (OSError, ValueError):
+        return
+    n = sum(1 for i in (ids if isinstance(ids, list) else ()) if history.pop(str(i), None) is not None)
+    if n:
+        _hs["dirty"] = True
+
+
 def history_flush():
+    history_purge()
     if not _hs["dirty"] or time.time() - _hs["last"] < 30:
         return
     _hs.update(dirty=False, last=time.time())

@@ -1127,6 +1127,32 @@ def aircraft_lookup(fid):
     return dict(found=False, reg=reg)
 
 
+HIST_DEL = "history_deleted.json"  # identifiants a retirer de l'historique : main.py les lit et les retire de sa memoire (sinon il reecrirait l'avion)
+
+
+def history_delete(ids):
+    """Retire des avions de l'historique (page Avions vus, onglet A classer) et oublie leur classement manuel."""
+    ids = {str(i) for i in ids if re.fullmatch(r"[A-Za-z0-9:]{1,40}", str(i))}
+    if not ids:
+        raise ValueError("avion inconnu")
+    base = os.path.join(S.APP_DIR, "cache")
+    with file_lock:
+        L = [e for e in _history_list() if str(e.get("id")) not in ids]
+        tmp = os.path.join(base, "history.json.tmp")
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(L, fh)
+        os.replace(tmp, os.path.join(base, "history.json"))
+        try:
+            with open(os.path.join(base, HIST_DEL), encoding="utf-8") as fh:
+                old = json.load(fh)
+        except (OSError, ValueError):
+            old = []
+        with open(os.path.join(base, HIST_DEL), "w", encoding="utf-8") as fh:
+            json.dump(sorted(set(str(x) for x in (old if isinstance(old, list) else [])) | ids), fh)
+    for i in ids:
+        manual_save(i, "", "", "")
+
+
 def perso_dir():
     return os.path.join(S.APP_DIR, aircraft_types.PERSO_DIR)
 
@@ -2023,6 +2049,12 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("ce n'est pas un fichier aircraft.json (pas de liste « aircraft » ni « ac »)")
                 return self.send_json(dict(ok=True, total=len(items), positions=sum(1 for a in items if a.get("lat") is not None and a.get("lon") is not None),
                                            has_db=any(a.get("r") or a.get("t") for a in items)))
+            if path == "/api/history/delete":
+                ids = body.get("ids")
+                if not isinstance(ids, list) or len(ids) > 500:
+                    raise ValueError("liste d'avions invalide")
+                history_delete(ids)
+                return self.send_json(dict(ok=True))
             if path == "/api/aircraft/manual":
                 fid = str(body.get("id", ""))
                 if not re.fullmatch(r"[A-Za-z0-9:]{1,40}", fid):
@@ -2123,7 +2155,14 @@ h2.t{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.04
 .hsc{padding:14px 16px 16px}.hsc h3{margin:0;font-size:20px}.hsc .ha{color:var(--mut);margin-top:2px}.hcr{font-size:11px;color:var(--mut);margin-top:6px}
 .hdl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:12px 0;font-size:14px}.hdl dt{color:var(--mut)}.hdl dd{margin:0;min-width:0;overflow-wrap:anywhere}
 .hnav{display:flex;gap:8px;flex-wrap:wrap}
-.hcls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0}.hcls small{flex:1 0 100%;color:var(--mut)}.hcls .hnote{min-height:1em}.hcls select,.hcls input{background:var(--card2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 9px;min-width:0;flex:1 1 150px}
+.hcls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0}.hcls small{flex:1 0 100%;color:var(--mut)}.hcls .hnote{min-height:1em}
+.cls2{display:grid;grid-template-columns:minmax(150px,230px) minmax(0,1fr);gap:12px;align-items:start}@media(max-width:700px){.cls2{grid-template-columns:minmax(0,1fr)}}
+.cli{display:flex;justify-content:space-between;gap:8px;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);color:var(--txt);padding:10px 8px;cursor:pointer;font:inherit}.cli:first-child{border-top:0}
+.cli small{color:var(--mut)}.cli.on{background:var(--card2);border-radius:8px}
+.cpn h3{margin:0 0 6px;font-size:17px}.ckv{display:grid;grid-template-columns:130px minmax(0,1fr);gap:3px 10px;font-size:13px;margin:8px 0}.ckv i{font-style:normal;color:var(--mut)}.ckv .q{color:var(--mut);opacity:.6}
+.csg{background:rgba(52,199,89,.1);border:1px solid rgba(52,199,89,.35);color:#7ee2a0;border-radius:8px;padding:8px 10px;font-size:13px;margin:10px 0}.csg.none{background:var(--card2);border-color:var(--line);color:var(--mut)}
+.cact{display:flex;gap:8px;flex-wrap:wrap}.cact .dg{border-color:rgba(248,81,73,.5);color:#ff8a84}.cact .p,.hcls .p{border-color:rgba(255,210,80,.5);color:var(--acc)}
+.clnk{display:flex;gap:14px;flex-wrap:wrap;margin-top:12px}.lk{background:none;border:0;color:var(--mut);padding:0;font:inherit;font-size:12px;cursor:pointer;text-decoration:underline}.hcls select,.hcls input{background:var(--card2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 9px;min-width:0;flex:1 1 150px}
 .hx{position:absolute;top:8px;right:8px;z-index:2;width:30px;height:30px;padding:0;border-radius:50%;border:1px solid var(--line);background:#0b0f14d9;color:var(--txt);font-size:14px;cursor:pointer}
 .hbt{display:inline-flex;align-items:center;justify-content:center;width:28px;height:24px;margin-left:8px;padding:0;vertical-align:middle;border-radius:7px;border:1px solid var(--line);background:#1b2431;color:var(--txt);cursor:pointer}.hbt:hover,.hbt.on{border-color:var(--acc)}
 .hht{margin:2px 0 14px;overflow:auto;background:#0e141b;border:1px solid var(--line);border-radius:10px;padding:6px 8px}.hht h5{margin:2px 0 6px;font-size:12px;color:var(--mut);font-weight:600}
@@ -3566,26 +3605,64 @@ async function loadHist() {
   buildHist(); drawHist(); drawCls();
 }
 let histTab = 'hist';
-function drawCls() {  // onglet « À classer » : avions vus sans type ICAO ni modèle, classés un par un (enregistré tout de suite)
+let clsId = '', clsEdit = false;
+const clsLook = {};  // adresse -> résultat de la recherche adsbdb (ou erreur)
+function drawCls() {  // onglet « À classer » : liste à gauche, fiche de l'avion choisi à droite (suggestion cherchée toute seule)
   const c = $('#hCls'); if (!c) return; c.replaceChildren();
   const list = HIST.entries.filter(e => e.tc), tb = $('#hTabCls'); if (tb) tb.textContent = _t('À classer ({0})', list.length);
-  c.append(el('p', 'note', "Ces avions ont été vus sans type ICAO ni modèle : leur icône est celle par défaut. Choisissez leur catégorie (et, si vous les connaissez, leur type ICAO et leur modèle) : le classement est enregistré tout de suite, par avion, et s'applique dès son prochain passage."));
   if (!list.length) { c.append(el('p', 'note', 'Aucun avion à classer.')); return; }
-  const card = el('div', 'card');
-  for (const e of list.slice(0, 200)) {
-    const r = el('div', 'tcl'), hd = el('div', 'lt'); hd.append(el('b', null, e.reg || e.cs || e.id), el('small', null, [e.airline, e.cs && e.cs !== e.reg ? e.cs : '', ago(e.l || e.t)].filter(Boolean).join(' · ')));
-    const ct = el('div', 'hcls'), sl = document.createElement('select'); sl.append(new Option(tl('Catégorie automatique'), ''));
+  if (!list.some(e => e.id === clsId)) { clsId = list[0].id; clsEdit = false; }
+  const e = list.find(x => x.id === clsId);
+  const lay = el('div', 'cls2'), lc = el('div', 'card'), pn = el('div', 'card cpn');
+  for (const x of list.slice(0, 300)) {
+    const r = el('button', 'cli' + (x.id === clsId ? ' on' : '')); r.append(el('b', null, x.reg || x.cs || x.id), el('small', null, ago(x.l || x.t)));
+    r.onclick = () => { clsId = x.id; clsEdit = false; drawCls(); }; lc.append(r);
+  }
+  const q = () => el('span', 'q', '?'), kv = el('div', 'ckv'), row = (k, v) => { kv.append(el('i', null, k)); const s = el('span'); if (v) s.textContent = v; else s.append(q()); kv.append(s); };
+  pn.append(el('h3', null, e.reg || e.cs || e.id));
+  row('Immatriculation', e.reg); row('Indicatif', e.cs); row('Adresse ICAO', /^[0-9a-f]{6}$/.test(e.id) ? e.id : ''); row('Type ICAO', e.code);
+  row('Modèle', e.model && e.model !== '?' ? e.model : ''); row('Compagnie', e.airline); row('Passages', _t('{0} · dernier {1}', e.n, ago(e.l || e.t)));
+  pn.append(kv);
+  const sg = el('div', 'csg'), L = clsLook[e.id];
+  const catName = k => { const m = HIST.cats.find(x => x[0] === k); return m ? m[1] : ''; };
+  if (L === undefined) {
+    sg.textContent = tl('Recherche…'); clsLook[e.id] = null;
+    api('/api/aircraft/lookup?id=' + encodeURIComponent(e.id)).then(r => { clsLook[e.id] = r; }).catch(er => { clsLook[e.id] = {error: er.message}; }).then(() => { if (clsId === e.id && $('#hCls')) drawCls(); });
+  } else if (L === null) sg.textContent = tl('Recherche…');
+  else if (L.error) { sg.textContent = L.error; sg.className = 'csg none'; }
+  else if (!L.found) { sg.textContent = tl('Aucune suggestion trouvée : classez-le à la main, ou supprimez-le.'); sg.className = 'csg none'; }
+  else sg.textContent = _t('Trouvé sur {0} : {1}', L.source, [L.model, L.code, catName(L.cat)].filter(Boolean).join(' · '));
+  pn.append(sg);
+  const next = async () => { clsEdit = false; await loadHist(); };
+  const act = el('div', 'cact'), found = !!(L && L.found);
+  if (found) {
+    const ap = el('button', 'b s p', 'Appliquer la suggestion');
+    ap.onclick = async () => { try { await api('/api/aircraft/manual', {id: e.id, cat: L.cat || '', code: L.code || '', model: L.model || ''}); toast('Classement enregistré'); await next(); } catch (er) { toast(er.message, true); } };
+    act.append(ap);
+  }
+  const ed = el('button', 'b s', clsEdit ? 'Masquer le formulaire' : 'Modifier à la main'); ed.onclick = () => { clsEdit = !clsEdit; drawCls(); }; act.append(ed);
+  const del = el('button', 'b s dg', 'Supprimer cet avion');
+  del.onclick = async () => { if (!confirm(tl("Supprimer cet avion de l'historique ? S'il repasse, il réapparaîtra."))) return; try { await api('/api/history/delete', {ids: [e.id]}); toast('Avion supprimé'); await next(); } catch (er) { toast(er.message, true); } };
+  act.append(del);
+  pn.append(act);
+  if (clsEdit) {
+    const fm = el('div', 'hcls'), sl = document.createElement('select'); sl.append(new Option(tl('Catégorie automatique'), ''));
     for (const [k, l] of HIST.cats) sl.append(new Option(l, k));
     const cd = document.createElement('input'); cd.placeholder = tl('Type ICAO (ex. C172)'); cd.maxLength = 6;
     const md = document.createElement('input'); md.placeholder = tl('Modèle (ex. Cessna 172)'); md.maxLength = 80;
-    const sv = el('button', 'b s', 'Enregistrer le classement');
+    if (found) { sl.value = L.cat || ''; cd.value = L.code || ''; md.value = L.model || ''; }
+    const sv = el('button', 'b s p', 'Enregistrer le classement');
     sv.onclick = async () => {
       if (!sl.value && !cd.value.trim() && !md.value.trim()) { toast('Choisissez une catégorie, un type ou un modèle', true); return; }
-      try { await api('/api/aircraft/manual', {id: e.id, cat: sl.value, code: cd.value, model: md.value}); toast('Classement enregistré'); await loadHist(); } catch (er) { toast(er.message, true); }
+      try { await api('/api/aircraft/manual', {id: e.id, cat: sl.value, code: cd.value, model: md.value}); toast('Classement enregistré'); await next(); } catch (er) { toast(er.message, true); }
     };
-    const nt = el('small', 'hnote'); ct.append(sl, cd, md, ...lookupButtons(e, sl, cd, md, nt), sv, nt); r.append(hd, ct); card.append(r);
+    fm.append(sl, cd, md, sv); pn.append(fm);
   }
-  c.append(card);
+  const ln = el('div', 'clnk');
+  const ws = el('button', 'lk', 'Chercher sur internet ↗'); ws.onclick = () => window.open('https://www.google.com/search?q=' + encodeURIComponent((e.reg || e.cs || e.id) + ' aircraft'), '_blank', 'noopener'); ln.append(ws);
+  if (e.reg) { const jp = el('button', 'lk', 'Photos sur JetPhotos ↗'); jp.onclick = () => window.open('https://www.jetphotos.com/registration/' + encodeURIComponent(e.reg), '_blank', 'noopener'); ln.append(jp); }
+  pn.append(ln);
+  lay.append(lc, pn); c.append(lay);
 }
 function lookupButtons(e, sl, cd, md, note) {  // « Suggérer » (adsbdb.com, par adresse ICAO puis immatriculation) et recherche sur internet ; remplit le formulaire sans enregistrer
   const out = [], sg = el('button', 'b s', 'Suggérer');
