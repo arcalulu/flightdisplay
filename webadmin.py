@@ -3831,7 +3831,7 @@ function buildHist() {
   main.append(filt, act, p1, res, p2, empty);
   const hv = el('div'); hv.id = 'hView'; hv.append(bar, main);
   const tabs = el('div', 'seg'), t0 = el('button', '', 'Direct'), t1 = el('button', 'on', 'Historique'), t2 = el('button', '', 'À classer'), cv = el('div'), lv = el('div'); cv.id = 'hCls'; cv.style.display = 'none'; lv.id = 'hLive'; lv.style.display = 'none';
-  t0.id = 'hTabLive'; t1.id = 'hTabHist'; t2.id = 'hTabCls'; t0.onclick = () => setHistTab('live'); t1.onclick = () => setHistTab('hist'); t2.onclick = () => setHistTab('cls'); tabs.append(t0, t1, t2); tabs.style.marginBottom = '12px';
+  t0.id = 'hTabLive'; t0.style.display = 'none'; t1.id = 'hTabHist'; t2.id = 'hTabCls'; t0.onclick = () => setHistTab('live'); t1.onclick = () => setHistTab('hist'); t2.onclick = () => setHistTab('cls'); tabs.append(t0, t1, t2); tabs.style.marginBottom = '12px';
   box.append(tabs, lv, hv, cv);
   document.addEventListener('keydown', ev => {
     const o = document.querySelector('.hover'); if (!o) return;
@@ -4042,7 +4042,9 @@ function histRender(res, part, L) {  // cartes ou lignes d'une liste d'avions (h
 let LIVE = null, liveSig = '', liveLoad = 0;
 async function pollLive() {
   try { LIVE = await api('/api/live'); } catch (e) { return; }
-  const tb = $('#hTabLive'); if (tb) tb.textContent = LIVE.running ? _t('Direct ({0})', Object.keys(LIVE.live).length) : tl('Direct');  // nombre d'avions affichés, comme « À classer »
+  const tb = $('#hTabLive');  // nombre d'avions affichés, comme « À classer » ; onglet masqué quand le programme d'affichage ne tourne pas
+  if (tb) { tb.textContent = _t('Direct ({0})', Object.keys(LIVE.live).length); tb.style.display = LIVE.running ? '' : 'none'; }
+  if (!LIVE.running && histTab === 'live') { setHistTab('hist'); return; }
   if (histTab !== 'live') return;
   const miss = HIST && Object.keys(LIVE.live).some(id => !HIST.entries.some(e => e.id === id));
   if (miss && Date.now() - liveLoad > 20000) { liveLoad = Date.now(); loadHist(); return; }  // un avion vient d'entrer dans l'historique
