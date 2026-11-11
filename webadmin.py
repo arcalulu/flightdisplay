@@ -1129,7 +1129,7 @@ def manual_save(fid, cat, code, model):
 
 
 def aircraft_lookup(fid):
-    """Cherche le type, le modèle et l'immatriculation d'un avion de l'historique sur adsbdb.com puis hexdb.io (gratuits, sans clé) : par adresse ICAO,
+    """Cherche le type, le modèle et l'immatriculation d'un avion de l'historique sur adsbdb.com, hexdb.io puis la base tar1090-db (gratuits, sans clé) : par adresse ICAO,
     puis par immatriculation (adsbdb seulement). Appelé par la fiche d'un avion à classer (l'adresse ICAO ou l'immatriculation sont alors envoyées
     à ces services)."""
     e = _history_entry(fid)
@@ -1140,7 +1140,8 @@ def aircraft_lookup(fid):
     hx = fid.lower() if re.fullmatch(r"[0-9a-fA-F]{6}", fid) else ""
     tries = []  # (service, fonction)
     if hx:
-        tries += [("adsbdb.com", lambda: sources.adsbdb_details(hx, "")), ("hexdb.io", lambda: sources.hexdb_details(hx))]
+        tries += [("adsbdb.com", lambda: sources.adsbdb_details(hx, "")), ("hexdb.io", lambda: sources.hexdb_details(hx)),
+                  ("tar1090-db", lambda: sources.tar1090db_lookup(hx, os.path.join(S.APP_DIR, "cache")))]
     if reg:
         tries.append(("adsbdb.com", lambda: sources.adsbdb_details(urllib.parse.quote(reg, safe="-"), "")))
     elif re.fullmatch(r"[A-Z0-9-]{4,7}", cs) and not re.fullmatch(r"[A-Z]{3}[0-9]{1,4}[A-Z]{0,2}", cs):
@@ -1158,6 +1159,8 @@ def aircraft_lookup(fid):
             xcat = dict(aircraft_types.BUILTIN); xcat.update(aircraft_types.read_extra(S.TYPES_FILE))
             code = x.get("code") or ""
             cat = xcat.get(code) or aircraft_types.suggest(x.get("model"))
+            if x.get("mil"):
+                cat = "mil"  # la base de tar1090 le signale militaire
             if aircraft_types.is_ulm(x.get("reg") or reg):
                 cat = "ulm"
             return dict(found=True, model=x.get("model") or "", code=code, reg=aircraft_types.norm_reg(x.get("reg") or reg), owner=x.get("owner") or "", cat=cat or "", source=name)

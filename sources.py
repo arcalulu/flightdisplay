@@ -14,6 +14,8 @@ Modes de combinaison (section [sources], cle mode) :
 """
 import copy
 import json
+import os
+import re
 import threading
 import time
 import urllib.error
@@ -241,6 +243,68 @@ def parse_order(text, enabled_flags):
         if n not in seen:
             seen.append(n)
     return seen
+
+
+TARDB_URL = "https://raw.githubusercontent.com/wiedehopf/tar1090-db/master/db/"
+TARDB_DAYS = 30  # age maximal d'un fichier de la base en cache avant de le retelecharger
+
+
+def _tardb_shard(name, cache_dir, timeout):
+    """Un fichier de la base tar1090-db (avions classes par debut d'adresse ICAO), lu dans le cache ou telecharge. None si indisponible."""
+    import gzip
+    path = os.path.join(cache_dir, "tar1090db", name + ".js.gz") if cache_dir else None
+    raw = None
+    if path and os.path.exists(path) and time.time() - os.path.getmtime(path) < TARDB_DAYS * 86400:
+        try:
+            with open(path, "rb") as fh:
+                raw = fh.read()
+        except OSError:
+            raw = None
+    if raw is None:
+        try:
+            with urllib.request.urlopen(urllib.request.Request(TARDB_URL + name + ".js", headers=UA), timeout=timeout) as r:
+                raw = r.read(8000000)
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                return None
+            raise
+        if path:
+            try:
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "wb") as fh:
+                    fh.write(raw)
+            except OSError:
+                pass
+    try:
+        return json.loads((gzip.decompress(raw) if raw[:2] == b"\x1f\x8b" else raw).decode("utf-8", "replace"))
+    except (OSError, ValueError):
+        return None
+
+
+def tar1090db_lookup(hx, cache_dir=None, timeout=15):
+    """Immatriculation, type, description et indicateur militaire d'un avion d'apres son adresse ICAO, dans la base communautaire de tar1090
+    (https://github.com/wiedehopf/tar1090-db, celle d'ADSBexchange : avions militaires compris). Seul un petit fichier de la base, choisi d'apres le
+    debut de l'adresse, est telecharge (puis garde en cache) : l'adresse complete n'est envoyee a personne. {} si l'avion n'y est pas."""
+    hx = (hx or "").strip().upper()
+    if not re.fullmatch(r"[0-9A-F]{6}", hx):
+        return {}
+    name = hx[:1]
+    for _ in range(5):
+        d = _tardb_shard(name, cache_dir, timeout)
+        if not isinstance(d, dict):
+            return {}
+        nxt = hx[:len(name) + 1]
+        if nxt in (d.get("children") or ()):
+            name = nxt  # les avions de ce debut d'adresse sont dans un fichier plus precis
+            continue
+        v = d.get(hx[len(name):])
+        if not isinstance(v, list) or not v:
+            return {}
+        g = lambda i: (v[i] if len(v) > i and isinstance(v[i], str) else "") or ""
+        if not (g(1) or g(3)):
+            return {}
+        return dict(reg=g(0), code=g(1).upper(), model=g(3) or g(1), mil=g(2)[:1] == "1", owner="")
+    return {}
 
 
 def hexdb_details(hx, timeout=8):
