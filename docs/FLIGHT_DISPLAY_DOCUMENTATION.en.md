@@ -988,7 +988,7 @@ simulate_seconds = 3
 ### 9.1 Map and aircraft
 
 - The map is a background image (`background.png`) centered on the house, accompanied by `map_meta.json` (size in pixels and scale in meters per pixel). Circles of 5, 10, 15 and 20 km are drawn within the limit of the map radius.
-- Each aircraft in flight is drawn with an icon oriented along its heading. Eight shapes exist: `narrow` (single-aisle), `wide` (wide-body), `quad` (four-engine jet), `regional`, `turbo` (turboprop), `light` (light aircraft), `bizjet` and `heli`.
+- Each aircraft in flight is drawn with an icon oriented along its heading. Nine shapes exist: `narrow` (single-aisle), `wide` (wide-body), `quad` (four-engine jet), `regional`, `turbo` (turboprop), `light` (light aircraft), `ulm` (microlight: a small aircraft with long straight wings), `bizjet` and `heli`.
 - Positions are extrapolated between two updates (speed and heading) then smoothed, for a fluid movement. A trail of the last positions is drawn behind each aircraft.
 - Each aircraft has a label whose content, order and formatting (size, bold, italic) are set in Settings, Aircraft labels (8.7). By default: model, airline, route (origin → destination) and altitude · speed; the registration and the callsign are available as options. Until the details have arrived, it shows the type code (and the registration or callsign if they are enabled). The route is omitted if the origin and the destination are unknown (no declared flight plan). If only one is known, the other appears as `?`.
 - The labels are placed to avoid overlapping each other and leaving the screen.
@@ -1060,7 +1060,7 @@ WT9 light
 B350 turbo   # example
 ```
 
-Valid categories: `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `bizjet`, `heli`.
+Valid categories: `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `ulm`, `bizjet`, `heli`.
 
 ### 9.9 Recognized environment variables
 
@@ -1154,6 +1154,7 @@ In the "Aircraft seen" tab, a purple "⇄ 2" badge marks aircraft seen by severa
 - Search (model, registration, callsign, airline, city, airport code), period (today, 7 days, all) and sort (recent or regulars).
 - **Pagination** like on a forum: number of aircraft per page adjustable (12, 24, 48, 96 or 200), then "Page 3 of 12 ‹ 1 2 3 … 11 12 ›" above and below the list.
 - Clicking a card opens the sheet: large photo with its credit, registration, callsign, ICAO type, manufacturer, route with airport codes, first and last sighting, number of sightings. The small "table" button next to the number of sightings unfolds the **table of the sightings** of that aircraft seen by the program (date and time, time seen, callsign, route, alert). Two buttons open JetPhotos and the "Flightradar24 history" of the registration. The ← → keys go from one aircraft to the next; the sheet closes with ✕, Esc or a click outside.
+- **Personal photo.** For an aircraft with no photo (light aircraft or microlight, especially when only seen through MLAT), the "Add my photo" button in the sheet uploads your own image: it is shrunk to 1,600 pixels, saved in the program's `photos_perso/` folder and replaces the JetPhotos photo, on the screen as well as on the page. "Change my photo" replaces it, "Remove my photo" goes back to the original photo. The file is named after the aircraft's ICAO address (`3a1b2c.jpg`) or, failing that, its registration (`F-ABCD.jpg`); you can also drop a JPEG (3 MB at most) with that name there yourself: the aircraft picks it up at its next pass. The photo panel shows "Photo personnelle" as the credit. This folder is neither cleaned automatically, nor published on GitHub, nor included in the webadmin backup.
 - The history is kept by the display program in `cache/history.json` (the last 1000 flights, written 30 seconds after a new aircraft arrives); the page shows them all. If a photo was deleted from the cache (cleanup), webadmin downloads it again when needed.
 
 **Settings**

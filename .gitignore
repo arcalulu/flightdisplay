@@ -10,6 +10,8 @@ types_extra.txt
 background.png
 map_meta.json
 cache/
+# photos personnelles ajoutees depuis webadmin
+photos_perso/
 # ...sauf les copies fournies avec le logiciel (installation automatique, voir defaults/)
 !defaults/background.png
 !defaults/map_meta.json

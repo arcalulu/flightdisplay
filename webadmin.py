@@ -383,7 +383,7 @@ NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 import aircraft_types
 TYPE_CATS = list(aircraft_types.ORDER)
 TYPE_LABELS = {"narrow": "Monocouloir", "wide": "Gros-porteur", "quad": "Quadriréacteur", "regional": "Jet régional",
-               "turbo": "Turbopropulseur", "light": "Avion léger", "bizjet": "Jet d'affaires", "heli": "Hélicoptère"}
+               "turbo": "Turbopropulseur", "light": "Avion léger", "ulm": "Ultra léger motorisé (ULM)", "bizjet": "Jet d'affaires", "heli": "Hélicoptère"}
 
 
 def read_lines(path):
@@ -1037,12 +1037,13 @@ def history_data():
         if e.get("reg") and e["reg"] not in model_of:
             model_of[e["reg"]] = label(e)
     entries = []
+    mine = perso_listing()
     for e in L[:1000]:
         reg = e.get("reg") or ""
         br, fa = split_model(e.get("model"), e.get("code"))
         entries.append(dict(br=br, fa=fa, al=int(e.get("al") or 0), id=str(e["id"]), t=int(e.get("t", 0)), l=int(e.get("l", e.get("t", 0))), cs=e.get("cs", ""), reg=reg,
                             code=e.get("code", ""), model=e.get("model", ""), airline=e.get("airline", ""), frm=e.get("frm", ""), to=e.get("to", ""),
-                            fi=e.get("fi", ""), ti=e.get("ti", ""), photo=bool(e.get("photo") or e.get("url")), credit=e.get("credit", ""),
+                            fi=e.get("fi", ""), ti=e.get("ti", ""), photo=bool(e.get("photo") or e.get("url")) or bool(perso_entry(e, mine)), credit=e.get("credit", ""), mp=perso_entry(e, mine),
                             n=regs.get(reg, 1) if reg else 1, rare=codes.get(e.get("code"), 0) == 1,
                             src=[x for x in (e.get("src") or []) if x in sources.NAMES], ml=bool(e.get("mlat"))))
     stats = dict(total=len(L), regs=len(regs), airlines=len(airl), types=len(codes), today=sum(1 for e in L if now - e.get("t", 0) < 86400),
@@ -1051,12 +1052,67 @@ def history_data():
     return dict(entries=entries, stats=stats, now=now)
 
 
+def perso_dir():
+    return os.path.join(S.APP_DIR, aircraft_types.PERSO_DIR)
+
+
+def perso_listing():
+    """{nom de fichier: date de modification} des photos personnelles."""
+    try:
+        return {n: int(os.path.getmtime(os.path.join(perso_dir(), n))) for n in os.listdir(perso_dir()) if n.endswith(".jpg")}
+    except OSError:
+        return {}
+
+
+def perso_entry(e, listing=None):
+    """Date de modification de la photo personnelle d'une entree de l'historique (0 si elle n'en a pas)."""
+    listing = perso_listing() if listing is None else listing
+    for n in aircraft_types.perso_names(str(e.get("id", "")), e.get("reg")):
+        if n in listing:
+            return listing[n]
+    return 0
+
+
+def perso_save(fid, data_b64, remove=False):
+    """Enregistre (ou retire) la photo personnelle de l'avion fid de l'historique."""
+    e = next((x for x in _history_list() if str(x.get("id")) == fid), None)
+    if not e:
+        raise ValueError("avion inconnu")
+    names = aircraft_types.perso_names(fid, e.get("reg"))
+    if not names:
+        raise ValueError("cet avion n'a ni adresse ICAO ni immatriculation : photo impossible")
+    if remove:
+        for n in names:
+            try:
+                os.remove(os.path.join(perso_dir(), n))
+            except OSError:
+                pass
+        return
+    try:
+        raw = base64.b64decode(data_b64, validate=True)
+    except Exception:
+        raise ValueError("image invalide")
+    if len(raw) > 3 * 1024 * 1024 or raw[:3] != b"\xff\xd8\xff":
+        raise ValueError("image invalide : un JPEG de 3 Mo au plus est attendu")
+    os.makedirs(perso_dir(), exist_ok=True)
+    tmp = os.path.join(perso_dir(), names[0] + ".tmp")
+    with open(tmp, "wb") as fh:
+        fh.write(raw)
+    os.replace(tmp, os.path.join(perso_dir(), names[0]))
+
+
 def history_photo(fid):
     """Photo d'un avion de l'historique : celle du cache, sinon retelechargee depuis son adresse (apres un nettoyage du cache)."""
     e = next((x for x in _history_list() if str(x.get("id")) == fid), None)
     if not e:
         return None
     cache = os.path.join(S.APP_DIR, "cache")
+    for n in aircraft_types.perso_names(fid, e.get("reg")):  # photo personnelle : prioritaire
+        try:
+            with open(os.path.join(perso_dir(), n), "rb") as fh:
+                return fh.read()
+        except OSError:
+            pass
     name = str(e.get("photo") or "")
     if re.fullmatch(r"[0-9a-f]{32}\.jpg", name):
         try:
@@ -1795,7 +1851,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             n = int(self.headers.get("Content-Length", "0"))
             path = urlparse(self.path).path
-            if n > (14 * 1024 * 1024 if path == "/api/backup/restore" else 65536):
+            if n > (14 * 1024 * 1024 if path == "/api/backup/restore" else (5 * 1024 * 1024 if path == "/api/myphoto" else 65536)):
                 return self.send_json({"error": "requête trop grande"}, 413)
             body = json.loads(self.rfile.read(n) or b"{}")
             act = str(body.get("action", ""))
@@ -1882,6 +1938,12 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("ce n'est pas un fichier aircraft.json (pas de liste « aircraft » ni « ac »)")
                 return self.send_json(dict(ok=True, total=len(items), positions=sum(1 for a in items if a.get("lat") is not None and a.get("lon") is not None),
                                            has_db=any(a.get("r") or a.get("t") for a in items)))
+            if path == "/api/myphoto":
+                fid = str(body.get("id", ""))
+                if not re.fullmatch(r"[A-Za-z0-9:]{1,40}", fid):
+                    raise ValueError("avion inconnu")
+                perso_save(fid, body.get("data", ""), bool(body.get("remove")))
+                return self.send_json(dict(ok=True))
             if path == "/api/mqtt/reconnect":
                 MQTT.restart(S.ini)
                 return self.send_json(dict(ok=True))
@@ -3460,7 +3522,7 @@ function histPick(base) {
 }
 function histPhoto(e, cls) {
   const ph = el('div', cls || 'hph'), noph = () => { ph.append(el('span', null, '✈')); };
-  if (e.photo) { const im = document.createElement('img'); im.loading = 'lazy'; im.alt = ''; im.src = '/api/history/photo?id=' + encodeURIComponent(e.id); im.onerror = () => { im.remove(); noph(); }; ph.append(im); } else noph();
+  if (e.photo) { const im = document.createElement('img'); im.loading = 'lazy'; im.alt = ''; im.src = '/api/history/photo?id=' + encodeURIComponent(e.id) + (e.mp ? '&v=' + e.mp : ''); im.onerror = () => { im.remove(); noph(); }; ph.append(im); } else noph();
   return ph;
 }
 function histRoute(e) { return [e.frm || e.fi || '?', e.to || e.ti || '?']; }
@@ -3598,7 +3660,8 @@ function histSheet(L, i) {
   const ph = histPhoto(e); ph.append(histBadges(e));
   const sc = el('div', 'hsc');
   sc.append(el('h3', null, e.model && e.model !== '?' ? e.model : (e.code || '?')), el('div', 'ha', e.airline || ' '));
-  if (e.photo && e.credit) sc.append(el('div', 'hcr', _t('© {0} (via JetPhotos)', e.credit)));
+  if (e.mp) sc.append(el('div', 'hcr', tl('Votre photo personnelle')));
+  else if (e.photo && e.credit) sc.append(el('div', 'hcr', _t('© {0} (via JetPhotos)', e.credit)));
   const r = histRoute(e), dl = document.createElement('dl'); dl.className = 'hdl';
   const row = (k, v) => { if (!v) return; dl.append(el('dt', null, k), el('dd', null, v)); };
   const when = t => new Date(t * 1000).toLocaleString();
@@ -3618,6 +3681,23 @@ function histSheet(L, i) {
   row("Zone d'alerte", e.al ? _t("Entré dans la zone le {0}", when(e.al)) : '');
   sc.append(dl);
   const nav = el('div', 'hnav');
+  if (/^[0-9a-f]{6}$/.test(e.id) || e.reg) {  // photo personnelle : pour les avions sans photo (avions légers, ULM...)
+    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.style.display = 'none';
+    const add = el('button', 'b s', e.mp ? 'Changer ma photo' : 'Ajouter ma photo'); add.title = tl('Remplace la photo affichée pour cet avion, sur l\'écran comme ici');
+    add.onclick = () => inp.click();
+    inp.onchange = async () => {
+      const f = inp.files && inp.files[0]; if (!f) return;
+      try {
+        const img = await new Promise((ok, ko) => { const i = new Image(), u = URL.createObjectURL(f); i.onload = () => { URL.revokeObjectURL(u); ok(i); }; i.onerror = () => ko(new Error(tl('Image illisible'))); i.src = u; });
+        const k = Math.min(1, 1600 / Math.max(img.width, img.height)), cv = document.createElement('canvas');
+        cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k); cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        const data = cv.toDataURL('image/jpeg', 0.88).split(',')[1];
+        await api('/api/myphoto', {id: e.id, data: data}); toast('Photo enregistrée'); ov.remove(); await loadHist();
+      } catch (er) { toast(er.message, true); }
+    };
+    nav.append(inp, add);
+    if (e.mp) { const rm = el('button', 'b s', 'Retirer ma photo'); rm.onclick = async () => { try { await api('/api/myphoto', {id: e.id, remove: true}); toast('Photo retirée'); ov.remove(); await loadHist(); } catch (er) { toast(er.message, true); } }; nav.append(rm); }
+  }
   if (e.reg) {
     const a = el('button', 'b s', 'Photos sur JetPhotos ↗'); a.onclick = () => window.open('https://www.jetphotos.com/registration/' + encodeURIComponent(e.reg), '_blank', 'noopener'); nav.append(a);
     const f = el('button', 'b s', 'Historique Flightradar24 ↗'); f.onclick = () => window.open('https://www.flightradar24.com/data/aircraft/' + encodeURIComponent(e.reg.toLowerCase()), '_blank', 'noopener'); nav.append(f);

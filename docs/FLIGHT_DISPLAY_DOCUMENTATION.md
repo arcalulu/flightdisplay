@@ -988,7 +988,7 @@ simulate_seconds = 3
 ### 9.1 Carte et avions
 
 - La carte est une image de fond (`background.png`) centrée sur la maison, accompagnée de `map_meta.json` (taille en pixels et échelle en mètres par pixel). Des cercles de 5, 10, 15 et 20 km sont tracés dans la limite du rayon de la carte.
-- Chaque avion en vol est dessiné avec une icône orientée selon son cap. Huit formes existent : `narrow` (monocouloir), `wide` (gros porteur), `quad` (quadriréacteur), `regional`, `turbo` (turbopropulseur), `light` (avion léger), `bizjet` et `heli`.
+- Chaque avion en vol est dessiné avec une icône orientée selon son cap. Neuf formes existent : `narrow` (monocouloir), `wide` (gros porteur), `quad` (quadriréacteur), `regional`, `turbo` (turbopropulseur), `light` (avion léger), `ulm` (ultra léger motorisé : petit avion aux longues ailes droites), `bizjet` et `heli`.
 - Les positions sont extrapolées entre deux mises à jour (vitesse et cap) puis lissées, pour un mouvement fluide. Une traînée des dernières positions est tracée derrière chaque avion.
 - Chaque avion a une étiquette dont le contenu, l'ordre et la mise en forme (taille, gras, italique) se règlent dans Réglages, Étiquettes des avions (8.7). Par défaut : modèle, compagnie, trajet (origine → destination) et altitude · vitesse ; l'immatriculation et l'indicatif de vol sont disponibles en option. Tant que les détails ne sont pas arrivés, elle affiche le code du type (et l'immatriculation ou l'indicatif s'ils sont activés). Le trajet est omis si l'origine et la destination sont inconnues (pas de plan de vol déclaré). Si une seule est connue, l'autre apparaît sous la forme `?`.
 - Les étiquettes sont placées pour éviter de se recouvrir et de sortir de l'écran.
@@ -1060,7 +1060,7 @@ WT9 light
 B350 turbo   # exemple
 ```
 
-Catégories valides : `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `bizjet`, `heli`.
+Catégories valides : `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `ulm`, `bizjet`, `heli`.
 
 ### 9.9 Variables d'environnement reconnues
 
@@ -1154,6 +1154,7 @@ Dans l'onglet « Avions vus », un badge violet « ⇄ 2 » repère les avions v
 - Recherche (modèle, immatriculation, indicatif, compagnie, ville, code aéroport), période (aujourd'hui, 7 jours, tout) et tri (récents ou habitués).
 - **Pagination** comme sur un forum : nombre d'avions par page réglable (12, 24, 48, 96 ou 200), puis « Page 3 sur 12 ‹ 1 2 3 … 11 12 › » en haut et en bas de la liste.
 - Un clic sur une carte ouvre la fiche : grande photo avec son crédit, immatriculation, indicatif, type ICAO, constructeur, trajet avec codes aéroport, premier et dernier passage, nombre de passages. Le petit bouton « tableau » à côté du nombre de passages déplie le **tableau des passages** de cet appareil vus par le programme (date et heure, durée vue, indicatif, trajet, alerte). Deux boutons ouvrent JetPhotos et l'« Historique Flightradar24 » de l'immatriculation. Les touches ← → passent d'un avion à l'autre ; la fiche se ferme avec ✕, Échap ou un clic à côté.
+- **Photo personnelle.** Pour un avion sans photo (avion léger ou ULM, surtout quand il n'est vu qu'en MLAT), le bouton « Ajouter ma photo » de la fiche envoie votre propre image : elle est réduite à 1 600 pixels, enregistrée dans le dossier `photos_perso/` du programme et remplace la photo de JetPhotos, sur l'écran comme dans la page. « Changer ma photo » la remplace, « Retirer ma photo » revient à la photo d'origine. Le fichier est nommé d'après l'adresse ICAO de l'avion (`3a1b2c.jpg`) ou, à défaut, son immatriculation (`F-ABCD.jpg`) ; vous pouvez aussi y déposer vous-même un JPEG (3 Mo au plus) à ce nom : l'avion le prend en compte à son prochain passage. Le panneau photo affiche « Photo personnelle » comme crédit. Ce dossier n'est ni nettoyé automatiquement, ni publié sur GitHub, ni inclus dans la sauvegarde de webadmin.
 - L'historique est tenu par le programme d'affichage dans `cache/history.json` (les 1000 derniers vols, écrit 30 secondes après l'arrivée d'un nouvel avion) ; la page les montre tous. Si une photo a été supprimée du cache (nettoyage), webadmin la retélécharge au besoin.
 
 **Réglages**

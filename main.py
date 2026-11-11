@@ -500,7 +500,7 @@ def panel_lines(s, d):
                 speed=tr("Vitesse {0}", fmt_speed(s["speed"])))
     if d:
         vals.update(model=d["model"], airline=d["airline"], route=route(d["origin"], d["dest"]),
-                    credit=("\u00a9 %s / JetPhotos" % str(d["credit"])[:44]) if d.get("credit") else "")
+                    credit=(tr("Photo personnelle") if d.get("perso") else "\u00a9 %s / JetPhotos" % str(d["credit"])[:44]) if d.get("credit") else "")
     else:  # details pas encore charges
         vals.update(model=s["code"] or "")
     lines = []
@@ -696,6 +696,9 @@ def poll_loop():
                                             trail=trail, callsign=f.callsign or f.registration or "",
                                             code=f.aircraft_code or (old["code"] if old else ""), ground=bool(f.on_ground), reg=f.registration or "",
                                             o_iata=f.origin_airport_iata, d_iata=f.destination_airport_iata)
+                    if f.id in details and personal_photo(f, details[f.id]):  # photo personnelle ajoutee ou retiree depuis webadmin
+                        if f.id in history:
+                            history[f.id]["photo"] = os.path.basename(details[f.id]["photo_path"] or ""); _hs["dirty"] = True
                     states[f.id]["mlat"] = bool(f.mlat)  # position MLAT : petit M a cote de l'icone
                     states[f.id]["src"] = tuple(f.sources)  # sources qui voient l'avion en ce moment (couleur de l'icone)
                     if (f.id not in details and f.id not in queued and now >= adsb_wait.get(f.id, 0)
@@ -748,7 +751,7 @@ def details_loop():
                     f.origin_airport_iata = x["oi"]
                 if not f.destination_airport_iata and x.get("di"):
                     f.destination_airport_iata = x["di"]
-            if info["photo_url"]:
+            if not personal_photo(f, info) and info["photo_url"]:
                 try: info["photo_path"] = download_photo(info["photo_url"])
                 except Exception: pass
             info["t"] = time.time()
@@ -791,6 +794,22 @@ def details_loop():
 _redl = {}  # url de photo -> heure de la derniere tentative de retelechargement
 
 
+def personal_photo(f, d):
+    """Photo personnelle (dossier photos_perso, ajoutee depuis webadmin) : elle remplace celle de JetPhotos. d = details de l'avion.
+    Renvoie True si la photo du panneau a change."""
+    pp = perso_find(".", f.hex, d.get("reg") or f.registration)
+    if pp:
+        if d.get("photo_path") == pp:
+            return False
+        d.update(photo_path=pp, credit="Photo personnelle", perso=True)
+        return True
+    if d.get("perso"):  # la photo personnelle a ete retiree : retour a la photo d'origine
+        d.update(photo_path=None, credit="", perso=False)
+        redownload_photo(d)
+        return True
+    return False
+
+
 def redownload_photo(d):
     """La photo en cache a ete effacee (webadmin, Stockage) : on la retelecharge discretement."""
     url = d.get("photo_url")
@@ -819,7 +838,7 @@ def clean_cache(days=3):
             pass
 
 
-from aircraft_types import SHAPES, BUILTIN, read_extra
+from aircraft_types import SHAPES, BUILTIN, read_extra, perso_find
 CATEGORY = dict(BUILTIN)
 CATEGORY.update(read_extra("types_extra.txt"))
 _unknown = set()
