@@ -850,7 +850,7 @@ _redl = {}  # url de photo -> heure de la derniere tentative de retelechargement
 def personal_photo(f, d):
     """Photo personnelle (dossier photos_perso, ajoutee depuis webadmin) : elle remplace celle de JetPhotos. d = details de l'avion.
     Renvoie True si la photo du panneau a change."""
-    pp = perso_find(".", f.hex, d.get("reg") or f.registration)
+    pp = perso_find(".", f.hex, d.get("reg") or f.registration or (manual_get(f.id) or {}).get("reg"))
     if pp:
         if d.get("photo_path") == pp:
             return False

@@ -24,7 +24,8 @@ def read_manual(path):
         for k, v in (d.items() if isinstance(d, dict) else ()):
             if isinstance(v, dict):
                 cat = v.get("cat") if v.get("cat") in SHAPES else ""
-                out[str(k).lower()] = {"cat": cat, "code": str(v.get("code") or "").strip().upper()[:6], "model": str(v.get("model") or "").strip()[:80]}
+                out[str(k).lower()] = {"cat": cat, "code": str(v.get("code") or "").strip().upper()[:6], "model": str(v.get("model") or "").strip()[:80],
+                             "reg": norm_reg(str(v.get("reg") or "")[:12])}
     except (OSError, ValueError):
         pass
     return out

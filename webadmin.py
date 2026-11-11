@@ -1076,10 +1076,10 @@ def history_data():
     except configparser.Error:
         lim = aircraft_types.history_default(pi_model())
     for e in L[:lim]:
-        reg = aircraft_types.norm_reg(e.get("reg"), e.get("cs"))  # FHURY (indicatif) -> F-HURY
         mn = manual.get(str(e["id"]).lower()) or {}
-        mcat, mcode, mmodel = mn.get("cat", ""), mn.get("code", ""), mn.get("model", "")
-        e = dict(e, code=mcode or e.get("code", ""), model=mmodel or e.get("model", ""))  # classement manuel : prime sur les données des sources
+        mcat, mcode, mmodel, mreg = mn.get("cat", ""), mn.get("code", ""), mn.get("model", ""), mn.get("reg", "")
+        reg = mreg or aircraft_types.norm_reg(e.get("reg"), e.get("cs"))  # FHURY (indicatif) -> F-HURY ; l'immatriculation saisie à la main prime
+        e = dict(e, code=mcode or e.get("code", ""), model=mmodel or e.get("model", ""), reg=reg)  # classement manuel : prime sur les données des sources
         ulm = mcat == "ulm" or (not mcat and aircraft_types.is_ulm(reg))
         br, fa = split_model(e.get("model"), e.get("code"))
         if ulm:  # immatriculation F-J : toujours rangé dans les ULM (filtre Constructeur), le constructeur d'origine passe dans la famille
@@ -1093,7 +1093,7 @@ def history_data():
             br = "Militaire"
         entries.append(dict(br=br, fa=fa, al=int(e.get("al") or 0), id=str(e["id"]), t=int(e.get("t", 0)), l=int(e.get("l", e.get("t", 0))), cs=e.get("cs", ""), reg=reg,
                             code=e.get("code", ""), model=e.get("model", ""), airline=e.get("airline", ""), frm=e.get("frm", ""), to=e.get("to", ""),
-                            fi=e.get("fi", ""), ti=e.get("ti", ""), photo=bool(e.get("photo") or e.get("url")) or bool(perso_entry(e, mine)), credit=e.get("credit", ""), mp=perso_entry(e, mine), ulm=ulm, mil=mil, tc=tc, cat=cat, mc=mcat, mcode=mcode, mmodel=mmodel,
+                            fi=e.get("fi", ""), ti=e.get("ti", ""), photo=bool(e.get("photo") or e.get("url")) or bool(perso_entry(e, mine)), credit=e.get("credit", ""), mp=perso_entry(e, mine), ulm=ulm, mil=mil, tc=tc, cat=cat, mc=mcat, mcode=mcode, mmodel=mmodel, mreg=mreg,
                             n=regs.get(reg, 1) if reg else 1, rare=codes.get(e.get("code"), 0) == 1,
                             src=[x for x in (e.get("src") or []) if x in sources.NAMES], ml=bool(e.get("mlat"))))
     stats = dict(total=len(L), regs=len(regs), airlines=len(airl), types=len(codes), today=sum(1 for e in L if now - e.get("t", 0) < 86400),
@@ -1107,12 +1107,13 @@ def manual_path():
     return os.path.join(S.APP_DIR, aircraft_types.MANUAL_FILE)
 
 
-def manual_save(fid, cat, code, model):
+def manual_save(fid, cat, code, model, reg=""):
     """Classement manuel d'un avion (icone, type ICAO, modele) : aircraft_manual.json, lu par main.py. Tout vide = on retire le classement."""
     fid = str(fid).lower()
     cat = cat if cat in TYPE_CATS else ""
     code = re.sub(r"[^A-Z0-9]", "", str(code or "").upper())[:6]
     model = " ".join(str(model or "").split())[:80]
+    reg = aircraft_types.norm_reg(re.sub(r"[^A-Za-z0-9-]", "", str(reg or ""))[:12])
     with file_lock:
         try:
             with open(manual_path(), encoding="utf-8") as fh:
@@ -1120,8 +1121,8 @@ def manual_save(fid, cat, code, model):
             d = d if isinstance(d, dict) else {}
         except (OSError, ValueError):
             d = {}
-        if cat or code or model:
-            d[fid] = {"cat": cat, "code": code, "model": model}
+        if cat or code or model or reg:
+            d[fid] = {"cat": cat, "code": code, "model": model, "reg": reg}
         else:
             d.pop(fid, None)
         tmp = manual_path() + ".tmp"
@@ -1218,12 +1219,18 @@ def perso_entry(e, listing=None):
     return 0
 
 
+def _eff_reg(e):
+    """Immatriculation d'une entree de l'historique : celle saisie a la main (classement manuel) si elle existe, sinon celle des sources."""
+    mn = aircraft_types.read_manual(manual_path()).get(str(e.get("id", "")).lower()) or {}
+    return mn.get("reg") or e.get("reg")
+
+
 def perso_save(fid, data_b64, remove=False):
     """Enregistre (ou retire) la photo personnelle de l'avion fid de l'historique."""
     e = _history_entry(fid)
     if not e:
         raise ValueError("avion inconnu")
-    names = aircraft_types.perso_names(fid, e.get("reg"))
+    names = aircraft_types.perso_names(fid, _eff_reg(e))
     if not names:
         raise ValueError("cet avion n'a ni adresse ICAO ni immatriculation : photo impossible")
     if remove:
@@ -1252,7 +1259,7 @@ def history_photo(fid):
     if not e:
         return None
     cache = os.path.join(S.APP_DIR, "cache")
-    for n in aircraft_types.perso_names(fid, e.get("reg")):  # photo personnelle : prioritaire
+    for n in aircraft_types.perso_names(fid, _eff_reg(e)):  # photo personnelle : prioritaire
         try:
             with open(os.path.join(perso_dir(), n), "rb") as fh:
                 return fh.read()
@@ -2107,7 +2114,7 @@ class Handler(BaseHTTPRequestHandler):
                 fid = str(body.get("id", ""))
                 if not re.fullmatch(r"[A-Za-z0-9:]{1,40}", fid):
                     raise ValueError("avion inconnu")
-                manual_save(fid, str(body.get("cat", "")), body.get("code", ""), body.get("model", ""))
+                manual_save(fid, str(body.get("cat", "")), body.get("code", ""), body.get("model", ""), body.get("reg", ""))
                 return self.send_json(dict(ok=True))
             if path == "/api/myphoto":
                 fid = str(body.get("id", ""))
@@ -3674,14 +3681,15 @@ function classifyBlock(e, st, redraw, done) {
   else sg.textContent = _t('Trouvé sur {0} : {1}', L.source, [L.model, L.code, catName(L.cat)].filter(Boolean).join(' · '));
   box.append(sg);
   const found = !!(L && L.found), act = el('div', 'cact');
-  const run = async (body, msg) => { try { await api('/api/aircraft/manual', Object.assign({id: e.id}, body)); toast(msg); await done(); } catch (er) { toast(er.message, true); } };
+  const run = async (body, msg) => { body = Object.assign({reg: e.mreg || ''}, body); await run0(body, msg); };
+  const run0 = async (body, msg) => { try { await api('/api/aircraft/manual', Object.assign({id: e.id}, body)); toast(msg); await done(); } catch (er) { toast(er.message, true); } };
   if (found) {
     const ap = el('button', 'b s p', 'Appliquer la suggestion');
     ap.onclick = () => run({cat: L.cat || '', code: L.code || '', model: L.model || ''}, 'Classement enregistré'); act.append(ap);
     const ed = el('button', 'b s', st.edit ? 'Masquer le formulaire' : 'Modifier à la main'); ed.onclick = () => { st.edit = !st.edit; redraw(); }; act.append(ed);
   }
-  const hasMan = !!(e.mc || e.mcode || e.mmodel);
-  if (hasMan) { const rs = el('button', 'b s', 'Retirer le classement'); rs.onclick = () => run({cat: '', code: '', model: ''}, 'Classement retiré'); act.append(rs); }
+  const hasMan = !!(e.mc || e.mcode || e.mmodel || e.mreg);
+  if (hasMan) { const rs = el('button', 'b s', 'Retirer le classement'); rs.onclick = () => run({cat: '', code: '', model: '', reg: ''}, 'Classement retiré'); act.append(rs); }
   const del = el('button', 'b s dg', 'Supprimer cet avion');
   del.onclick = async () => { if (!confirm(tl("Supprimer cet avion de l'historique ? S'il repasse, il réapparaîtra."))) return; try { await api('/api/history/delete', {ids: [e.id]}); toast('Avion supprimé'); await done(); } catch (er) { toast(er.message, true); } };
   act.append(del);
@@ -3691,11 +3699,12 @@ function classifyBlock(e, st, redraw, done) {
     for (const [k, l] of HIST.cats) sl.append(new Option(l, k));
     const cd = document.createElement('input'); cd.placeholder = tl('Type ICAO (ex. C172)'); cd.maxLength = 6;
     const md = document.createElement('input'); md.placeholder = tl('Modèle (ex. Cessna 172)'); md.maxLength = 80;
+    const rg = document.createElement('input'); rg.placeholder = tl('Immatriculation (ex. F-HURY)'); rg.maxLength = 12; rg.value = e.mreg || '';
     if (hasMan) { sl.value = e.mc || ''; cd.value = e.mcode || ''; md.value = e.mmodel || ''; }
-    else if (found) { sl.value = L.cat || ''; cd.value = L.code || ''; md.value = L.model || ''; }
+    else if (found) { sl.value = L.cat || ''; cd.value = L.code || ''; md.value = L.model || ''; if (!e.reg && L.reg) rg.value = L.reg; }
     const sv = el('button', 'b s p', 'Enregistrer le classement');
-    sv.onclick = () => { if (!sl.value && !cd.value.trim() && !md.value.trim()) { toast('Choisissez une catégorie, un type ou un modèle', true); return; } run({cat: sl.value, code: cd.value, model: md.value}, 'Classement enregistré'); };
-    fm.append(sl, cd, md, sv); box.append(fm);
+    sv.onclick = () => { if (!sl.value && !cd.value.trim() && !md.value.trim() && !rg.value.trim()) { toast('Choisissez une catégorie, un type, un modèle ou une immatriculation', true); return; } run({cat: sl.value, code: cd.value, model: md.value, reg: rg.value}, 'Classement enregistré'); };
+    fm.append(sl, cd, md, rg, sv); box.append(fm);
   }
   return box;
 }
@@ -3973,7 +3982,7 @@ function histSheet(L, i) {
     const nav = el('div', 'hnav'); nav.append(inp, add);
     if (e.mp) { const rm = el('button', 'b s', 'Retirer ma photo'); rm.onclick = async () => { try { await api('/api/myphoto', {id: e.id, remove: true}); toast('Photo retirée'); await after(); } catch (er) { toast(er.message, true); } }; nav.append(rm); }
     pPh.append(nav);
-  } else pPh.append(el('p', 'note', 'Impossible d\'ajouter une photo : cet avion n\'a ni adresse ICAO ni immatriculation connue, le programme ne saurait pas la retrouver quand l\'avion repasse.'));
+  } else pPh.append(el('p', 'note', 'Impossible d\'ajouter une photo : cet avion n\'a ni adresse ICAO ni immatriculation connue, le programme ne saurait pas la retrouver quand l\'avion repasse. Saisissez son immatriculation dans l\'onglet Classer.'));
   // ---- onglets
   const tabs = el('div', 'htabs'), panes = [pInfo, pPas, pCls, pPh], btns = [];
   const show = k => {
