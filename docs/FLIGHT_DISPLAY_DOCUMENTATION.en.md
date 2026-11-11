@@ -1265,7 +1265,7 @@ Turns the screen on and off by itself following a weekly calendar, like a diary.
 
 The small "Credits" link, at the top of the page next to the status chips, opens a dedicated page: sources of the maps (OpenStreetMap, CARTO), of the flight data (Flightradar24, FlightRadarAPI), of the photos (JetPhotos) and the licenses of the libraries, with a link to `CREDITS.md` for the detail. The "Back" button returns to Control.
 
-**Logs**
+**Logs** (in Settings, "Log (logs)" category, Webadmin group)
 
 - Display service log: 100, 300 or 1000 lines, text filter, automatic refresh (switch) every 3 seconds. Errors are in red, warnings in yellow.
 
@@ -1553,7 +1553,7 @@ sudo reboot
 
 | Need | Command |
 |---|---|
-| Display program live | `fd logs` (or the Logs tab of webadmin) |
+| Display program live | `fd logs` (or Settings, Log (logs), in webadmin) |
 | Display program, last lines | `journalctl -u flightdisplay -n 100 --no-pager` |
 | webadmin | `journalctl -u flightadmin -n 100 --no-pager` |
 | Screen sleep guard | `journalctl -t flight-screen-guard --no-pager` |

@@ -1265,7 +1265,7 @@ Allume et éteint l'écran tout seul selon un calendrier hebdomadaire, comme un 
 
 Le petit lien « Crédits », en haut de la page à côté des pastilles d'état, ouvre une page dédiée : sources des cartes (OpenStreetMap, CARTO), des données de vol (Flightradar24, FlightRadarAPI), des photos (JetPhotos) et licences des bibliothèques, avec un lien vers `CREDITS.md` pour le détail. Le bouton « Retour » revient à Pilotage.
 
-**Logs**
+**Logs** (dans Réglages, catégorie « Journal (logs) », groupe Webadmin)
 
 - Journal du service d'affichage : 100, 300 ou 1000 lignes, filtre texte, actualisation automatique (interrupteur) toutes les 3 secondes. Les erreurs sont en rouge, les avertissements en jaune.
 
@@ -1553,7 +1553,7 @@ sudo reboot
 
 | Besoin | Commande |
 |---|---|
-| Programme d'affichage en direct | `fd logs` (ou onglet Logs de webadmin) |
+| Programme d'affichage en direct | `fd logs` (ou Réglages, Journal (logs), de webadmin) |
 | Programme d'affichage, dernières lignes | `journalctl -u flightdisplay -n 100 --no-pager` |
 | webadmin | `journalctl -u flightadmin -n 100 --no-pager` |
 | Garde de veille d'écran | `journalctl -t flight-screen-guard --no-pager` |

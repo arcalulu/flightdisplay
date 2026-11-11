@@ -156,6 +156,7 @@ CATS = [
     ("schedule", "Planning de l'écran", "Webadmin"),
     ("storage", "Stockage et photos", "Webadmin"),
     ("backup", "Sauvegarde", "Webadmin"),
+    ("logs", "Journal (logs)", "Webadmin"),
     ("mqtt", "MQTT / Home Assistant", "Intégrations"),
 ]
 HELP_HIST = "Au moins 1, sans limite haute. Par défaut 1000 (500 sur un Raspberry Pi Zero). Plus l'historique est long, plus la page « Avions vus » est lente à charger (surtout sur un Raspberry Pi), plus le fichier est gros (environ 360 Ko pour 1000 avions, relu et réécrit par le programme) et plus la carte SD est sollicitée. Les avions les plus anciens sont supprimés quand la limite est dépassée."
@@ -454,6 +455,7 @@ def get_settings():
                          step=None, ui=None, secret=False, set=True, value=cur["value"]))
     cats["types"].update(kind="types", groups=[], file=None)
     cats["backup"].update(kind="backup", groups=[], file=None)
+    cats["logs"].update(kind="logs", groups=[], file=None)
     cats["label"].update(kind="fields", editor=field_editor("label", LABEL_FIELDS, "label"))
     cats["panel"].update(kind="fields", editor=dict(field_editor("panel_content", PANEL_FIELDS, "panel", PANEL_SHOW_KEYS), note=tr(PANEL_NOTE)))
     cats["mapstyle"].update(kind="mapstyle", presets={k: dict(label=tr(v["label"]), colors=v["colors"]) for k, v in mapstyle.PRESETS.items()},
@@ -467,14 +469,14 @@ def get_settings():
         items = []
         for cid, title, m in CATS:
             c = cats[cid]
-            if m == gname and cid not in ("api", "tar1090", "online") and (cid in ("types", "backup") or c["groups"]):
+            if m == gname and cid not in ("api", "tar1090", "online") and (cid in ("types", "backup", "logs") or c["groups"]):
                 items.append(dict(id=cid, title=title))
         if items:
             menu.append(dict(group=tr(gname), items=items))
     for c in cats.values():
-        if c.get("kind") not in ("types", "backup"):
+        if c.get("kind") not in ("types", "backup", "logs"):
             c["groups"] = [dict(name=tr(n), params=ps) for n, ps in c["groups"].items()]
-    return dict(menu=menu, cats={k: v for k, v in cats.items() if v.get("kind") in ("types", "backup") or v["groups"]}, screen=_screen_info())
+    return dict(menu=menu, cats={k: v for k, v in cats.items() if v.get("kind") in ("types", "backup", "logs") or v["groups"]}, screen=_screen_info())
 
 
 def norm_value(p, v):
@@ -2508,7 +2510,6 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
   <button data-t="hist" onclick="go('hist')">Avions vus</button>
   <button data-t="cfg" onclick="go('cfg')">Réglages</button>
   <button data-t="upd" id="navUpd" onclick="go('upd')">Mises à jour</button>
-  <button data-t="log" onclick="go('log')">Logs</button>
 </nav>
 <main>
 <section class="tab on" id="t-home">
@@ -2592,14 +2593,14 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
   </div>
 </section>
 
-<section class="tab" id="t-log">
+<div id="logHolder" style="display:none"><div id="logBox">
   <div class="tools">
     <select id="logN" onchange="loadLogs()"><option>100</option><option selected>300</option><option>1000</option></select>
     <input type="text" id="logF" placeholder="filtrer" oninput="renderLogs()">
   </div>
   <div class="list"><div class="li"><div class="lt"><b>Actualisation automatique</b><small>Toutes les 3 secondes</small></div><label class="tg"><input type="checkbox" id="logAuto" checked><span></span></label></div></div>
   <pre id="logOut">Chargement...</pre>
-</section>
+</div></div>
 </main>
 
 <div class="bar" id="saveBar"><div class="in"><span id="barTxt"></span><span id="barHelp"></span>
@@ -2705,7 +2706,7 @@ function comeBack(boot) {  // la connexion est revenue : on retrouve la page où
     location.reload(); return;
   }
   pollStatus();
-  if (cur === 'hist') loadHist(); else if (cur === 'upd') pollUpd(); else if (cur === 'log') loadLogs();
+  if (cur === 'hist') loadHist(); else if (cur === 'upd') pollUpd(); else if (cur === 'cfg' && curCat === 'logs') loadLogs();
   else if (cur === 'cfg' && !Object.keys(edits).length) loadSettings().catch(() => {});
 }
 async function api(path, body) {
@@ -2733,7 +2734,6 @@ function go(tab) {
   document.querySelectorAll('.tab').forEach(e => e.classList.toggle('on', e.id === 't-' + tab));
   document.querySelectorAll('nav button').forEach(e => e.classList.toggle('on', e.dataset.t === tab));
   updateBar();
-  if (tab === 'log') loadLogs();
   if (tab === 'cfg') pollBuild();
   if (tab === 'hist') loadHist();
   if (tab === 'home') pollStatus();
@@ -3002,9 +3002,11 @@ function ringVis() {
 }
 let fieldTab = {};
 function renderCatBase() {
+  const lb = $('#logBox'), lh = $('#logHolder'); if (lb && lh && lb.parentNode !== lh) lh.appendChild(lb);  // le journal est gardé hors de la page avant qu'elle soit vidée
   const box = $('#catbox'); box.innerHTML = ''; box.oninput = null; mapPickDestroy(); msAlive = false;
   const cat = SET.cats[curCat]; if (!cat) return;
   const head = el('div', 'catt'); head.append(el('h3', null, cat.title)); box.append(head);
+  if (cat.kind === 'logs') { box.append(lb); loadLogs(); return; }
   if (cat.kind === 'types') return renderTypes(box);
   if (cat.kind === 'backup') { if (cat.note) box.append(el('p', 'note', cat.note)); return renderBackup(box); }
   if (cat.kind === 'mapstyle') { if (cat.note) box.append(el('p', 'note', cat.note)); return renderMapStyle(box, cat); }
@@ -4528,13 +4530,14 @@ async function pollBuild() {
 buildHome();
 setInterval(pollStatus, 4000);
 setInterval(tickClock, 1000);
-setInterval(() => { if (cur === 'log' && $('#logAuto').checked) loadLogs(); }, 3000);
+setInterval(() => { if (cur === 'cfg' && curCat === 'logs' && $('#logAuto') && $('#logAuto').checked) loadLogs(); }, 3000);
 setInterval(() => { if (cur === 'cfg' && (curCat === 'position' || curCat === 'mapstyle')) pollBuild(); }, 2000);
 setInterval(() => { if (updWasRunning || (cur === 'upd' && ++updTick % 7 === 0)) pollUpd(); }, 1500);
 pollStatus(); pollBuild();
 loadSettings().catch(e => toast(e.message, true));
 if (location.hash === '#upd') { history.replaceState(null, '', location.pathname); go('upd'); }
 { let rs = null; try { rs = JSON.parse(sessionStorage.getItem('fdRestore') || 'null'); sessionStorage.removeItem('fdRestore'); } catch (e) {}
+  if (rs && rs.tab === 'log') rs = {tab: 'cfg', cat: 'logs'};  // ancien onglet Logs : maintenant dans Réglages
   if (rs && rs.tab && rs.tab !== 'home') {  // retour sur l'onglet (et la catégorie) d'avant la coupure
     go(rs.tab);
     if (rs.tab === 'cfg' && rs.cat) { const t = setInterval(() => { if (SET && SET.cats && SET.cats[rs.cat]) { clearInterval(t); curCat = rs.cat; renderMenu(); renderCat(); } }, 200); setTimeout(() => clearInterval(t), 8000); }
