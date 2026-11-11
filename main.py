@@ -882,6 +882,8 @@ COLOR_BY_SRC = cfg.getboolean("display", "color_by_source", fallback=False)
 SRC_COLORS = {"fr24": cfg_color("plane_color_fr24", (255, 210, 80)), "tar1090": cfg_color("plane_color_tar1090", (90, 200, 255)),
               "airplaneslive": cfg_color("plane_color_airplaneslive", (255, 140, 60)), "adsblol": cfg_color("plane_color_adsblol", (255, 120, 190)),
               "adsbfi": cfg_color("plane_color_adsbfi", (180, 150, 255)), "multi": cfg_color("plane_color_multi", (120, 230, 140))}
+COLOR_MIL = cfg.getboolean("display", "color_military", fallback=True)  # avions militaires : couleur propre
+MIL_COLOR = cfg_color("plane_color_military", (143, 209, 90))
 RING_COL = cfg_color("color", (45, 55, 70), "rings")
 RING_W = max(1, min(8, cfg.getint("rings", "width", fallback=1)))
 RING_LABELS = cfg.getboolean("rings", "show_labels", fallback=False)
@@ -892,6 +894,8 @@ TRAIL_PANEL = tuple((c + g) // 2 for c, g in zip(PLANE_PANEL, (85, 90, 90)))
 
 def plane_color(s):
     """Couleur d'un avion (hors avion du panneau) : selon sa source si l'option est active, sinon selon que son type est connu."""
+    if COLOR_MIL and (s.get("mil") or (not is_ulm(s.get("reg")) and CATEGORY.get((s.get("code") or "").upper()) == "mil")):
+        return MIL_COLOR
     if COLOR_BY_SRC:
         src = s.get("src") or ()
         if len(src) >= 2:

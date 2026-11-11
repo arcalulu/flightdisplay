@@ -271,6 +271,8 @@ PARAMS = [
     C("sources", "display", "plane_color_adsblol", "color", "#ff78be", "Vus par adsb.lol seulement", "", "Couleurs"),
     C("sources", "display", "plane_color_adsbfi", "color", "#b496ff", "Vus par adsb.fi seulement", "", "Couleurs"),
     C("sources", "display", "plane_color_multi", "color", "#78e68c", "Vus par plusieurs sources", "", "Couleurs"),
+    C("sources", "display", "color_military", "bool", True, "Colorer les avions militaires", "Les avions militaires (signalés par une source, ou de type militaire) prennent leur propre couleur, quelle que soit leur source (l'avion du panneau photo reste dans sa couleur habituelle).", "Couleurs"),
+    C("sources", "display", "plane_color_military", "color", "#8fd15a", "Avions militaires", "", "Couleurs"),
     C("tar1090", "tar1090", "url", "text", "", "Adresse du fichier aircraft.json", "Pour tar1090 : http://adresse/tar1090/data/aircraft.json. Les installations dump1090-fa ou readsb seules fonctionnent aussi (http://adresse/dump1090-fa/data/aircraft.json).", "Connexion"),
     C("tar1090", "tar1090", "interval_seconds", "float", 2, "Intervalle de lecture (s)", "", "Connexion", min=0.5, max=60),
     C("online", "online", "interval_seconds", "float", 5, "Intervalle de lecture (s)", "Commun aux trois services. Ne descendez pas sous 1 s : ils limitent le nombre de requêtes.", "Connexion", min=1, max=60),
@@ -2973,10 +2975,13 @@ function renderSources(box, cat) {
   const mk = (p, id) => { const c = control(p), r = el('div', 'li'), t = el('div', 'lt'); t.append(el('b', null, p.label)); if (p.help) t.append(el('small', null, p.help)); r.dataset.row = id; r.append(t, c.c); return r; };
   cl.append(mk(tp, 'tg'));
   for (const p of cols) cl.append(mk(p, p.id));
+  const mp = gp('display.color_military'), mc = gp('display.plane_color_military');
+  cl.append(mk(mp, 'mg'), mk(mc, mc.id));
   sec.append(cl); box.append(sec);
-  const tg = cl.querySelector('input[type=checkbox]');
-  const vis = () => { cols.forEach(p => { const r = cl.querySelector('[data-row="' + p.id + '"]'); if (r) r.style.display = String(pval(tp)) === 'true' ? '' : 'none'; }); };
-  if (tg) tg.addEventListener('change', vis); vis();
+  const tg = cl.querySelector('[data-row="tg"] input[type=checkbox]'), mg = cl.querySelector('[data-row="mg"] input[type=checkbox]');
+  const vis = () => { cols.forEach(p => { const r = cl.querySelector('[data-row="' + p.id + '"]'); if (r) r.style.display = String(pval(tp)) === 'true' ? '' : 'none'; });
+    const r = cl.querySelector('[data-row="' + mc.id + '"]'); if (r) r.style.display = String(pval(mp)) === 'true' ? '' : 'none'; };
+  if (tg) tg.addEventListener('change', vis); if (mg) mg.addEventListener('change', vis); vis();
   paintSrc();
 }
 

@@ -70,6 +70,9 @@ color_by_source = false
 plane_color_fr24 = #ffd250
 plane_color_tar1090 = #5ac8ff
 plane_color_multi = #78e68c
+# avions militaires : couleur propre, quelle que soit la source
+color_military = true
+plane_color_military = #8fd15a
 fullscreen = true
 fps = 10
 altitude_unit = ft
