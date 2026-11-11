@@ -278,7 +278,7 @@ PARAMS = [
     C("sources", "display", "color_military", "bool", True, "Colorer les avions militaires", "Les avions militaires (signalés par une source, ou de type militaire) prennent leur propre couleur, quelle que soit leur source (l'avion du panneau photo reste dans sa couleur habituelle).", "Couleurs"),
     C("sources", "display", "plane_color_military", "color", "#8fd15a", "Avions militaires", "", "Couleurs"),
     C("tar1090", "tar1090", "url", "text", "", "Adresse du fichier aircraft.json", "Pour tar1090 : http://adresse/tar1090/data/aircraft.json. Les installations dump1090-fa ou readsb seules fonctionnent aussi (http://adresse/dump1090-fa/data/aircraft.json).", "Connexion"),
-    C("history", "history", "max_aircraft", "int", 1000, "Nombre d'avions gardés", HELP_HIST, "Historique", min=1),
+    C("history", "history", "max_aircraft", "int", 1000, "Nombre d'avions gardés", HELP_HIST, "Historique", min=1, always=True),
     C("tar1090", "tar1090", "interval_seconds", "float", 2, "Intervalle de lecture (s)", "", "Connexion", min=0.5, max=60),
     C("online", "online", "interval_seconds", "float", 5, "Intervalle de lecture (s)", "Commun aux trois services. Ne descendez pas sous 1 s : ils limitent le nombre de requêtes.", "Connexion", min=1, max=60),
     C("api", "api", "poll_seconds", "float", 30, "Intervalle de requête (s)", "Trop bas : risque d'erreur 429.", "Fréquence", min=5, max=600),
@@ -541,7 +541,7 @@ def plan(f, changes):
         cur = vals.get((sec, key.lower()))
         if cur is not None and cur["value"] == v:
             continue
-        if cur is None and spec is not None and spec["type"] != "secret" and fmt_default(spec["default"]) == v:
+        if cur is None and spec is not None and spec["type"] != "secret" and fmt_default(spec["default"]) == v and not spec.get("always"):  # always : le defaut depend de la machine (Pi Zero 500, sinon 1000), la valeur choisie est toujours ecrite
             continue
         if cur is None and spec is not None and spec["type"] == "secret" and v == "":
             continue
