@@ -2,6 +2,7 @@ import configparser, json, math, os, queue, sys, threading, time, hashlib
 from array import array
 import requests
 import i18n
+from aircraft_types import history_limit  # defini ici car HISTORY_MAX (plus bas) en a besoin avant l'import groupé des formes d'icône
 
 cfg = configparser.ConfigParser(); cfg.read("config.ini")
 i18n.set_language(cfg.get("general", "language", fallback="fr"))  # langue du texte affiche a l'ecran
