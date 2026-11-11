@@ -845,7 +845,7 @@ def seen_types():
             ok = bool(re.fullmatch(r"[0-9a-f]{32}\.jpg", ph)) and os.path.exists(os.path.join(S.APP_DIR, "cache", ph))
             model = str(v.get("model") or "")[:80]
             out.append(dict(code=str(k).upper(), n=int(v.get("n", 0)), t=int(v.get("t", 0)), model=model, reg=str(v.get("reg") or "")[:12],
-                            photo=ok, suggest="ulm" if aircraft_types.is_ulm(v.get("reg")) else aircraft_types.suggest(model)))
+                            photo=ok, suggest=aircraft_types.suggest(model)))
     except (OSError, ValueError):
         return []
     return sorted(out, key=lambda e: (-e["n"], e["code"]))

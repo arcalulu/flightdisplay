@@ -59,8 +59,8 @@ CATS = {
     "quad": "A388 A342 A343 A345 A346 B741 B742 B743 B744 B748 B74S B74R A124 IL76 IL96",
     "regional": "E170 E175 E190 E195 E290 E295 E75L E75S E135 E145 CRJ1 CRJ2 CRJ7 CRJ9 CRJX SU95 RJ85 RJ1H F100 F70 B461 B462 B463",
     "turbo": "AT43 AT44 AT45 AT46 AT72 AT73 AT75 AT76 DH8A DH8B DH8C DH8D SF34 SB20 JS31 JS32 JS41 D328 F50 F27 E120 B190 BE20 BE9L PC12 C208 TBM7 TBM8 TBM9",
-    "light": "C150 C152 C162 C172 C177 C182 C185 C206 C210 PA18 PA28 P28A P28R PA32 PA34 PA44 PA46 SR20 SR22 DR40 DA20 DA40 DA42 DA62 TB10 TB20 TB21 BE33 BE35 BE36 BE58 M20P M20T AA5 RV7 RV8 RV9 GLID PIVI S22T",
-    "ulm": "ULAC P92 CTSW CTLS",
+    "light": "C150 C152 C162 C172 C177 C182 C185 C206 C210 PA18 PA28 P28A P28R PA32 PA34 PA44 PA46 P92 CTSW CTLS SR20 SR22 DR40 DA20 DA40 DA42 DA62 TB10 TB20 TB21 BE33 BE35 BE36 BE58 M20P M20T AA5 RV7 RV8 RV9 GLID PIVI S22T",
+    "ulm": "ULAC",  # P92, CTSW, CTLS... sont des avions légers : l'immatriculation F-J / FJ en fait des ULM (voir is_ulm)
     "mil": "C130 C30J A400 AN12 AN26 C160 C27J RFAL EUFI MIR2 M2KC ALPH M346 F16 F15 F18H F18S FA18 F35 F22 TOR GR4 HAWK A10 B52 B1 B2 C17 C5M K35R E3TF E3CF P8 P3 U2 T38 PC21 PC7 T6 TEX2",
     "bizjet": "C25A C25B C25C C25M C510 C525 C550 C560 C56X C680 C68A C700 C750 CL30 CL35 CL60 CL64 GLF2 GLF3 GLF4 GLF5 GLF6 GL5T GL7T GALX G150 G280 E35L E55P FA50 FA7X FA8X FA6X F900 F2TH LJ35 LJ40 LJ45 LJ60 LJ75 E50P H25B H25C PRM1 SF50 EA50 BE40 ASTR",
     "heli": "EC20 EC25 EC30 EC35 EC45 EC55 EC75 EC13 AS32 AS35 AS50 AS55 AS65 AS3B H60 H47 H46 H53 H500 H160 H135 H145 H175 H225 R22 R44 R66 B06 B407 B412 B429 B105 B212 A109 A119 A139 A169 A189 S76 S92 S61 AW09 NH90 MI8 MI26 KA32 EXPL",
@@ -99,8 +99,9 @@ HINTS = [
                "twin otter", "dhc-6", "pc-6", "emb-120"]),
     ("narrow", ["a318", "a319", "a320", "a321", "a220", "boeing 737", "boeing 757", "boeing 717", "737-", "757-", "md-8", "md-9", "dc-9", "bombardier cs",
                 "tu-154", "yak-42", "c919"]),
-    ("ulm", ["ulm", "ultralight", "ultra-light", "ultra light", "microlight", "trike", "paramotor", "flight design", "tecnam p92", "p92 "]),
-    ("light", ["cessna 1", "cessna 2", "piper", "cirrus sr", "diamond", "robin ", "dr400", "tecnam", "mooney", "bonanza", "baron", "grob", "glider",
+    # pas de marque ni de modele pour les ULM : un meme type est ULM ou avion leger selon l'immatriculation (F-J / FJ), voir is_ulm
+    ("ulm", ["ulm", "ultralight", "ultra-light", "ultra light", "microlight", "trike", "paramotor"]),
+    ("light", ["cessna 1", "cessna 2", "flight design", "piper", "cirrus sr", "diamond", "robin ", "dr400", "tecnam", "mooney", "bonanza", "baron", "grob", "glider",
                "glasfl", "schleicher", "ultralight", "pitts", "extra ", "zlin", "socata", "rallye", "jodel", " cub", "aeronca", "stinson", "maule", "van's",
                "rutan", "wt9", "dyn'aero", "pioneer", "savannah", "ikarus", "evektor", "cessna 3", "cessna 4", "cap-10", "cap 10", "mudry", "aerospool", "wt-9", "j-3"]),
 ]
