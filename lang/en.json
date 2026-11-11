@@ -958,6 +958,7 @@
   "{0} avion dans la zone": "{0} aircraft in the zone",
   "Autres avions sur la carte · {0}": "Other aircraft on the map · {0}",
   "Autre avion sur la carte · {0}": "Other aircraft on the map · {0}",
+  "Direct ({0})": "Live ({0})",
   "Aucun résultat": "No result",
   "La carte n'a pas pu être chargée (accès à internet nécessaire depuis ce navigateur). Vous pouvez toujours saisir les valeurs dans les champs ci-dessous.": "The map could not be loaded (this browser needs internet access). You can still type the values in the fields below.",
   "pygame (LGPL), requests (Apache 2.0), Pillow (MIT-CMU), paho-mqtt (EPL 2.0 ou BSD 3-Clause), polices DejaVu. Dans webadmin : Leaflet (BSD 2-Clause), pour la carte de choix de la position.": "pygame (LGPL), requests (Apache 2.0), Pillow (MIT-CMU), paho-mqtt (EPL 2.0 or BSD 3-Clause), DejaVu fonts. In webadmin: Leaflet (BSD 2-Clause), for the position picker map.",

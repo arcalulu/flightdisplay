@@ -3736,7 +3736,7 @@ let fType = new Set(), fAir = new Set(), fBrand = new Set(), fFam = new Set(), f
 const histSave = () => { try { localStorage.setItem('histView', JSON.stringify({period: histPeriod, sort: histSort, mode: histMode, per: histPer})); } catch (e) {} };
 async function loadHist() {
   try { HIST = await api('/api/history'); } catch (e) { toast(e.message, true); return; }
-  buildHist(); drawHist(); drawCls(); liveSig = ''; if (histTab === 'live') pollLive();
+  buildHist(); drawHist(); drawCls(); liveSig = ''; pollLive();
 }
 let histTab = 'hist';
 let clsId = '', clsSt = {edit: false};
@@ -4042,6 +4042,8 @@ function histRender(res, part, L) {  // cartes ou lignes d'une liste d'avions (h
 let LIVE = null, liveSig = '', liveLoad = 0;
 async function pollLive() {
   try { LIVE = await api('/api/live'); } catch (e) { return; }
+  const tb = $('#hTabLive'); if (tb) tb.textContent = LIVE.running ? _t('Direct ({0})', Object.keys(LIVE.live).length) : tl('Direct');  // nombre d'avions affichés, comme « À classer »
+  if (histTab !== 'live') return;
   const miss = HIST && Object.keys(LIVE.live).some(id => !HIST.entries.some(e => e.id === id));
   if (miss && Date.now() - liveLoad > 20000) { liveLoad = Date.now(); loadHist(); return; }  // un avion vient d'entrer dans l'historique
   drawLive();
@@ -4581,7 +4583,7 @@ async function pollBuild() {
 buildHome();
 setInterval(pollStatus, 4000);
 setInterval(tickClock, 1000);
-setInterval(() => { if (cur === 'hist' && histTab === 'live' && !document.querySelector('.hover')) pollLive(); }, 4000);
+setInterval(() => { if (cur === 'hist' && !document.querySelector('.hover')) pollLive(); }, 4000);
 setInterval(() => { if (cur === 'cfg' && curCat === 'logs' && $('#logAuto') && $('#logAuto').checked) loadLogs(); }, 3000);
 setInterval(() => { if (cur === 'cfg' && (curCat === 'position' || curCat === 'mapstyle')) pollBuild(); }, 2000);
 setInterval(() => { if (updWasRunning || (cur === 'upd' && ++updTick % 7 === 0)) pollUpd(); }, 1500);
