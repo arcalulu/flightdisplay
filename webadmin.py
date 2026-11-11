@@ -2201,6 +2201,10 @@ h2.t{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.04
 .hsc{padding:14px 16px 16px}.hsc h3{margin:0;font-size:20px}.hsc .ha{color:var(--mut);margin-top:2px}.hcr{font-size:11px;color:var(--mut);margin-top:6px}
 .hdl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:12px 0;font-size:14px}.hdl dt{color:var(--mut)}.hdl dd{margin:0;min-width:0;overflow-wrap:anywhere}
 .hnav{display:flex;gap:8px;flex-wrap:wrap}
+.htabs{display:flex;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-top:4px}
+.htabs button{flex:1;background:none;border:0;border-radius:0;padding:10px 4px;color:var(--mut);font:inherit;font-size:13px;cursor:pointer}
+.htabs button.on{color:var(--acc);box-shadow:inset 0 -2px var(--acc)}.hdot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--acc);margin-left:6px;vertical-align:middle}
+.htp{padding:12px 16px 16px}.cblk .cact{margin:8px 0}
 .hcls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0}.hcls small{flex:1 0 100%;color:var(--mut)}.hcls .hnote{min-height:1em}
 .cls2{display:grid;grid-template-columns:minmax(150px,230px) minmax(0,1fr);gap:12px;align-items:start}@media(max-width:700px){.cls2{grid-template-columns:minmax(0,1fr)}}
 .cli{display:flex;justify-content:space-between;gap:8px;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);color:var(--txt);padding:10px 8px;cursor:pointer;font:inherit}.cli:first-child{border-top:0}
@@ -3651,84 +3655,71 @@ async function loadHist() {
   buildHist(); drawHist(); drawCls();
 }
 let histTab = 'hist';
-let clsId = '', clsEdit = false;
-const clsLook = {};  // adresse -> résultat de la recherche adsbdb (ou erreur)
+let clsId = '', clsSt = {edit: false};
+const clsLook = {};  // adresse -> résultat de la recherche (adsbdb.com, hexdb.io, tar1090-db) ou erreur
+function classifyBlock(e, st, redraw, done) {
+  // Bloc de classement d'un avion, partagé par l'onglet « À classer » et la fiche d'un avion : suggestion cherchée toute seule, « Appliquer »,
+  // formulaire (catégorie, type ICAO, modèle) et suppression de l'avion. st.edit : formulaire affiché ; redraw : redessine ; done : après une action.
+  const box = el('div', 'cblk'), L = clsLook[e.id];
+  const catName = k => { const m = HIST.cats.find(x => x[0] === k); return m ? m[1] : ''; };
+  const sg = el('div', 'csg');
+  if (L === undefined) {
+    sg.textContent = tl('Recherche…'); clsLook[e.id] = null;
+    api('/api/aircraft/lookup?id=' + encodeURIComponent(e.id)).then(r => { clsLook[e.id] = r; }).catch(er => { clsLook[e.id] = {error: er.message}; }).then(() => { if (box.isConnected) redraw(); });
+  } else if (L === null) sg.textContent = tl('Recherche…');
+  else if (L.error) { sg.textContent = L.error; sg.className = 'csg none'; }
+  else if (!L.found) { sg.textContent = tl('Aucune suggestion trouvée : classez-le à la main, ou supprimez-le.'); sg.className = 'csg none'; }
+  else sg.textContent = _t('Trouvé sur {0} : {1}', L.source, [L.model, L.code, catName(L.cat)].filter(Boolean).join(' · '));
+  box.append(sg);
+  const found = !!(L && L.found), act = el('div', 'cact');
+  const run = async (body, msg) => { try { await api('/api/aircraft/manual', Object.assign({id: e.id}, body)); toast(msg); await done(); } catch (er) { toast(er.message, true); } };
+  if (found) {
+    const ap = el('button', 'b s p', 'Appliquer la suggestion');
+    ap.onclick = () => run({cat: L.cat || '', code: L.code || '', model: L.model || ''}, 'Classement enregistré'); act.append(ap);
+    const ed = el('button', 'b s', st.edit ? 'Masquer le formulaire' : 'Modifier à la main'); ed.onclick = () => { st.edit = !st.edit; redraw(); }; act.append(ed);
+  }
+  const hasMan = !!(e.mc || e.mcode || e.mmodel);
+  if (hasMan) { const rs = el('button', 'b s', 'Retirer le classement'); rs.onclick = () => run({cat: '', code: '', model: ''}, 'Classement retiré'); act.append(rs); }
+  const del = el('button', 'b s dg', 'Supprimer cet avion');
+  del.onclick = async () => { if (!confirm(tl("Supprimer cet avion de l'historique ? S'il repasse, il réapparaîtra."))) return; try { await api('/api/history/delete', {ids: [e.id]}); toast('Avion supprimé'); await done(); } catch (er) { toast(er.message, true); } };
+  act.append(del);
+  box.append(act);
+  if (st.edit || (L !== undefined && L !== null && !found) || hasMan) {  // pas de suggestion (ou classement déjà fait) : le formulaire est directement là
+    const fm = el('div', 'hcls'), sl = document.createElement('select'); sl.append(new Option(tl('Catégorie automatique'), ''));
+    for (const [k, l] of HIST.cats) sl.append(new Option(l, k));
+    const cd = document.createElement('input'); cd.placeholder = tl('Type ICAO (ex. C172)'); cd.maxLength = 6;
+    const md = document.createElement('input'); md.placeholder = tl('Modèle (ex. Cessna 172)'); md.maxLength = 80;
+    if (hasMan) { sl.value = e.mc || ''; cd.value = e.mcode || ''; md.value = e.mmodel || ''; }
+    else if (found) { sl.value = L.cat || ''; cd.value = L.code || ''; md.value = L.model || ''; }
+    const sv = el('button', 'b s p', 'Enregistrer le classement');
+    sv.onclick = () => { if (!sl.value && !cd.value.trim() && !md.value.trim()) { toast('Choisissez une catégorie, un type ou un modèle', true); return; } run({cat: sl.value, code: cd.value, model: md.value}, 'Classement enregistré'); };
+    fm.append(sl, cd, md, sv); box.append(fm);
+  }
+  return box;
+}
+function exLinks(e) {  // liens vers d'autres sites, discrets
+  const ln = el('div', 'clnk'), add = (t, u) => { const b = el('button', 'lk', t); b.onclick = () => window.open(u, '_blank', 'noopener'); ln.append(b); };
+  if (e.reg) { add('Photos sur JetPhotos ↗', 'https://www.jetphotos.com/registration/' + encodeURIComponent(e.reg)); add('Historique Flightradar24 ↗', 'https://www.flightradar24.com/data/aircraft/' + encodeURIComponent(e.reg.toLowerCase())); }
+  add('Chercher sur internet ↗', 'https://www.google.com/search?q=' + encodeURIComponent((e.reg || e.cs || e.id) + ' aircraft'));
+  return ln;
+}
 function drawCls() {  // onglet « À classer » : liste à gauche, fiche de l'avion choisi à droite (suggestion cherchée toute seule)
   const c = $('#hCls'); if (!c) return; c.replaceChildren();
   const list = HIST.entries.filter(e => e.tc), tb = $('#hTabCls'); if (tb) tb.textContent = _t('À classer ({0})', list.length);
   if (!list.length) { c.append(el('p', 'note', 'Aucun avion à classer.')); return; }
-  if (!list.some(e => e.id === clsId)) { clsId = list[0].id; clsEdit = false; }
+  if (!list.some(e => e.id === clsId)) { clsId = list[0].id; clsSt.edit = false; }
   const e = list.find(x => x.id === clsId);
   const lay = el('div', 'cls2'), lc = el('div', 'card'), pn = el('div', 'card cpn');
   for (const x of list.slice(0, 300)) {
     const r = el('button', 'cli' + (x.id === clsId ? ' on' : '')); r.append(el('b', null, x.reg || x.cs || x.id), el('small', null, ago(x.l || x.t)));
-    r.onclick = () => { clsId = x.id; clsEdit = false; drawCls(); }; lc.append(r);
+    r.onclick = () => { clsId = x.id; clsSt.edit = false; drawCls(); }; lc.append(r);
   }
   const q = () => el('span', 'q', '?'), kv = el('div', 'ckv'), row = (k, v) => { kv.append(el('i', null, k)); const s = el('span'); if (v) s.textContent = v; else s.append(q()); kv.append(s); };
   pn.append(el('h3', null, e.reg || e.cs || e.id));
   row('Immatriculation', e.reg); row('Indicatif', e.cs); row('Adresse ICAO', /^[0-9a-f]{6}$/.test(e.id) ? e.id : ''); row('Type ICAO', e.code);
   row('Modèle', e.model && e.model !== '?' ? e.model : ''); row('Compagnie', e.airline); row('Passages', _t('{0} · dernier {1}', e.n, ago(e.l || e.t)));
-  pn.append(kv);
-  const sg = el('div', 'csg'), L = clsLook[e.id];
-  const catName = k => { const m = HIST.cats.find(x => x[0] === k); return m ? m[1] : ''; };
-  if (L === undefined) {
-    sg.textContent = tl('Recherche…'); clsLook[e.id] = null;
-    api('/api/aircraft/lookup?id=' + encodeURIComponent(e.id)).then(r => { clsLook[e.id] = r; }).catch(er => { clsLook[e.id] = {error: er.message}; }).then(() => { if (clsId === e.id && $('#hCls')) drawCls(); });
-  } else if (L === null) sg.textContent = tl('Recherche…');
-  else if (L.error) { sg.textContent = L.error; sg.className = 'csg none'; }
-  else if (!L.found) { sg.textContent = tl('Aucune suggestion trouvée : classez-le à la main, ou supprimez-le.'); sg.className = 'csg none'; }
-  else sg.textContent = _t('Trouvé sur {0} : {1}', L.source, [L.model, L.code, catName(L.cat)].filter(Boolean).join(' · '));
-  pn.append(sg);
-  const next = async () => { clsEdit = false; await loadHist(); };
-  const act = el('div', 'cact'), found = !!(L && L.found);
-  if (found) {
-    const ap = el('button', 'b s p', 'Appliquer la suggestion');
-    ap.onclick = async () => { try { await api('/api/aircraft/manual', {id: e.id, cat: L.cat || '', code: L.code || '', model: L.model || ''}); toast('Classement enregistré'); await next(); } catch (er) { toast(er.message, true); } };
-    act.append(ap);
-  }
-  const ed = el('button', 'b s', clsEdit ? 'Masquer le formulaire' : 'Modifier à la main'); ed.onclick = () => { clsEdit = !clsEdit; drawCls(); }; act.append(ed);
-  const del = el('button', 'b s dg', 'Supprimer cet avion');
-  del.onclick = async () => { if (!confirm(tl("Supprimer cet avion de l'historique ? S'il repasse, il réapparaîtra."))) return; try { await api('/api/history/delete', {ids: [e.id]}); toast('Avion supprimé'); await next(); } catch (er) { toast(er.message, true); } };
-  act.append(del);
-  pn.append(act);
-  if (clsEdit) {
-    const fm = el('div', 'hcls'), sl = document.createElement('select'); sl.append(new Option(tl('Catégorie automatique'), ''));
-    for (const [k, l] of HIST.cats) sl.append(new Option(l, k));
-    const cd = document.createElement('input'); cd.placeholder = tl('Type ICAO (ex. C172)'); cd.maxLength = 6;
-    const md = document.createElement('input'); md.placeholder = tl('Modèle (ex. Cessna 172)'); md.maxLength = 80;
-    if (found) { sl.value = L.cat || ''; cd.value = L.code || ''; md.value = L.model || ''; }
-    const sv = el('button', 'b s p', 'Enregistrer le classement');
-    sv.onclick = async () => {
-      if (!sl.value && !cd.value.trim() && !md.value.trim()) { toast('Choisissez une catégorie, un type ou un modèle', true); return; }
-      try { await api('/api/aircraft/manual', {id: e.id, cat: sl.value, code: cd.value, model: md.value}); toast('Classement enregistré'); await next(); } catch (er) { toast(er.message, true); }
-    };
-    fm.append(sl, cd, md, sv); pn.append(fm);
-  }
-  const ln = el('div', 'clnk');
-  const ws = el('button', 'lk', 'Chercher sur internet ↗'); ws.onclick = () => window.open('https://www.google.com/search?q=' + encodeURIComponent((e.reg || e.cs || e.id) + ' aircraft'), '_blank', 'noopener'); ln.append(ws);
-  if (e.reg) { const jp = el('button', 'lk', 'Photos sur JetPhotos ↗'); jp.onclick = () => window.open('https://www.jetphotos.com/registration/' + encodeURIComponent(e.reg), '_blank', 'noopener'); ln.append(jp); }
-  pn.append(ln);
+  pn.append(kv, classifyBlock(e, clsSt, drawCls, async () => { clsSt.edit = false; await loadHist(); }), exLinks(e));
   lay.append(lc, pn); c.append(lay);
-}
-function lookupButtons(e, sl, cd, md, note) {  // « Suggérer » (adsbdb.com, par adresse ICAO puis immatriculation) et recherche sur internet ; remplit le formulaire sans enregistrer
-  const out = [], sg = el('button', 'b s', 'Suggérer');
-  sg.onclick = async () => {
-    sg.disabled = true; note.textContent = tl('Recherche…');
-    try {
-      const r = await api('/api/aircraft/lookup?id=' + encodeURIComponent(e.id));
-      if (!r.found) { note.textContent = tl('Aucune information trouvée pour cet avion.'); }
-      else {
-        if (r.cat) sl.value = r.cat; if (r.code) cd.value = r.code; if (r.model) md.value = r.model;
-        note.textContent = _t('Trouvé sur {0} : {1}', r.source, [r.model, r.code, r.reg, r.owner].filter(Boolean).join(' · ')) + ' — ' + tl('vérifiez puis enregistrez.');
-      }
-    } catch (er) { note.textContent = er.message; }
-    sg.disabled = false;
-  };
-  const ws = el('button', 'b s', 'Chercher sur internet ↗');
-  ws.onclick = () => window.open('https://www.google.com/search?q=' + encodeURIComponent((e.reg || e.cs || e.id) + ' aircraft'), '_blank', 'noopener');
-  out.push(sg, ws);
-  if (e.reg) { const jp = el('button', 'b s', 'Photos sur JetPhotos ↗'); jp.onclick = () => window.open('https://www.jetphotos.com/registration/' + encodeURIComponent(e.reg), '_blank', 'noopener'); out.push(jp); }
-  return out;
 }
 function setHistTab(v) {
   histTab = v;
@@ -3914,9 +3905,9 @@ function drawHist() {
   $('#hEmpty').textContent = L.length ? '' : tl(HIST.entries.length ? 'Aucun avion ne correspond à ces filtres.' : "Aucun avion pour le moment. Dès qu'un avion passe au-dessus de chez vous, il apparaît ici avec sa photo.");
 }
 function histTable(e) {  // tous les passages de cet appareil (même immatriculation) vus par le programme
-  const rows = HIST.entries.filter(x => x.reg === e.reg).sort((a, b) => b.t - a.t);
+  const rows = (e.reg ? HIST.entries.filter(x => x.reg === e.reg) : [e]).sort((a, b) => b.t - a.t);
   const w = el('div', 'hht'), tb = document.createElement('table'), hd = document.createElement('tr'); tb.className = 'htab';
-  w.append(el('h5', null, _t('Passages de {0}', e.reg)));
+  w.append(el('h5', null, _t('Passages de {0}', e.reg || e.cs || e.id)));
   for (const h of ['Date et heure', 'Vu pendant', 'Indicatif', 'Trajet', 'Alerte']) hd.append(el('th', null, h));
   tb.append(hd);
   for (const x of rows) {
@@ -3936,7 +3927,9 @@ function histSheet(L, i) {
   sc.append(el('h3', null, e.model && e.model !== '?' ? e.model : (e.code || '?')), el('div', 'ha', e.airline || ' '));
   if (e.mp) sc.append(el('div', 'hcr', tl('Votre photo personnelle')));
   else if (e.photo && e.credit) sc.append(el('div', 'hcr', _t('© {0} (via JetPhotos)', e.credit)));
-  const r = histRoute(e), dl = document.createElement('dl'); dl.className = 'hdl';
+  const after = async () => { ov.remove(); await loadHist(); };
+  // ---- onglet Infos
+  const pInfo = el('div', 'htp'), r = histRoute(e), dl = document.createElement('dl'); dl.className = 'hdl';
   const row = (k, v) => { if (!v) return; dl.append(el('dt', null, k), el('dd', null, v)); };
   const when = t => new Date(t * 1000).toLocaleString();
   row('Immatriculation', e.reg); row('Indicatif', e.cs); row('Type ICAO', e.code);
@@ -3946,16 +3939,17 @@ function histSheet(L, i) {
   if (e.ml) row('MLAT', tl('Position calculée par multilatération'));
   if (e.src && e.src.length) row('Sources', e.src.map(x => SRC_SHORT[x] || x).join(' + '));
   if (e.l - e.t > 120) row('Dernier passage', when(e.l));
-  if (e.reg) {  // nombre de passages + petit bouton qui ouvre le tableau des passages vus par le programme
-    const dd = el('dd', null, _t('{0} fois vu', e.n)), tb = el('button', 'hbt'); tb.title = tl('Historique des passages'); tb.setAttribute('aria-label', tb.title);
-    tb.innerHTML = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M2 6.5h12M2 9.8h12M6.5 3v10"/></svg>';
-    dd.append(tb); dl.append(el('dt', null, 'Passages'), dd);
-    tb.onclick = () => { const old = sc.querySelector('.hht'); if (old) { old.remove(); tb.classList.remove('on'); } else { tb.classList.add('on'); dl.after(histTable(e)); } };
-  }
   row("Zone d'alerte", e.al ? _t("Entré dans la zone le {0}", when(e.al)) : '');
-  sc.append(dl);
-  const nav = el('div', 'hnav');
-  if (/^[0-9a-f]{6}$/.test(e.id) || e.reg) {  // photo personnelle : pour les avions sans photo (avions légers, ULM...)
+  pInfo.append(dl, exLinks(e));
+  // ---- onglet Passages : tous les passages de cet appareil vus par le programme
+  const pPas = el('div', 'htp'); pPas.append(histTable(e));
+  // ---- onglet Classer (la recherche de suggestion ne part que quand on l'ouvre)
+  const pCls = el('div', 'htp'), st = {edit: false};
+  const drawC = () => pCls.replaceChildren(classifyBlock(e, st, drawC, after));
+  // ---- onglet Photo : photo personnelle, pour les avions sans photo (avions légers, ULM...)
+  const pPh = el('div', 'htp');
+  pPh.append(el('p', 'note', e.mp ? 'Votre photo personnelle remplace celle de JetPhotos, sur l\'écran comme dans cette page.' : (e.photo ? 'Photo de JetPhotos, affichée en haut de la fiche. Votre propre photo la remplacerait.' : 'Aucune photo pour cet avion.')));
+  if (/^[0-9a-f]{6}$/.test(e.id) || e.reg) {
     const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.style.display = 'none';
     const add = el('button', 'b s', e.mp ? 'Changer ma photo' : 'Ajouter ma photo'); add.title = tl('Remplace la photo affichée pour cet avion, sur l\'écran comme ici');
     add.onclick = () => inp.click();
@@ -3966,32 +3960,26 @@ function histSheet(L, i) {
         const k = Math.min(1, 1600 / Math.max(img.width, img.height)), cv = document.createElement('canvas');
         cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k); cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
         const data = cv.toDataURL('image/jpeg', 0.88).split(',')[1];
-        await api('/api/myphoto', {id: e.id, data: data}); toast('Photo enregistrée'); ov.remove(); await loadHist();
+        await api('/api/myphoto', {id: e.id, data: data}); toast('Photo enregistrée'); await after();
       } catch (er) { toast(er.message, true); }
     };
-    nav.append(inp, add);
-    if (e.mp) { const rm = el('button', 'b s', 'Retirer ma photo'); rm.onclick = async () => { try { await api('/api/myphoto', {id: e.id, remove: true}); toast('Photo retirée'); ov.remove(); await loadHist(); } catch (er) { toast(er.message, true); } }; nav.append(rm); }
+    const nav = el('div', 'hnav'); nav.append(inp, add);
+    if (e.mp) { const rm = el('button', 'b s', 'Retirer ma photo'); rm.onclick = async () => { try { await api('/api/myphoto', {id: e.id, remove: true}); toast('Photo retirée'); await after(); } catch (er) { toast(er.message, true); } }; nav.append(rm); }
+    pPh.append(nav);
   }
-  {  // classement manuel : icone (catégorie), type ICAO et modèle, pour les avions sans type ou mal classés
-    const box = el('div', 'hcls'), hint = el('small', null, e.tc ? 'Type inconnu : choisissez sa catégorie pour que son icône soit la bonne.' : 'Classement manuel (remplace ce que disent les sources).');
-    const sel = document.createElement('select'); sel.append(new Option(tl('Catégorie automatique'), ''));
-    for (const [c, l] of HIST.cats) sel.append(new Option(l, c));
-    sel.value = e.mc || '';
-    const code = document.createElement('input'); code.placeholder = tl('Type ICAO (ex. C172)'); code.maxLength = 6; code.value = e.mcode || '';
-    const mod = document.createElement('input'); mod.placeholder = tl('Modèle (ex. Cessna 172)'); mod.maxLength = 80; mod.value = e.mmodel || '';
-    const sv = el('button', 'b s', 'Enregistrer le classement');
-    sv.onclick = async () => { try { await api('/api/aircraft/manual', {id: e.id, cat: sel.value, code: code.value, model: mod.value}); toast('Classement enregistré'); ov.remove(); await loadHist(); } catch (er) { toast(er.message, true); } };
-    const nt = el('small', 'hnote'); box.append(hint, sel, code, mod, ...lookupButtons(e, sel, code, mod, nt), sv, nt);
-    if (e.mc || e.mcode || e.mmodel) { const rs = el('button', 'b s', 'Retirer le classement'); rs.onclick = async () => { try { await api('/api/aircraft/manual', {id: e.id, cat: '', code: '', model: ''}); toast('Classement retiré'); ov.remove(); await loadHist(); } catch (er) { toast(er.message, true); } }; box.append(rs); }
-    sc.append(box);
-  }
-  if (e.reg) {
-    const a = el('button', 'b s', 'Photos sur JetPhotos ↗'); a.onclick = () => window.open('https://www.jetphotos.com/registration/' + encodeURIComponent(e.reg), '_blank', 'noopener'); nav.append(a);
-    const f = el('button', 'b s', 'Historique Flightradar24 ↗'); f.onclick = () => window.open('https://www.flightradar24.com/data/aircraft/' + encodeURIComponent(e.reg.toLowerCase()), '_blank', 'noopener'); nav.append(f);
-  }
+  // ---- onglets
+  const tabs = el('div', 'htabs'), panes = [pInfo, pPas, pCls, pPh], btns = [];
+  const show = k => {
+    btns.forEach((b, n) => b.classList.toggle('on', n === k)); panes.forEach((p, n) => { p.style.display = n === k ? '' : 'none'; });
+    if (k === 2 && !pCls.firstChild) drawC();
+  };
+  [['Infos', 0], ['Passages', 1], ['Classer', 2], ['Photo', 3]].forEach(([t, k]) => {
+    const b = el('button', null, t); if (k === 2 && e.tc) b.append(el('span', 'hdot')); b.onclick = () => show(k); btns.push(b); tabs.append(b);
+  });
   const xb = el('button', 'hx', '✕'); xb.title = tl('Fermer'); xb.onclick = () => ov.remove(); ph.append(xb);
   ov._nav = d => { if (L[i + d]) histSheet(L, i + d); };
-  sc.append(nav); sh.append(ph, sc); ov.append(sh); document.body.append(ov);
+  sh.append(ph, sc, tabs, ...panes); ov.append(sh); document.body.append(ov);
+  show(e.tc ? 2 : 0);  // un avion à classer s'ouvre directement sur l'onglet Classer
 }
 
 /* ---------- Heure du Pi et prochaine action du planning ---------- */
