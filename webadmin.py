@@ -3134,7 +3134,31 @@ async function renderTypes(box) {
   function draw() { todoList(); catCards(); }
   find.oninput = () => { query = find.value.trim().toUpperCase(); catCards(); };
   cats.append(el('h2', 't', 'Types par catégorie'), el('p', 'note', 'En vert : types déjà vus au-dessus de chez vous (survolez pour le nombre de passages).'), bar, catList);
-  box.append(todo, cats); draw();
+  const acft = el('div');  // avions sans type ICAO ni modèle (« ? ») : classement un par un, enregistré tout de suite
+  async function acftList() {
+    acft.replaceChildren();
+    let H; try { H = await api('/api/history'); } catch (e) { return; }
+    const list = H.entries.filter(e => e.tc);
+    if (!list.length) return;
+    acft.append(el('h2', 't', 'Avions sans type (à classer un par un)'), el('p', 'note', "Ces avions ont été vus sans type ICAO ni modèle : leur icône est celle par défaut. Choisissez leur catégorie (et, si vous les connaissez, leur type ICAO et leur modèle) : le classement est enregistré tout de suite, par avion, et s'applique dès son prochain passage."));
+    const card = el('div', 'card');
+    for (const e of list.slice(0, 100)) {
+      const r = el('div', 'tcl'), hd = el('div', 'lt'); hd.append(el('b', null, e.reg || e.cs || e.id), el('small', null, [e.airline, e.cs && e.cs !== e.reg ? e.cs : '', ago(e.l || e.t)].filter(Boolean).join(' · ')));
+      const ct = el('div', 'hcls'), sl = document.createElement('select'); sl.append(new Option(tl('Catégorie automatique'), ''));
+      for (const [c, l] of H.cats) sl.append(new Option(l, c));
+      const cd = document.createElement('input'); cd.placeholder = tl('Type ICAO (ex. C172)'); cd.maxLength = 6;
+      const md = document.createElement('input'); md.placeholder = tl('Modèle (ex. Cessna 172)'); md.maxLength = 80;
+      const sv = el('button', 'b s', 'Enregistrer le classement');
+      sv.onclick = async () => {
+        if (!sl.value && !cd.value.trim() && !md.value.trim()) { toast('Choisissez une catégorie, un type ou un modèle', true); return; }
+        try { await api('/api/aircraft/manual', {id: e.id, cat: sl.value, code: cd.value, model: md.value}); toast('Classement enregistré'); acftList(); } catch (er) { toast(er.message, true); }
+      };
+      ct.append(sl, cd, md, sv); r.append(hd, ct); card.append(r);
+    }
+    acft.append(card);
+    if (list.length > 100) acft.append(el('p', 'note', _t('{0} avions de plus : classez-les depuis « Avions vus », filtre « À classer ».', list.length - 100)));
+  }
+  box.append(todo, acft, cats); draw(); acftList();
   (async () => { for (const c of unknownCodes()) if (!sug[c]) await ask(c, true); })();
 }
 
