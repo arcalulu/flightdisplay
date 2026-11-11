@@ -1087,18 +1087,20 @@ def history_data():
             br = "ULM"
         mil = mcat == "mil" or (not mcat and not ulm and (bool(e.get("mil")) or xcat.get((e.get("code") or "").upper()) == "mil"))
         tc = not mcat and not ulm and not mil and (not e.get("code") or e.get("model") in ("", "?", None))  # type absent ou inconnu : à classer
+        cat = mcat or ("ulm" if ulm else ("mil" if mil else xcat.get((e.get("code") or "").upper(), "")))  # categorie d'icone ('' : type inconnu)
         if mil:  # militaire (signale par une source, ou type militaire) : rangé sous « Militaire » dans le filtre Constructeur
             fa = (fa if br == "Inconnu" else (br + " " + fa).strip()) or "?"
             br = "Militaire"
         entries.append(dict(br=br, fa=fa, al=int(e.get("al") or 0), id=str(e["id"]), t=int(e.get("t", 0)), l=int(e.get("l", e.get("t", 0))), cs=e.get("cs", ""), reg=reg,
                             code=e.get("code", ""), model=e.get("model", ""), airline=e.get("airline", ""), frm=e.get("frm", ""), to=e.get("to", ""),
-                            fi=e.get("fi", ""), ti=e.get("ti", ""), photo=bool(e.get("photo") or e.get("url")) or bool(perso_entry(e, mine)), credit=e.get("credit", ""), mp=perso_entry(e, mine), ulm=ulm, mil=mil, tc=tc, mc=mcat, mcode=mcode, mmodel=mmodel,
+                            fi=e.get("fi", ""), ti=e.get("ti", ""), photo=bool(e.get("photo") or e.get("url")) or bool(perso_entry(e, mine)), credit=e.get("credit", ""), mp=perso_entry(e, mine), ulm=ulm, mil=mil, tc=tc, cat=cat, mc=mcat, mcode=mcode, mmodel=mmodel,
                             n=regs.get(reg, 1) if reg else 1, rare=codes.get(e.get("code"), 0) == 1,
                             src=[x for x in (e.get("src") or []) if x in sources.NAMES], ml=bool(e.get("mlat"))))
     stats = dict(total=len(L), regs=len(regs), airlines=len(airl), types=len(codes), today=sum(1 for e in L if now - e.get("t", 0) < 86400),
                  first=int(L[-1].get("t", 0)) if L else 0, top_airlines=airl.most_common(5), top_types=types.most_common(5),
                  regulars=[(r, model_of.get(r, "?"), n) for r, n in regs.most_common(5) if n > 1])
-    return dict(entries=entries, stats=stats, now=now, cats=[[c, tr(TYPE_LABELS[c])] for c in TYPE_CATS])
+    return dict(entries=entries, stats=stats, now=now, cats=[[c, tr(TYPE_LABELS[c])] for c in TYPE_CATS],
+                shapes={c: [[round(x, 2), round(y, 2)] for x, y in aircraft_types.SHAPES[c]] for c in TYPE_CATS})
 
 
 def manual_path():
@@ -2170,7 +2172,7 @@ h2.t{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.04
 .haside .seg{display:flex;margin:0 4px 10px}.haside .seg button{flex:1;padding:6px 4px;font-size:13px}
 .hnode{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;text-align:left;border:0;background:none;color:var(--txt);padding:7px 10px;border-radius:9px;font-size:14px;cursor:pointer}
 .hnode:hover{background:#1b2431}.hnode.on{background:#2c3a4d;font-weight:600}.hnode>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hnode b{font-weight:400;color:var(--mut);font-size:12px}
-.hnode.sub{padding-left:26px;font-size:13px}.hnode.multi.on{border-color:#5b3f96}.hnode.alert{color:#ff9d96}
+.hnode.sub{padding-left:26px;font-size:13px}.hnode>span.hnt{display:flex;align-items:center;gap:9px;white-space:normal;overflow:visible;line-height:1.25}.hnt .hns{flex:none;width:24px}.hnt svg{flex:none;color:#9db4cf}.hnode.on .hnt svg{color:var(--acc)}.hnode.multi.on{border-color:#5b3f96}.hnode.alert{color:#ff9d96}
 .hmain{flex:1;min-width:0}
 .hcrumb{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:0 0 10px;font-size:14px}.hcrumb button{border:0;background:none;color:var(--acc);padding:2px 4px;font-size:14px;cursor:pointer}.hcrumb button:hover{text-decoration:underline}.hcrumb i{font-style:normal;color:var(--mut)}.hcrumb span{color:var(--txt);font-weight:600}.hcrumb small{color:var(--mut);margin-left:auto}
 .hpager{display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin:12px 0}.hpager .hpi{color:var(--mut);font-size:13px;margin-right:8px}.hpager .hpe{color:var(--mut);padding:0 4px}
@@ -3648,7 +3650,7 @@ async function renderStorage(box) {
 /* ---------- Avions vus : l'historique, en cartes ou en liste, avec filtres et pages ---------- */
 const HV = (() => { try { return JSON.parse(localStorage.getItem('histView') || '{}'); } catch (e) { return {}; } })();
 let HIST = null, histQ = '', histPeriod = HV.period || 'all', histSort = HV.sort || 'recent', histMode = HV.mode || 'cards', histGroup = HV.group || 'brand', histPer = HV.per || 24;
-let histBrand = '', histFam = '', histAirline = '', histAlert = false, histTc = false, histSrc = '', histPage = 1;
+let histBrand = '', histFam = '', histAirline = '', histCat = '', histAlert = false, histTc = false, histSrc = '', histPage = 1;
 const histSave = () => { try { localStorage.setItem('histView', JSON.stringify({period: histPeriod, sort: histSort, mode: histMode, group: histGroup, per: histPer})); } catch (e) {} };
 async function loadHist() {
   try { HIST = await api('/api/history'); } catch (e) { toast(e.message, true); return; }
@@ -3775,7 +3777,7 @@ function histBase() {  // période, recherche et alerte : ce qui sert aussi à c
   return HIST.entries.filter(e => e.t >= lim && (!histAlert || e.al) && (!histTc || e.tc) && histSrcOk(e) && (!q || [e.model, e.reg, e.cs, e.airline, e.frm, e.to, e.fi, e.ti, e.code].join(' ').toLowerCase().includes(q)));
 }
 function histPick(base) {
-  let L = base.filter(e => (!histBrand || e.br === histBrand) && (!histFam || e.fa === histFam) && (!histAirline || histCo(e) === histAirline));
+  let L = base.filter(e => (!histBrand || e.br === histBrand) && (!histFam || e.fa === histFam) && (!histAirline || histCo(e) === histAirline) && (!histCat || (histCat === '?' ? !e.cat : e.cat === histCat)));
   if (histSort === 'often') L = L.slice().sort((a, b) => b.n - a.n || b.t - a.t);
   return L;
 }
@@ -3812,7 +3814,7 @@ function histPager(host, pages) {
 function drawAside(base) {
   const a = $('#hAside'); a.innerHTML = '';
   const gs = el('div', 'seg');
-  for (const [v, t] of [['brand', 'Constructeur'], ['airline', 'Compagnie']]) { const b = el('button', histGroup === v ? 'on' : '', t); b.onclick = () => { histGroup = v; histBrand = histFam = histAirline = ''; histPage = 1; histSave(); drawHist(); }; gs.append(b); }
+  for (const [v, t] of [['brand', 'Constructeur'], ['airline', 'Compagnie'], ['type', 'Type']]) { const b = el('button', histGroup === v ? 'on' : '', t); b.onclick = () => { histGroup = v; histBrand = histFam = histAirline = histCat = ''; histPage = 1; histSave(); drawHist(); }; gs.append(b); }
   a.append(el('h4', null, 'Regrouper par'), gs);
   const node = (label, n, on, fn, cls) => { const b = el('button', 'hnode' + (cls ? ' ' + cls : '') + (on ? ' on' : '')); b.append(el('span', null, label), el('b', null, String(n))); b.onclick = () => { fn(); histPage = 1; drawHist(); }; return b; };
   const alerts = HIST.entries.filter(e => e.al).length;
@@ -3828,9 +3830,13 @@ function drawAside(base) {
       if (k || n === 'fr24') a.append(node(_t('{0} seulement', SRC_NAMES[n]), k, histSrc === n, () => { histSrc = histSrc === n ? '' : n; }));
     }
   }
-  a.append(el('h4', null, histGroup === 'brand' ? 'Constructeurs' : 'Compagnies'));
-  a.append(node('Tous les avions', base.length, !histBrand && !histFam && !histAirline, () => { histBrand = histFam = histAirline = ''; }));
-  if (histGroup === 'brand') {
+  a.append(el('h4', null, histGroup === 'brand' ? 'Constructeurs' : (histGroup === 'type' ? 'Types' : 'Compagnies')));
+  a.append(node('Tous les avions', base.length, !histBrand && !histFam && !histAirline && !histCat, () => { histBrand = histFam = histAirline = histCat = ''; }));
+  if (histGroup === 'type') {  // un type = une forme d'icône, avec son nom
+    const tn = (cat, label, n) => { const b = el('button', 'hnode' + (histCat === cat ? ' on' : '')), sp = el('span', 'hnt'); if (cat !== '?') sp.append(planeSvg({shapes: HIST.shapes}, cat, 24)); else sp.append(el('i', 'hns')); sp.append(document.createTextNode(label)); b.append(sp, el('b', null, String(n))); b.onclick = () => { histCat = cat; histBrand = histFam = histAirline = ''; histPage = 1; drawHist(); }; return b; };
+    for (const [cat, label] of HIST.cats) { const n = base.filter(e => e.cat === cat).length; if (n || histCat === cat) a.append(tn(cat, label, n)); }
+    const unk = base.filter(e => !e.cat).length; if (unk || histCat === '?') a.append(tn('?', tl('Type inconnu'), unk));
+  } else if (histGroup === 'brand') {
     const br = new Map();
     for (const e of base) { const b = br.get(e.br) || {n: 0, f: new Map()}; b.n++; b.f.set(e.fa, (b.f.get(e.fa) || 0) + 1); br.set(e.br, b); }
     for (const [name, b] of [...br].sort((x, y) => y[1].n - x[1].n || x[0].localeCompare(y[0]))) {
@@ -3845,14 +3851,15 @@ function drawAside(base) {
 function drawCrumb(total) {
   const c = $('#hCrumb'); c.innerHTML = '';
   const link = (t, fn) => { const b = el('button', null, t); b.onclick = () => { fn(); histPage = 1; drawHist(); }; return b; };
-  const sel = histBrand || histAirline;
+  const sel = histBrand || histAirline || histCat;
   if (!sel && !histAlert && !histTc && !histSrc) c.append(el('span', null, 'Tous les avions'));
-  else c.append(link('Tous les avions', () => { histBrand = histFam = histAirline = ''; histAlert = false; histTc = false; histSrc = ''; }));
+  else c.append(link('Tous les avions', () => { histBrand = histFam = histAirline = histCat = ''; histAlert = false; histTc = false; histSrc = ''; }));
   if (histAlert) { c.append(el('i', null, '›')); c.append(sel ? link("Zone d'alerte", () => { histAlert = false; }) : el('span', null, "Zone d'alerte")); }
   if (histTc) { c.append(el('i', null, '›')); c.append(sel ? link('À classer', () => { histTc = false; }) : el('span', null, 'À classer')); }
   if (histSrc) { const t = histSrc === 'multi' ? 'Vus par plusieurs sources' : _t('{0} seulement', SRC_NAMES[histSrc] || histSrc); c.append(el('i', null, '›')); c.append(sel ? link(t, () => { histSrc = ''; }) : el('span', null, t)); }
   if (histBrand) { c.append(el('i', null, '›')); c.append(histFam ? link(histBrand, () => { histFam = ''; }) : el('span', null, histBrand)); if (histFam) { c.append(el('i', null, '›'), el('span', null, histFam)); } }
   if (histAirline) { c.append(el('i', null, '›'), el('span', null, histAirline)); }
+  if (histCat) { const m = HIST.cats.find(x => x[0] === histCat); c.append(el('i', null, '›'), el('span', null, m ? m[1] : tl('Type inconnu'))); }
   c.append(el('small', null, _t(total > 1 ? '{0} avions' : '{0} avion', total)));
 }
 function drawHist() {
@@ -3872,7 +3879,7 @@ function drawHist() {
   g.append(board('Compagnies les plus vues', st.top_airlines), board('Modèles les plus vus', st.top_types), board('Habitués (même appareil)', st.regulars.map(r => [r[0] + ' · ' + r[1], r[2]])));
   lb.append(g); lb.open = open;
   const base = histBase();
-  if ((histBrand && !base.some(e => e.br === histBrand)) || (histAirline && !base.some(e => histCo(e) === histAirline))) { histBrand = histFam = histAirline = ''; }
+  if ((histBrand && !base.some(e => e.br === histBrand)) || (histAirline && !base.some(e => histCo(e) === histAirline)) || (histCat && !base.some(e => histCat === '?' ? !e.cat : e.cat === histCat))) { histBrand = histFam = histAirline = histCat = ''; }
   if (histFam && !base.some(e => e.br === histBrand && e.fa === histFam)) histFam = '';
   drawAside(base);
   const L = histPick(base), pages = Math.max(1, Math.ceil(L.length / histPer));
