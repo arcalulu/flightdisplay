@@ -36,7 +36,7 @@ def online_url(name, lat, lon, nm):
         return "https://opendata.adsb.fi/api/v2/lat/%.5f/lon/%.5f/dist/%d" % (lat, lon, nm)
     raise ValueError(name)
 COMPLETE = ("registration", "aircraft_code", "callsign", "origin_airport_iata", "destination_airport_iata", "airline_icao")
-UA = {"User-Agent": "flightdisplay"}
+UA = {"User-Agent": "flightdisplay (+https://github.com/arcalulu/flightdisplay)"}  # identifiant honnete du programme, avec l'adresse du projet
 
 
 def http_json(url, timeout=6):
