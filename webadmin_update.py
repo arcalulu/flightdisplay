@@ -574,6 +574,13 @@ class Updater:
             if r.returncode != 0:
                 self._log((r.stderr or r.stdout).strip()[-600:])
                 raise UpdateError("Le code de webadmin de la nouvelle version ne se charge pas.")
+            chk = os.path.join(self.S.APP_DIR, "codecheck.py")  # noms utilises sans etre definis (ce que py_compile ne voit pas)
+            if os.path.exists(chk):
+                allpy = sorted(f for f in os.listdir(self.S.APP_DIR) if f.endswith(".py") and os.path.isfile(os.path.join(self.S.APP_DIR, f)))
+                r = subprocess.run([py, chk] + allpy, cwd=self.S.APP_DIR, capture_output=True, text=True, errors="replace", timeout=120)
+                if r.returncode != 0:
+                    self._log((r.stdout or r.stderr).strip()[-800:])
+                    raise UpdateError("Le code de la nouvelle version utilise un nom qui n'est défini nulle part : il aurait fait planter le programme.")
             self._log("Code contrôlé : aucune erreur.")
             self._end(4)
 

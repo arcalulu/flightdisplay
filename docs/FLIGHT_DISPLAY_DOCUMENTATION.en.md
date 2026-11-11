@@ -1603,7 +1603,7 @@ sudo reboot
 | Entities missing in Home Assistant | Check the MQTT integration, `discovery_prefix`, the same server, then "Reconnect / republish". |
 | Updates: "check failed" | webadmin cannot reach GitHub (Internet, DNS) or the installation is not a Git repository: read the message shown in the Updates tab. |
 | Updates: "software files modified locally" | Files tracked by Git differ from GitHub (copied by hand, for example). See which with `git status`, then `git checkout <file>` or `git stash` (12.1). `config.ini` is never concerned. |
-| Updates: "going back to the previous version" | The new version did not pass the code check or does not start. The old version still works; the update log gives the cause. |
+| Updates: "going back to the previous version" | The new version did not pass the code check or does not start. The old version still works; the update log gives the cause. The code check verifies the syntax (`py_compile`), loads webadmin and runs `codecheck.py`, which spots, without running anything, names used without being defined (function not imported, typo), which the syntax check alone cannot see. |
 | After a language change, the screen stays in the old language | The display program reads the language at startup: "Save" in webadmin, or `fd restart`. |
 | A language added in `lang/` does not appear | The file must be named `<code>.json` (2 or 3 lowercase letters) and contain valid JSON; restart webadmin. Check: `python3 lang/check_lang.py <code>` (12.3). |
 | No label appears next to the aircraft | All the items are hidden in Settings, Aircraft labels (8.7). |
