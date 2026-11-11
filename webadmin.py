@@ -1086,7 +1086,10 @@ def split_model(model, code):
 def history_data():
     """Avions vus (ecrits par main.py) : les plus recents d'abord, avec compteurs par immatriculation et statistiques."""
     L = sorted(_history_list(), key=lambda e: -e.get("t", 0))
-    regs = collections.Counter(e["reg"] for e in L if e.get("reg"))
+    regs = collections.Counter()  # passages par immatriculation (un avion revu apres 2 h compte pour un nouveau passage)
+    for e in L:
+        if e.get("reg"):
+            regs[aircraft_types.norm_reg(e["reg"])] += len(e.get("ps") or ()) or 1
     codes = collections.Counter(e.get("code") for e in L)
     label = lambda e: (e.get("model") if e.get("model") and e.get("model") != "?" else e.get("code")) or "?"
     types = collections.Counter(label(e) for e in L)
@@ -1123,7 +1126,7 @@ def history_data():
         entries.append(dict(br=br, fa=fa, al=int(e.get("al") or 0), id=str(e["id"]), t=int(e.get("t", 0)), l=int(e.get("l", e.get("t", 0))), cs=e.get("cs", ""), reg=reg,
                             code=e.get("code", ""), model=e.get("model", ""), airline=e.get("airline", ""), frm=e.get("frm", ""), to=e.get("to", ""),
                             fi=e.get("fi", ""), ti=e.get("ti", ""), photo=bool(e.get("photo") or e.get("url")) or bool(perso_entry(e, mine)), credit=e.get("credit", ""), mp=perso_entry(e, mine), ulm=ulm, mil=mil, tc=tc, cat=cat, mc=mcat, mcode=mcode, mmodel=mmodel, mreg=mreg,
-                            n=regs.get(reg, 1) if reg else 1, rare=codes.get(e.get("code"), 0) == 1,
+                            n=regs.get(e.get("reg"), 1) if e.get("reg") else 1, ps=[[int(p[0]), int(p[1]), int(p[2]) if len(p) > 2 else 0] for p in (e.get("ps") or ()) if isinstance(p, list) and len(p) >= 2][-20:], rare=codes.get(e.get("code"), 0) == 1,
                             src=[x for x in (e.get("src") or []) if x in sources.NAMES], ml=bool(e.get("mlat"))))
     stats = dict(total=len(L), regs=len(regs), airlines=len(airl), types=len(codes), today=sum(1 for e in L if now - e.get("t", 0) < 86400),
                  first=int(L[-1].get("t", 0)) if L else 0, top_airlines=airl.most_common(5), top_types=types.most_common(5),
@@ -4019,7 +4022,12 @@ function drawHist() {
   $('#hEmpty').textContent = L.length ? '' : tl(HIST.entries.length ? 'Aucun avion ne correspond à ces filtres.' : "Aucun avion pour le moment. Dès qu'un avion passe au-dessus de chez vous, il apparaît ici avec sa photo.");
 }
 function histTable(e) {  // tous les passages de cet appareil (même immatriculation) vus par le programme
-  const rows = (e.reg ? HIST.entries.filter(x => x.reg === e.reg) : [e]).sort((a, b) => b.t - a.t);
+  const rows = [];  // un passage par ligne : début, fin, alerte, et l'entrée pour l'indicatif et le trajet
+  for (const x of (e.reg ? HIST.entries.filter(y => y.reg === e.reg) : [e])) {
+    const ps = x.ps && x.ps.length ? x.ps : [[x.t, x.l, 0]];
+    ps.forEach((p, k) => rows.push({t: p[0], l: p[1], al: k === ps.length - 1 ? x.al : p[2], cs: x.cs, frm: x.frm, to: x.to, fi: x.fi, ti: x.ti}));
+  }
+  rows.sort((a, b) => b.t - a.t);
   const w = el('div', 'hht'), tb = document.createElement('table'), hd = document.createElement('tr'); tb.className = 'htab';
   w.append(el('h5', null, _t('Passages de {0}', e.reg || e.cs || e.id)));
   for (const h of ['Date et heure', 'Vu pendant', 'Indicatif', 'Trajet', 'Alerte']) hd.append(el('th', null, h));

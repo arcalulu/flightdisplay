@@ -253,10 +253,33 @@ def history_alert(ids):
                 del alerted[k]
 
 
+PASSAGE_GAP = 2 * 3600  # un avion revu apres plus de 2 h d'absence compte pour un nouveau passage
+
+
+def history_touch(e, now):
+    """Marque l'avion comme vu a l'instant now : prolonge le passage en cours, ou en ouvre un nouveau apres PASSAGE_GAP d'absence.
+    e["ps"] = [[debut, fin, alerte (0 si aucune)], ...] ; e["t"] = debut du dernier passage ; e["l"] = derniere fois vu."""
+    now = int(now)
+    ps = e.get("ps")
+    if not ps:
+        t0 = int(e.get("t", now))
+        ps = e["ps"] = [[t0, int(e.get("l", t0)), 0]]
+    if now - int(e.get("l", ps[-1][1])) > PASSAGE_GAP:
+        ps[-1][2] = int(e.pop("al", 0) or 0)  # l'alerte appartient au passage qui se termine
+        ps.append([now, now, 0])
+        del ps[:-50]
+        e["t"] = now
+        _hs["dirty"] = True
+    else:
+        ps[-1][1] = now
+    e["l"] = now
+
+
 def history_note(f, info):
     """Ajoute (ou complete) l'avion dans l'historique. Appele avec le verrou."""
     now = int(time.time())
     e = history.get(f.id) or {"id": f.id, "t": now}
+    history_touch(e, now)
     if f.id in alerted and not e.get("al"):
         e["al"] = alerted[f.id]
     e["src"] = sorted(set(e.get("src") or ()) | set(f.sources or ()))  # sources qui ont vu l'avion (page Avions vus)
@@ -712,7 +735,7 @@ def poll_loop():
                         types_note(f.aircraft_code)
                     seen.add(f.id)
                     if f.id in history:
-                        history[f.id]["l"] = int(now)  # dernier passage (ecrit avec le prochain enregistrement)
+                        history_touch(history[f.id], now)  # passage en cours, ou nouveau passage apres 2 h d'absence (ecrit avec le prochain enregistrement)
                         if f.mlat and not history[f.id].get("mlat"):
                             history[f.id]["mlat"] = 1; _hs["dirty"] = True
                         if not set(f.sources) <= set(history[f.id].get("src") or ()):
