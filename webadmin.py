@@ -2230,10 +2230,11 @@ h2.t{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.04
 .opt b{display:block;font-size:14px}.opt small{display:block;margin-top:3px;color:var(--mut);font-size:12.5px;line-height:1.4}.opts.chg .opt.on{box-shadow:0 0 0 1px var(--acc)}
 .srcmode.dim{opacity:.5}.srcul{margin:6px 0 14px;padding-left:20px;color:var(--mut);font-size:13px;line-height:1.5}.srcul b{color:var(--txt)}
 .srctab{width:100%;border-collapse:collapse;font-size:12.5px;margin:6px 0 14px}.srctab th{color:var(--mut);font-weight:600;text-align:left;padding:6px;border-bottom:1px solid var(--line)}.srctab td{padding:6px;border-bottom:1px solid #1b2431;vertical-align:top}.srctab tr.cur td{background:#13202e}
-.hfbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 8px}.hfbar .hsp{flex:1}.hfbar small{color:var(--mut)}
-.hmw{position:relative}.hchip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:#0e141b;color:var(--mut);border-radius:99px;padding:7px 13px;font-size:14px;cursor:pointer;white-space:nowrap}
-.hchip:hover{border-color:#3a4c63}.hchip.on{background:#1d2d45;color:var(--txt);border-color:#3b5d8c}.hchip.al.on{background:#4a1a17;border-color:#8a2f29;color:#ffb4ae}.hchip.clr{border-style:dashed}
-.hchip em{font-style:normal;background:#5aa2ff;color:#06101c;border-radius:99px;padding:0 7px;font-size:11.5px;font-weight:700}
+.hfbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 10px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px}.hfbar .hsp{flex:1}.hfbar small{color:var(--mut)}
+.hfl{flex:0 0 100%;display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--acc);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}.hfl svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.hmw{position:relative}.hchip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:#1b2431;color:var(--txt);border-radius:10px;padding:8px 14px;font-size:14px;cursor:pointer;white-space:nowrap}
+.hchip:hover{border-color:#3a4c63}.hchip.on{background:#13202e;border-color:var(--acc)}.hchip.al.on{background:#4a1a17;border-color:#8a2f29;color:#ffb4ae}.hchip.clr{background:none;color:var(--mut)}
+.hchip em{font-style:normal;background:var(--acc);color:#1a1400;border-radius:99px;padding:0 7px;font-size:11.5px;font-weight:700}
 .hpop{position:absolute;z-index:30;top:calc(100% + 6px);left:0;width:280px;max-width:calc(100vw - 32px);background:#0e141b;border:1px solid #3b5d8c;border-radius:12px;padding:8px;box-shadow:0 12px 34px #000a}
 .hpop input{width:100%;margin-bottom:6px;padding:7px 10px;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#0b1017;color:var(--txt)}
 .hpl{max-height:320px;overflow:auto;display:flex;flex-direction:column;gap:1px}
@@ -3960,6 +3961,7 @@ function drawFilters(total) {
   const f = $('#hFilt'); if (!f) return;
   const hadQ = document.activeElement && document.activeElement.classList && document.activeElement.classList.contains('hmq');
   f.innerHTML = '';
+  const fl = el('div', 'hfl'); fl.innerHTML = '<svg viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>'; fl.append(document.createTextNode(tl('Filtrer et trier'))); f.append(fl);
   const menu = (name, label, n) => {
     const w = el('div', 'hmw'), b = el('button', 'hchip' + (n ? ' on' : '')); b.append(document.createTextNode(label)); if (n) b.append(el('em', null, String(n))); b.append(document.createTextNode('▾'));
     b.onclick = () => { histOpen = histOpen === name ? '' : name; histMq = ''; drawFilters(total); };
