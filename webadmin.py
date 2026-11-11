@@ -2970,18 +2970,18 @@ function renderSources(box, cat) {
     r.append(el('td', null, a), el('td', null, b), el('td', null, c)); tb.append(r);
   }
   sec.append(tb);
-  sec.append(el('h2', 't', 'Couleur des icônes selon la source'));
+  sec.append(el('h2', 't', 'Couleur des icônes'));
   const cl = el('div', 'list'), tp = gp('display.color_by_source'), cols = ['plane_color_fr24', 'plane_color_tar1090', 'plane_color_airplaneslive', 'plane_color_adsblol', 'plane_color_adsbfi', 'plane_color_multi'].map(k => gp('display.' + k));
   const mk = (p, id) => { const c = control(p), r = el('div', 'li'), t = el('div', 'lt'); t.append(el('b', null, p.label)); if (p.help) t.append(el('small', null, p.help)); r.dataset.row = id; r.append(t, c.c); return r; };
   cl.append(mk(tp, 'tg'));
   for (const p of cols) cl.append(mk(p, p.id));
-  const mp = gp('display.color_military'), mc = gp('display.plane_color_military');
-  cl.append(mk(mp, 'mg'), mk(mc, mc.id));
+  const milp = gp('display.color_military'), milc = gp('display.plane_color_military');
+  cl.append(mk(milp, 'mg'), mk(milc, milc.id));
   sec.append(cl); box.append(sec);
-  const tg = cl.querySelector('[data-row="tg"] input[type=checkbox]'), mg = cl.querySelector('[data-row="mg"] input[type=checkbox]');
+  const tg = cl.querySelector('[data-row="tg"] input[type=checkbox]'), milg = cl.querySelector('[data-row="mg"] input[type=checkbox]');
   const vis = () => { cols.forEach(p => { const r = cl.querySelector('[data-row="' + p.id + '"]'); if (r) r.style.display = String(pval(tp)) === 'true' ? '' : 'none'; });
-    const r = cl.querySelector('[data-row="' + mc.id + '"]'); if (r) r.style.display = String(pval(mp)) === 'true' ? '' : 'none'; };
-  if (tg) tg.addEventListener('change', vis); if (mg) mg.addEventListener('change', vis); vis();
+    const r = cl.querySelector('[data-row="' + milc.id + '"]'); if (r) r.style.display = String(pval(milp)) === 'true' ? '' : 'none'; };
+  if (tg) tg.addEventListener('change', vis); if (milg) milg.addEventListener('change', vis); vis();
   paintSrc();
 }
 
