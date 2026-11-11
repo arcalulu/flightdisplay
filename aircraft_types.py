@@ -8,7 +8,39 @@ PERSO_DIR = "photos_perso"  # photos personnelles (webadmin, fiche d'un avion) :
 
 def is_ulm(reg):
     """Une immatriculation française qui commence par F-J (ou FJ, tiret absent chez certaines sources) est toujours celle d'un ULM (ultra léger motorisé)."""
-    return (reg or "").strip().upper().startswith(("F-J", "FJ"))
+    return norm_reg(reg).startswith("F-J")
+
+
+MANUAL_FILE = "aircraft_manual.json"  # classement manuel d'un avion (webadmin, fiche d'un avion) : {adresse ICAO: {"cat": ..., "code": ..., "model": ...}}
+
+
+def read_manual(path):
+    """Lit aircraft_manual.json : {adresse ICAO: {cat, code, model}} (entrees invalides ignorees)."""
+    import json
+    out = {}
+    try:
+        with open(path, encoding="utf-8") as fh:
+            d = json.load(fh)
+        for k, v in (d.items() if isinstance(d, dict) else ()):
+            if isinstance(v, dict):
+                cat = v.get("cat") if v.get("cat") in SHAPES else ""
+                out[str(k).lower()] = {"cat": cat, "code": str(v.get("code") or "").strip().upper()[:6], "model": str(v.get("model") or "").strip()[:80]}
+    except (OSError, ValueError):
+        pass
+    return out
+
+
+def norm_reg(reg, callsign=""):
+    """Immatriculation propre : en majuscules ; une immatriculation française sans tiret (FHURY) est remise au format F-HURY ;
+    à défaut, l'indicatif FXXXX d'un avion léger français (indicatif = immatriculation sans tiret) en tient lieu."""
+    r = (reg or "").strip().upper()
+    if not r:
+        r = (callsign or "").strip().upper()
+        if not re.fullmatch(r"F[A-Z]{4}", r):
+            return ""
+    if re.fullmatch(r"F[A-Z]{4}", r):
+        return "F-" + r[1:]
+    return r
 
 
 def perso_names(hx, reg):

@@ -263,7 +263,7 @@ PARAMS = [
     C("sources", "sources", "order", "text", "fr24,tar1090,airplaneslive,adsblol,adsbfi", "Ordre de priorité", "", "Sources"),
     C("sources", "sources", "mode", "choice", "combine", "Mode de combinaison", "", "Combinaison", options=["combine", "primary", "failover"]),
     C("sources", "sources", "overlap", "choice", "freshest", "Avion vu par plusieurs sources", "", "Combinaison", options=["freshest", "priority"]),
-    C("sources", "sources", "enrich", "bool", True, "Compléter les avions absents de Flightradar24", "Un avion absent de Flightradar24 n'a que sa position : l'immatriculation, le modèle, la compagnie, le trajet et une photo sont alors demandés à adsbdb.com (service gratuit, sans clé). L'adresse ICAO et l'indicatif de l'avion sont envoyés à ce service. Décochez pour rester entièrement local : l'avion s'affiche alors sans détails.", "Compléments"),
+    C("sources", "sources", "enrich", "bool", True, "Compléter les avions absents de Flightradar24", "Un avion absent de Flightradar24 n'a que sa position : l'immatriculation, le modèle, la compagnie, le trajet et une photo sont alors demandés à adsbdb.com (service gratuit, sans clé). Il en va de même pour un avion que Flightradar24 connaît mais pour lequel il ne donne pas de photo. L'adresse ICAO et l'indicatif de l'avion sont envoyés à ce service. Décochez pour rester entièrement local : l'avion s'affiche alors sans détails.", "Compléments"),
     C("sources", "display", "color_by_source", "bool", False, "Colorer les avions selon leur source", "Les icônes prennent une couleur selon la ou les sources qui voient l'avion (l'avion du panneau photo reste dans sa couleur habituelle).", "Couleurs"),
     C("sources", "display", "plane_color_fr24", "color", "#ffd250", "Vus par Flightradar24 seulement", "", "Couleurs"),
     C("sources", "display", "plane_color_tar1090", "color", "#5ac8ff", "Vus par tar1090 seulement", "", "Couleurs"),
@@ -1041,25 +1041,58 @@ def history_data():
     entries = []
     mine = perso_listing()
     xcat = dict(aircraft_types.BUILTIN); xcat.update(aircraft_types.read_extra(S.TYPES_FILE))  # type ICAO -> categorie (liste intégrée + types_extra.txt)
+    manual = aircraft_types.read_manual(manual_path())
     for e in L[:1000]:
-        reg = e.get("reg") or ""
+        reg = aircraft_types.norm_reg(e.get("reg"), e.get("cs"))  # FHURY (indicatif) -> F-HURY
+        mn = manual.get(str(e["id"]).lower()) or {}
+        mcat, mcode, mmodel = mn.get("cat", ""), mn.get("code", ""), mn.get("model", "")
+        e = dict(e, code=mcode or e.get("code", ""), model=mmodel or e.get("model", ""))  # classement manuel : prime sur les données des sources
+        ulm = mcat == "ulm" or (not mcat and aircraft_types.is_ulm(reg))
         br, fa = split_model(e.get("model"), e.get("code"))
-        if aircraft_types.is_ulm(reg):  # immatriculation F-J : toujours rangé dans les ULM (filtre Constructeur), le constructeur d'origine passe dans la famille
+        if ulm:  # immatriculation F-J : toujours rangé dans les ULM (filtre Constructeur), le constructeur d'origine passe dans la famille
             fa = (fa if br == "Inconnu" else (br + " " + fa).strip()) or "?"
             br = "ULM"
-        mil = (not aircraft_types.is_ulm(reg)) and (bool(e.get("mil")) or xcat.get((e.get("code") or "").upper()) == "mil")
+        mil = mcat == "mil" or (not mcat and not ulm and (bool(e.get("mil")) or xcat.get((e.get("code") or "").upper()) == "mil"))
+        tc = not mcat and not ulm and not mil and (not e.get("code") or e.get("model") in ("", "?", None))  # type absent ou inconnu : à classer
         if mil:  # militaire (signale par une source, ou type militaire) : rangé sous « Militaire » dans le filtre Constructeur
             fa = (fa if br == "Inconnu" else (br + " " + fa).strip()) or "?"
             br = "Militaire"
         entries.append(dict(br=br, fa=fa, al=int(e.get("al") or 0), id=str(e["id"]), t=int(e.get("t", 0)), l=int(e.get("l", e.get("t", 0))), cs=e.get("cs", ""), reg=reg,
                             code=e.get("code", ""), model=e.get("model", ""), airline=e.get("airline", ""), frm=e.get("frm", ""), to=e.get("to", ""),
-                            fi=e.get("fi", ""), ti=e.get("ti", ""), photo=bool(e.get("photo") or e.get("url")) or bool(perso_entry(e, mine)), credit=e.get("credit", ""), mp=perso_entry(e, mine), ulm=aircraft_types.is_ulm(reg), mil=mil,
+                            fi=e.get("fi", ""), ti=e.get("ti", ""), photo=bool(e.get("photo") or e.get("url")) or bool(perso_entry(e, mine)), credit=e.get("credit", ""), mp=perso_entry(e, mine), ulm=ulm, mil=mil, tc=tc, mc=mcat, mcode=mcode, mmodel=mmodel,
                             n=regs.get(reg, 1) if reg else 1, rare=codes.get(e.get("code"), 0) == 1,
                             src=[x for x in (e.get("src") or []) if x in sources.NAMES], ml=bool(e.get("mlat"))))
     stats = dict(total=len(L), regs=len(regs), airlines=len(airl), types=len(codes), today=sum(1 for e in L if now - e.get("t", 0) < 86400),
                  first=int(L[-1].get("t", 0)) if L else 0, top_airlines=airl.most_common(5), top_types=types.most_common(5),
                  regulars=[(r, model_of.get(r, "?"), n) for r, n in regs.most_common(5) if n > 1])
-    return dict(entries=entries, stats=stats, now=now)
+    return dict(entries=entries, stats=stats, now=now, cats=[[c, tr(TYPE_LABELS[c])] for c in TYPE_CATS])
+
+
+def manual_path():
+    return os.path.join(S.APP_DIR, aircraft_types.MANUAL_FILE)
+
+
+def manual_save(fid, cat, code, model):
+    """Classement manuel d'un avion (icone, type ICAO, modele) : aircraft_manual.json, lu par main.py. Tout vide = on retire le classement."""
+    fid = str(fid).lower()
+    cat = cat if cat in TYPE_CATS else ""
+    code = re.sub(r"[^A-Z0-9]", "", str(code or "").upper())[:6]
+    model = " ".join(str(model or "").split())[:80]
+    with file_lock:
+        try:
+            with open(manual_path(), encoding="utf-8") as fh:
+                d = json.load(fh)
+            d = d if isinstance(d, dict) else {}
+        except (OSError, ValueError):
+            d = {}
+        if cat or code or model:
+            d[fid] = {"cat": cat, "code": code, "model": model}
+        else:
+            d.pop(fid, None)
+        tmp = manual_path() + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(d, fh, ensure_ascii=False, indent=1)
+        os.replace(tmp, manual_path())
 
 
 def perso_dir():
@@ -1948,6 +1981,12 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("ce n'est pas un fichier aircraft.json (pas de liste « aircraft » ni « ac »)")
                 return self.send_json(dict(ok=True, total=len(items), positions=sum(1 for a in items if a.get("lat") is not None and a.get("lon") is not None),
                                            has_db=any(a.get("r") or a.get("t") for a in items)))
+            if path == "/api/aircraft/manual":
+                fid = str(body.get("id", ""))
+                if not re.fullmatch(r"[A-Za-z0-9:]{1,40}", fid):
+                    raise ValueError("avion inconnu")
+                manual_save(fid, str(body.get("cat", "")), body.get("code", ""), body.get("model", ""))
+                return self.send_json(dict(ok=True))
             if path == "/api/myphoto":
                 fid = str(body.get("id", ""))
                 if not re.fullmatch(r"[A-Za-z0-9:]{1,40}", fid):
@@ -2042,6 +2081,7 @@ h2.t{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.04
 .hsc{padding:14px 16px 16px}.hsc h3{margin:0;font-size:20px}.hsc .ha{color:var(--mut);margin-top:2px}.hcr{font-size:11px;color:var(--mut);margin-top:6px}
 .hdl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:12px 0;font-size:14px}.hdl dt{color:var(--mut)}.hdl dd{margin:0;min-width:0;overflow-wrap:anywhere}
 .hnav{display:flex;gap:8px;flex-wrap:wrap}
+.hcls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0}.hcls small{flex:1 0 100%;color:var(--mut)}.hcls select,.hcls input{background:var(--card2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 9px;min-width:0;flex:1 1 150px}
 .hx{position:absolute;top:8px;right:8px;z-index:2;width:30px;height:30px;padding:0;border-radius:50%;border:1px solid var(--line);background:#0b0f14d9;color:var(--txt);font-size:14px;cursor:pointer}
 .hbt{display:inline-flex;align-items:center;justify-content:center;width:28px;height:24px;margin-left:8px;padding:0;vertical-align:middle;border-radius:7px;border:1px solid var(--line);background:#1b2431;color:var(--txt);cursor:pointer}.hbt:hover,.hbt.on{border-color:var(--acc)}
 .hht{margin:2px 0 14px;overflow:auto;background:#0e141b;border:1px solid var(--line);border-radius:10px;padding:6px 8px}.hht h5{margin:2px 0 6px;font-size:12px;color:var(--mut);font-weight:600}
@@ -3477,7 +3517,7 @@ async function renderStorage(box) {
 /* ---------- Avions vus : l'historique, en cartes ou en liste, avec filtres et pages ---------- */
 const HV = (() => { try { return JSON.parse(localStorage.getItem('histView') || '{}'); } catch (e) { return {}; } })();
 let HIST = null, histQ = '', histPeriod = HV.period || 'all', histSort = HV.sort || 'recent', histMode = HV.mode || 'cards', histGroup = HV.group || 'brand', histPer = HV.per || 24;
-let histBrand = '', histFam = '', histAirline = '', histAlert = false, histSrc = '', histPage = 1;
+let histBrand = '', histFam = '', histAirline = '', histAlert = false, histTc = false, histSrc = '', histPage = 1;
 const histSave = () => { try { localStorage.setItem('histView', JSON.stringify({period: histPeriod, sort: histSort, mode: histMode, group: histGroup, per: histPer})); } catch (e) {} };
 async function loadHist() {
   try { HIST = await api('/api/history'); } catch (e) { toast(e.message, true); return; }
@@ -3526,7 +3566,7 @@ function histSrcOk(e) {  // filtre « sources » : plusieurs sources, ou une seu
 }
 function histBase() {  // période, recherche et alerte : ce qui sert aussi à compter dans la colonne de gauche
   const now = Date.now() / 1000, lim = histPeriod === 'day' ? now - 86400 : (histPeriod === 'week' ? now - 7 * 86400 : 0), q = histQ.trim().toLowerCase();
-  return HIST.entries.filter(e => e.t >= lim && (!histAlert || e.al) && histSrcOk(e) && (!q || [e.model, e.reg, e.cs, e.airline, e.frm, e.to, e.fi, e.ti, e.code].join(' ').toLowerCase().includes(q)));
+  return HIST.entries.filter(e => e.t >= lim && (!histAlert || e.al) && (!histTc || e.tc) && histSrcOk(e) && (!q || [e.model, e.reg, e.cs, e.airline, e.frm, e.to, e.fi, e.ti, e.code].join(' ').toLowerCase().includes(q)));
 }
 function histPick(base) {
   let L = base.filter(e => (!histBrand || e.br === histBrand) && (!histFam || e.fa === histFam) && (!histAirline || histCo(e) === histAirline));
@@ -3545,6 +3585,7 @@ function histBadges(e) {
   if (e.ml) { const m = el('span', 'hbadge mlat', 'MLAT'); m.title = tl('Position calculée par multilatération (MLAT) par la source'); bd.append(m); }
   if (e.src && e.src.length >= 2) { const m = el('span', 'hbadge multi', '⇄ ' + e.src.length); m.title = _t('Vu par {0} sources : {1}', e.src.length, e.src.map(x => SRC_SHORT[x] || x).join(', ')); bd.append(m); }
   if (e.n === 1 && e.reg) bd.append(el('span', 'hbadge new', '1re fois'));
+  if (e.tc) { const q = el('span', 'hbadge cnt', '?'); q.title = tl('Type inconnu : ouvrez la fiche pour classer cet avion'); bd.append(q); }
   if (e.mil) { const m = el('span', 'hbadge cnt', 'MIL'); m.title = tl('Avion militaire'); bd.append(m); }
   if (e.ulm) { const u = el('span', 'hbadge cnt', 'ULM'); u.title = tl('Immatriculation F-J : ultra léger motorisé'); bd.append(u); }
   if (e.rare) bd.append(el('span', 'hbadge rare', 'Type rare'));
@@ -3571,6 +3612,8 @@ function drawAside(base) {
   const alerts = HIST.entries.filter(e => e.al).length;
   a.append(el('h4', null, 'Filtres'));
   a.append(node("Zone d'alerte", alerts, histAlert, () => { histAlert = !histAlert; }, 'alert'));
+  const tcn = HIST.entries.filter(e => e.tc).length;
+  if (tcn || histTc) a.append(node('À classer', tcn, histTc, () => { histTc = !histTc; }, 'alert'));
   if (HIST.entries.some(e => e.src && e.src.some(x => x !== 'fr24'))) {  // plusieurs sources utilisées : filtres par source
     const cnt = f => HIST.entries.filter(e => { const o = histSrc; histSrc = f; const r = histSrcOk(e); histSrc = o; return r; }).length;
     a.append(node('Vus par plusieurs sources', cnt('multi'), histSrc === 'multi', () => { histSrc = histSrc === 'multi' ? '' : 'multi'; }, 'multi'));
@@ -3597,9 +3640,10 @@ function drawCrumb(total) {
   const c = $('#hCrumb'); c.innerHTML = '';
   const link = (t, fn) => { const b = el('button', null, t); b.onclick = () => { fn(); histPage = 1; drawHist(); }; return b; };
   const sel = histBrand || histAirline;
-  if (!sel && !histAlert && !histSrc) c.append(el('span', null, 'Tous les avions'));
-  else c.append(link('Tous les avions', () => { histBrand = histFam = histAirline = ''; histAlert = false; histSrc = ''; }));
+  if (!sel && !histAlert && !histTc && !histSrc) c.append(el('span', null, 'Tous les avions'));
+  else c.append(link('Tous les avions', () => { histBrand = histFam = histAirline = ''; histAlert = false; histTc = false; histSrc = ''; }));
   if (histAlert) { c.append(el('i', null, '›')); c.append(sel ? link("Zone d'alerte", () => { histAlert = false; }) : el('span', null, "Zone d'alerte")); }
+  if (histTc) { c.append(el('i', null, '›')); c.append(sel ? link('À classer', () => { histTc = false; }) : el('span', null, 'À classer')); }
   if (histSrc) { const t = histSrc === 'multi' ? 'Vus par plusieurs sources' : _t('{0} seulement', SRC_NAMES[histSrc] || histSrc); c.append(el('i', null, '›')); c.append(sel ? link(t, () => { histSrc = ''; }) : el('span', null, t)); }
   if (histBrand) { c.append(el('i', null, '›')); c.append(histFam ? link(histBrand, () => { histFam = ''; }) : el('span', null, histBrand)); if (histFam) { c.append(el('i', null, '›'), el('span', null, histFam)); } }
   if (histAirline) { c.append(el('i', null, '›'), el('span', null, histAirline)); }
@@ -3712,6 +3756,19 @@ function histSheet(L, i) {
     };
     nav.append(inp, add);
     if (e.mp) { const rm = el('button', 'b s', 'Retirer ma photo'); rm.onclick = async () => { try { await api('/api/myphoto', {id: e.id, remove: true}); toast('Photo retirée'); ov.remove(); await loadHist(); } catch (er) { toast(er.message, true); } }; nav.append(rm); }
+  }
+  {  // classement manuel : icone (catégorie), type ICAO et modèle, pour les avions sans type ou mal classés
+    const box = el('div', 'hcls'), hint = el('small', null, e.tc ? 'Type inconnu : choisissez sa catégorie pour que son icône soit la bonne.' : 'Classement manuel (remplace ce que disent les sources).');
+    const sel = document.createElement('select'); sel.append(new Option(tl('Catégorie automatique'), ''));
+    for (const [c, l] of HIST.cats) sel.append(new Option(l, c));
+    sel.value = e.mc || '';
+    const code = document.createElement('input'); code.placeholder = tl('Type ICAO (ex. C172)'); code.maxLength = 6; code.value = e.mcode || '';
+    const mod = document.createElement('input'); mod.placeholder = tl('Modèle (ex. Cessna 172)'); mod.maxLength = 80; mod.value = e.mmodel || '';
+    const sv = el('button', 'b s', 'Enregistrer le classement');
+    sv.onclick = async () => { try { await api('/api/aircraft/manual', {id: e.id, cat: sel.value, code: code.value, model: mod.value}); toast('Classement enregistré'); ov.remove(); await loadHist(); } catch (er) { toast(er.message, true); } };
+    box.append(hint, sel, code, mod, sv);
+    if (e.mc || e.mcode || e.mmodel) { const rs = el('button', 'b s', 'Retirer le classement'); rs.onclick = async () => { try { await api('/api/aircraft/manual', {id: e.id, cat: '', code: '', model: ''}); toast('Classement retiré'); ov.remove(); await loadHist(); } catch (er) { toast(er.message, true); } }; box.append(rs); }
+    sc.append(box);
   }
   if (e.reg) {
     const a = el('button', 'b s', 'Photos sur JetPhotos ↗'); a.onclick = () => window.open('https://www.jetphotos.com/registration/' + encodeURIComponent(e.reg), '_blank', 'noopener'); nav.append(a);

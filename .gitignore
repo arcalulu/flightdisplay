@@ -26,3 +26,6 @@ __pycache__/
 # Système
 .DS_Store
 Thumbs.db
+
+# classement manuel des avions (webadmin) : donnees personnelles
+aircraft_manual.json

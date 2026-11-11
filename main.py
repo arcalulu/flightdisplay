@@ -556,7 +556,7 @@ def parse_details(f, d):
         "airline": (d.get("airline") or {}).get("name") or f.airline_icao or "",
         "origin": city("origin", f.origin_airport_iata),
         "dest": city("destination", f.destination_airport_iata),
-        "reg": ac.get("registration") or f.registration or "",
+        "reg": norm_reg(ac.get("registration") or f.registration, f.callsign),
         "photo_url": photo.get("src"), "credit": photo.get("copyright", ""),
         "photo_path": None,
     }
@@ -700,12 +700,18 @@ def poll_loop():
                         states[f.id] = dict(lat=f.latitude, lon=f.longitude, speed=f.ground_speed or 0,
                                             heading=f.heading or 0, alt=f.altitude or 0, t=ts,
                                             trail=trail, callsign=f.callsign or f.registration or "",
-                                            code=f.aircraft_code or (old["code"] if old else ""), ground=bool(f.on_ground), reg=f.registration or "",
+                                            code=f.aircraft_code or (old["code"] if old else ""), ground=bool(f.on_ground), reg=norm_reg(f.registration, f.callsign),
                                             o_iata=f.origin_airport_iata, d_iata=f.destination_airport_iata)
                     if f.id in details and personal_photo(f, details[f.id]):  # photo personnelle ajoutee ou retiree depuis webadmin
                         if f.id in history:
                             history[f.id]["photo"] = os.path.basename(details[f.id]["photo_path"] or ""); _hs["dirty"] = True
                     states[f.id]["mlat"] = bool(f.mlat)  # position MLAT : petit M a cote de l'icone
+                    mn = manual_get(f.id)  # classement manuel : icone, type et modele choisis dans webadmin
+                    states[f.id]["cat"] = (mn or {}).get("cat") or ""
+                    if mn and mn.get("code"):
+                        states[f.id]["code"] = mn["code"]
+                    if mn and mn.get("model") and f.id in details:
+                        details[f.id]["model"] = mn["model"]
                     states[f.id]["mil"] = bool(f.mil)  # signale militaire par une source : icone militaire
                     if f.mil and f.id in history and not history[f.id].get("mil"):
                         history[f.id]["mil"] = 1; _hs["dirty"] = True
@@ -749,10 +755,23 @@ def details_loop():
         try:
             if f.fr is not None:
                 info = parse_details(f.fr, api.get_flight_details(f.fr))
+                if ENRICH and not info["photo_url"] and (f.hex or "").strip():  # Flightradar24 ne donne pas de photo (ou rien du tout) : adsbdb.com complete
+                    try:
+                        x = sources.adsbdb_details(f.hex, "")
+                        if x.get("photo_url"):
+                            info["photo_url"] = x["photo_url"]
+                        if info["model"] in ("", "?") and x.get("model"):
+                            info["model"] = x["model"]
+                        if not info["reg"] and x.get("reg"):
+                            info["reg"] = norm_reg(x["reg"])
+                        if not f.aircraft_code and x.get("code"):
+                            f.aircraft_code = x["code"]
+                    except Exception:
+                        pass
             else:  # avion vu seulement par une source locale : immatriculation, modele, compagnie, trajet via adsbdb.com
                 x = sources.adsbdb_details(f.hex or f.id, f.callsign)
                 info = {"model": x.get("model") or f.aircraft_code or "?", "airline": x.get("airline") or x.get("owner") or "",
-                        "origin": x.get("origin") or "?", "dest": x.get("dest") or "?", "reg": x.get("reg") or f.registration or "",
+                        "origin": x.get("origin") or "?", "dest": x.get("dest") or "?", "reg": norm_reg(x.get("reg") or f.registration, f.callsign),
                         "photo_url": x.get("photo_url"), "credit": "", "photo_path": None, "code": x.get("code") or ""}
                 if not f.aircraft_code and info["code"]:
                     f.aircraft_code = info["code"]
@@ -847,10 +866,27 @@ def clean_cache(days=3):
             pass
 
 
-from aircraft_types import SHAPES, BUILTIN, read_extra, perso_find, is_ulm
+from aircraft_types import SHAPES, BUILTIN, read_extra, perso_find, is_ulm, norm_reg, read_manual, MANUAL_FILE
 CATEGORY = dict(BUILTIN)
 CATEGORY.update(read_extra("types_extra.txt"))
 _unknown = set()
+
+
+_man = {"t": 0.0, "m": 0.0, "d": {}}
+
+
+def manual_get(hx):
+    """Classement manuel d'un avion (webadmin, fiche d'un avion) : {cat, code, model} ou None. Le fichier est relu quand il change."""
+    now = time.time()
+    if now - _man["t"] > 3:
+        _man["t"] = now
+        try:
+            mt = os.path.getmtime(MANUAL_FILE)
+        except OSError:
+            mt = 0.0
+        if mt != _man["m"]:
+            _man["m"] = mt; _man["d"] = read_manual(MANUAL_FILE)
+    return _man["d"].get((hx or "").lower())
 
 
 def category(code):
@@ -894,7 +930,7 @@ TRAIL_PANEL = tuple((c + g) // 2 for c, g in zip(PLANE_PANEL, (85, 90, 90)))
 
 def plane_color(s):
     """Couleur d'un avion (hors avion du panneau) : selon sa source si l'option est active, sinon selon que son type est connu."""
-    if COLOR_MIL and (s.get("mil") or (not is_ulm(s.get("reg")) and CATEGORY.get((s.get("code") or "").upper()) == "mil")):
+    if COLOR_MIL and (s.get("cat") == "mil" or (not s.get("cat") and (s.get("mil") or (not is_ulm(s.get("reg")) and CATEGORY.get((s.get("code") or "").upper()) == "mil")))):
         return MIL_COLOR
     if COLOR_BY_SRC:
         src = s.get("src") or ()
@@ -902,7 +938,7 @@ def plane_color(s):
             return SRC_COLORS["multi"]
         if src and src[0] in SRC_COLORS:
             return SRC_COLORS[src[0]]
-    return PLANE_KNOWN if (is_ulm(s.get("reg")) or s.get("mil") or known_type(s["code"])) else PLANE_UNKNOWN
+    return PLANE_KNOWN if (s.get("cat") or is_ulm(s.get("reg")) or s.get("mil") or known_type(s["code"])) else PLANE_UNKNOWN
 
 
 def known_type(code):
@@ -910,9 +946,9 @@ def known_type(code):
     return not code or code.upper() in CATEGORY
 
 
-def draw_plane(surf, color, x, y, heading, code, reg="", mil=False):
-    cat = "ulm" if is_ulm(reg) else category(code)  # immatriculation F-J... : toujours un ULM, quel que soit le type annonce
-    if mil and cat not in ("ulm", "heli"):
+def draw_plane(surf, color, x, y, heading, code, reg="", mil=False, manual=""):
+    cat = manual if manual in SHAPES else ("ulm" if is_ulm(reg) else category(code))  # immatriculation F-J... : toujours un ULM, quel que soit le type annonce
+    if mil and not manual and cat not in ("ulm", "heli"):
         cat = "mil"  # avion signale militaire par une source (les helicopteres gardent leur forme)
     t = math.radians(heading); c, s = math.cos(t), math.sin(t)
     pts = [(x + (px * c - py * s) * ICON, y + (px * s + py * c) * ICON)
@@ -1251,7 +1287,7 @@ def main():
                 pts = [to_xy(*p) for p in s["trail"]] + [(x, y)]
                 pygame.draw.lines(screen, TRAIL_PANEL if hl else (90, 130, 170), False, pts, lw)
             pc = PLANE_PANEL if hl else plane_color(s)
-            draw_plane(screen, pc, x, y, s["heading"], s["code"], s.get("reg"), s.get("mil"))
+            draw_plane(screen, pc, x, y, s["heading"], s["code"], s.get("reg"), s.get("mil"), s.get("cat"))
             if s.get("mlat"):
                 mt = f_mlat.render("M", True, pc)
                 screen.blit(mt, (x - S(12) - mt.get_width(), y - S(12) - mt.get_height()))
