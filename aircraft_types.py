@@ -6,6 +6,11 @@ import re
 PERSO_DIR = "photos_perso"  # photos personnelles (webadmin, fiche d'un avion) : <adresse ICAO>.jpg ou <immatriculation>.jpg
 
 
+def is_ulm(reg):
+    """Une immatriculation française qui commence par F-J est toujours celle d'un ULM (ultra léger motorisé)."""
+    return (reg or "").strip().upper().startswith("F-J")
+
+
 def perso_names(hx, reg):
     """Noms de fichier possibles de la photo personnelle d'un avion, dans l'ordre de recherche : adresse ICAO (6 chiffres hexa), puis immatriculation."""
     out = []

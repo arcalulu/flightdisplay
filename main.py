@@ -838,7 +838,7 @@ def clean_cache(days=3):
             pass
 
 
-from aircraft_types import SHAPES, BUILTIN, read_extra, perso_find
+from aircraft_types import SHAPES, BUILTIN, read_extra, perso_find, is_ulm
 CATEGORY = dict(BUILTIN)
 CATEGORY.update(read_extra("types_extra.txt"))
 _unknown = set()
@@ -889,7 +889,7 @@ def plane_color(s):
             return SRC_COLORS["multi"]
         if src and src[0] in SRC_COLORS:
             return SRC_COLORS[src[0]]
-    return PLANE_KNOWN if known_type(s["code"]) else PLANE_UNKNOWN
+    return PLANE_KNOWN if (is_ulm(s.get("reg")) or known_type(s["code"])) else PLANE_UNKNOWN
 
 
 def known_type(code):
@@ -897,8 +897,8 @@ def known_type(code):
     return not code or code.upper() in CATEGORY
 
 
-def draw_plane(surf, color, x, y, heading, code):
-    cat = category(code)
+def draw_plane(surf, color, x, y, heading, code, reg=""):
+    cat = "ulm" if is_ulm(reg) else category(code)  # immatriculation F-J... : toujours un ULM, quel que soit le type annonce
     t = math.radians(heading); c, s = math.cos(t), math.sin(t)
     pts = [(x + (px * c - py * s) * ICON, y + (px * s + py * c) * ICON)
            for px, py in SHAPES[cat]]
@@ -1236,7 +1236,7 @@ def main():
                 pts = [to_xy(*p) for p in s["trail"]] + [(x, y)]
                 pygame.draw.lines(screen, TRAIL_PANEL if hl else (90, 130, 170), False, pts, lw)
             pc = PLANE_PANEL if hl else plane_color(s)
-            draw_plane(screen, pc, x, y, s["heading"], s["code"])
+            draw_plane(screen, pc, x, y, s["heading"], s["code"], s.get("reg"))
             if s.get("mlat"):
                 mt = f_mlat.render("M", True, pc)
                 screen.blit(mt, (x - S(12) - mt.get_width(), y - S(12) - mt.get_height()))
