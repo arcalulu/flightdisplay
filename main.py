@@ -224,7 +224,7 @@ def types_flush():
 # Historique des avions vus (page "Avions vus" de webadmin) : un avion par vol, plafonne ; ecrit 30 s apres un nouvel avion
 # (les mises a jour du dernier passage attendent le prochain nouvel avion : pas d'ecriture inutile sur la carte SD).
 HISTORY_FILE = os.path.join(CACHE, "history.json")
-HISTORY_MAX = history_limit(cfg.getint("history", "max_aircraft", fallback=1000), PI_NAME)  # reglable dans webadmin, 500 au plus sur un Pi Zero
+HISTORY_MAX = history_limit(cfg.get("history", "max_aircraft", fallback=""), PI_NAME)  # reglable dans webadmin sans limite ; defaut 500 sur un Pi Zero, 1000 ailleurs
 history = {}
 _hs = {"dirty": False, "last": 0.0}
 try:

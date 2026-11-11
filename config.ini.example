@@ -65,7 +65,7 @@ interval_seconds = 2
 interval_seconds = 5
 
 [history]
-# nombre d'avions gardes dans la page Avions vus (50 a 5000 ; 500 au plus sur un Raspberry Pi Zero)
+# nombre d'avions gardes dans la page Avions vus, sans limite haute (defaut 1000 ; 500 conseille sur un Raspberry Pi Zero)
 max_aircraft = 1000
 
 [display]
