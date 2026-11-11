@@ -1051,7 +1051,7 @@ La touche `M` du clavier connecté au Pi coupe ou réactive aussi le son. L'éta
 
 ### 9.8 Types d'avion inconnus
 
-Quand un type d'avion n'a pas d'icône dédiée, une forme monocouloir est utilisée et le journal indique `type inconnu (icone par defaut) : XXXX`. Pour lui associer la bonne forme, utilisez webadmin, Réglages, « Types d'avion » : les types détectés dans les logs sont proposés, avec un champ pour ajouter une règle et l'éditeur du fichier `types_extra.txt`. Les changements s'enregistrent avec le bouton en bas de page (« Enregistrer et relancer le programme ») : le fichier est vérifié, puis le programme est relancé pour les prendre en compte.
+Quand un type d'avion n'a pas d'icône dédiée, une forme monocouloir est utilisée et le journal indique `type inconnu (icone par defaut) : XXXX`. Pour lui associer la bonne forme, utilisez webadmin, Réglages, « Types d'avion » : les types détectés dans les logs sont proposés, avec un champ pour ajouter une règle et l'éditeur du fichier `types_extra.txt`. Les changements s'enregistrent avec le bouton en bas de page (« Enregistrer et relancer le programme ») : le fichier est vérifié, puis le programme est relancé pour les prendre en compte. Un type qui vient d'une donnée erronée (par exemple « 0000 » ou « Unknown / Various / Bad data ») se retire de la liste « À classer » avec le bouton **Ignorer** : le code est noté dans `types_ignored.txt` (un par ligne, non publié), la suppression est immédiate sans relancer le programme, et la ligne « Types ignorés » permet de le rétablir.
 
 Format du fichier (une règle par ligne, `#` pour les commentaires) :
 

@@ -1051,7 +1051,7 @@ The `M` key of the keyboard connected to the Pi also mutes or unmutes the sound.
 
 ### 9.8 Unknown aircraft types
 
-When an aircraft type has no dedicated icon, a single-aisle shape is used and the log shows `type inconnu (icone par defaut) : XXXX` (unknown type, default icon). To assign it the right shape, use webadmin, Settings, "Aircraft types": the types detected in the logs are offered, with a field to add a rule and the editor of the `types_extra.txt` file. Changes are saved with the button at the bottom of the page ("Save and restart the program"): the file is checked, then the program is restarted to take them into account.
+When an aircraft type has no dedicated icon, a single-aisle shape is used and the log shows `type inconnu (icone par defaut) : XXXX` (unknown type, default icon). To assign it the right shape, use webadmin, Settings, "Aircraft types": the types detected in the logs are offered, with a field to add a rule and the editor of the `types_extra.txt` file. Changes are saved with the button at the bottom of the page ("Save and restart the program"): the file is checked, then the program is restarted to take them into account. A type that comes from bad data (for example "0000" or "Unknown / Various / Bad data") is removed from the "To classify" list with the **Ignore** button: the code is noted in `types_ignored.txt` (one per line, not published), the removal is immediate with no restart, and the "Ignored types" line lets you restore it.
 
 File format (one rule per line, `#` for comments):
 

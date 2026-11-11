@@ -2,6 +2,7 @@
 config.ini
 webadmin.ini
 types_extra.txt
+types_ignored.txt
 *.bak
 *.tmp
 *.swap

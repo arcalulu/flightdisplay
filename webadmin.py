@@ -754,10 +754,39 @@ def restore_from_backup(blob):
 
 
 # ---------------------------------------------------------------- types d'avion
+IGNORED_FILE = "types_ignored.txt"
+
+
+def ignored_types():
+    """Codes de type écartés de la liste « À classer » (données erronées : 0000, ZZZZ...), un par ligne dans types_ignored.txt."""
+    try:
+        with open(os.path.join(S.APP_DIR, IGNORED_FILE), encoding="utf-8") as fh:
+            return sorted({l.strip().upper() for l in fh if re.fullmatch(r"[A-Za-z0-9]{2,6}", l.strip())})
+    except OSError:
+        return []
+
+
+def ignored_save(code, restore=False):
+    code = str(code or "").strip().upper()
+    if not re.fullmatch(r"[A-Z0-9]{2,6}", code):
+        raise ValueError("code de type invalide")
+    cur = set(ignored_types())
+    if restore:
+        cur.discard(code)
+    else:
+        cur.add(code)
+    path = os.path.join(S.APP_DIR, IGNORED_FILE)
+    with file_lock:
+        with open(path + ".tmp", "w", encoding="utf-8") as fh:
+            fh.write("\n".join(sorted(cur)) + ("\n" if cur else ""))
+        os.replace(path + ".tmp", path)
+
+
 def unknown_types(known):
     found = []
+    skip = set(ignored_types())
     for code in re.findall(r"type inconnu \(icone par defaut\) : (\S+)", journal(2000)):
-        if code.upper() not in known and code not in found:
+        if code.upper() not in known and code.upper() not in skip and code not in found:
             found.append(code)
     return found
 
@@ -844,9 +873,9 @@ def seen_types():
     try:
         with open(os.path.join(S.APP_DIR, "cache", "types_seen.json"), encoding="utf-8") as fh:
             d = json.load(fh)
-        out = []
+        out, skip = [], set(ignored_types())
         for k, v in d.items():
-            if not isinstance(v, dict):
+            if not isinstance(v, dict) or str(k).upper() in skip:
                 continue
             ph = str(v.get("photo") or "")
             ok = bool(re.fullmatch(r"[0-9a-f]{32}\.jpg", ph)) and os.path.exists(os.path.join(S.APP_DIR, "cache", ph))
@@ -1915,7 +1944,7 @@ class Handler(BaseHTTPRequestHandler):
                 known = set(aircraft_types.BUILTIN) | set(extra)
                 shapes = {c: [[round(x, 2), round(y, 2)] for x, y in aircraft_types.SHAPES[c]] for c in TYPE_CATS}
                 self.send_json(dict(text=text, categories=TYPE_CATS, labels={c: tr(TYPE_LABELS[c]) for c in TYPE_CATS}, shapes=shapes,
-                                    builtin=aircraft_types.BUILTIN, extra=extra, seen=seen_types(), unknown=unknown_types(known)))
+                                    builtin=aircraft_types.BUILTIN, extra=extra, seen=seen_types(), unknown=unknown_types(known), ignored=ignored_types()))
             elif u.path == "/api/types/suggest":
                 code = parse_qs(u.query).get("code", [""])[0]
                 if not re.fullmatch(r"[A-Za-z0-9]{2,6}", code):
@@ -2134,6 +2163,9 @@ class Handler(BaseHTTPRequestHandler):
                 if not isinstance(ids, list) or len(ids) > 500:
                     raise ValueError("liste d'avions invalide")
                 history_delete(ids)
+                return self.send_json(dict(ok=True))
+            if path == "/api/types/ignore":
+                ignored_save(body.get("code", ""), bool(body.get("restore")))
                 return self.send_json(dict(ok=True))
             if path == "/api/aircraft/manual":
                 fid = str(body.get("id", ""))
@@ -3253,8 +3285,8 @@ async function renderTypes(box) {
     const list = [];
     for (const e of T.seen) if (!known(e.code)) list.push(e);
     for (const u of T.unknown) { const c = u.toUpperCase(); if (!known(c) && !list.some(e => e.code === c)) list.push({code: c, n: 0, t: 0, model: '', suggest: null}); }
-    if (!list.length) return;
-    todo.append(el('h2', 't', 'À classer (types détectés mais inconnus)'));
+    if (!list.length && !(T.ignored || []).length) return;
+    if (list.length) todo.append(el('h2', 't', 'À classer (types détectés mais inconnus)'));
     const box = el('div', 'card');
     for (const e of list) {
       inTodo.add(e.code);
@@ -3270,11 +3302,19 @@ async function renderTypes(box) {
       if (sg && sg.suggest) { const ok = el('button', 'b s', 'Accepter'); ok.onclick = ev => { ev.stopPropagation(); choose(e.code, sg.suggest); }; acts.append(ok); }
       else { const qs = el('button', 'b s', 'Suggérer'); qs.onclick = ev => { ev.stopPropagation(); if (!busy.has(e.code)) ask(e.code); }; acts.append(qs); }
       const ws = el('button', 'b s', 'Chercher sur internet ↗'); ws.onclick = ev => { ev.stopPropagation(); web(e.code); }; acts.append(ws);
+      const ig = el('button', 'b s dg', 'Ignorer'); ig.title = tl("Donnée erronée : ce code n'apparaîtra plus dans cette liste");
+      ig.onclick = async ev => { ev.stopPropagation(); try { await api('/api/types/ignore', {code: e.code}); T.ignored = (T.ignored || []).concat([e.code]); T.seen = T.seen.filter(x => x.code !== e.code); T.unknown = T.unknown.filter(x => x.toUpperCase() !== e.code); if (sel === e.code) sel = null; toast('Type ignoré'); draw(); } catch (er) { toast(er.message, true); } };
+      acts.append(ig);
       head.append(acts); r.append(head);
       if (e.code === sel) r.append(detail(e.code));
       box.append(r);
     }
-    todo.append(box);
+    if (list.length) todo.append(box);
+    if ((T.ignored || []).length) {  // codes écartés : on peut les rétablir
+      const ig = el('p', 'note', tl('Types ignorés :') + ' ');
+      for (const c of T.ignored) { const b = el('button', 'lk', c + ' ↺'); b.title = tl('Rétablir'); b.onclick = async () => { try { await api('/api/types/ignore', {code: c, restore: true}); toast('Type rétabli'); const f = await api('/api/types'); T.seen = f.seen; T.unknown = f.unknown; T.ignored = f.ignored; draw(); } catch (er) { toast(er.message, true); } }; ig.append(b, document.createTextNode(' ')); }
+      todo.append(ig);
+    }
   }
   function catCards() {
     catList.replaceChildren();
