@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Administration web legere pour flightdisplay (bibliotheque standard uniquement)."""
-import base64, collections, configparser, hashlib, hmac, json, math, os, re, shlex, shutil, socket
+import base64, collections, configparser, gzip, hashlib, hmac, json, math, os, re, shlex, shutil, socket
 import urllib.request
 import email.utils
 import struct, subprocess, sys, threading, time
@@ -1808,11 +1808,28 @@ MQTT = webadmin_mqtt.Bridge(dict(sysinfo=sysinfo, sound_state=sound_state, sound
                                  cpu=lambda: cpu["pct"], service_active=lambda: svc_state() == "active"))
 
 
+_page_cache = {}
+
+
+def page_bytes():
+    """(page, page compressee) : construites une fois par langue, puis gardees en memoire."""
+    tab = i18n.js_table()
+    key = (S.LANG, tab.get("lang"), len(tab.get("strings") or ()))
+    v = _page_cache.get("v")
+    if not v or v[0] != key:
+        data = PAGE.replace("__I18N__", json.dumps(tab, ensure_ascii=False).replace("</", "<\\/")).replace('<html lang="fr">', '<html lang="%s">' % S.LANG).encode("utf-8")
+        v = _page_cache["v"] = (key, data, gzip.compress(data, 9))
+    return v[1], v[2]
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "FlightAdmin"
 
     def log_message(self, fmt, *args):
         pass
+
+    def accepts_gzip(self):
+        return "gzip" in (self.headers.get("Accept-Encoding") or "").lower()
 
     def send_json(self, obj, code=200):
         if isinstance(obj, dict):
@@ -1820,8 +1837,13 @@ class Handler(BaseHTTPRequestHandler):
                 if isinstance(obj.get(k), str):
                     obj[k] = tr(obj[k])
         data = json.dumps(obj).encode()
+        gz = len(data) > 4096 and self.accepts_gzip()  # grosses reponses (historique) : compressees, bien plus rapides sur le Wi-Fi d'un Pi Zero
+        if gz:
+            data = gzip.compress(data, 3)
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
+        if gz:
+            self.send_header("Content-Encoding", "gzip")
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
@@ -1853,10 +1875,13 @@ class Handler(BaseHTTPRequestHandler):
         u = urlparse(self.path)
         try:
             if u.path == "/":
-                data = PAGE.replace("__I18N__", json.dumps(i18n.js_table(), ensure_ascii=False).replace("</", "<\\/")) \
-                           .replace('<html lang="fr">', '<html lang="%s">' % S.LANG).encode("utf-8")
+                data, gzdata = page_bytes()  # page toute prete et compressee, gardee en memoire (200 Ko : lente a envoyer sur le Wi-Fi d'un Pi Zero)
+                gz = self.accepts_gzip()
+                data = gzdata if gz else data
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
+                if gz:
+                    self.send_header("Content-Encoding", "gzip")
                 self.send_header("Content-Length", str(len(data)))
                 self.send_header("Cache-Control", "no-store")
                 self.end_headers()
