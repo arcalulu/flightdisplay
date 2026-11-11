@@ -61,8 +61,7 @@ if "tar1090" in SRC_ENABLED and not TAR_URL:
     SRC_ENABLED.remove("tar1090")
 ONLINE_EVERY = max(1.0, cfg.getfloat("online", "interval_seconds", fallback=5))  # services en ligne : interrogation toutes les n secondes
 if not SRC_ENABLED:
-    print("ATTENTION : aucune source de donnees activee, Flightradar24 utilise")
-    SRC_ENABLED = ["fr24"]
+    print("ATTENTION : aucune source de donnees activee : aucun avion ne sera affiche")
 ENRICH = cfg.getboolean("sources", "enrich", fallback=True)  # complete les avions hors FlightRadar24 via adsbdb.com
 hub = sources.Hub(SRC_ENABLED, sources.parse_order(cfg.get("sources", "order", fallback=""), None),
                   cfg.get("sources", "mode", fallback="combine").strip().lower(), cfg.get("sources", "overlap", fallback="freshest").strip().lower())
@@ -655,6 +654,11 @@ def poll_loop():
     while True:
         hub.event.wait(5); hub.event.clear()
         now = time.time()
+        if not SRC_ENABLED:  # aucune source cochee : aucun avion
+            with lock:
+                states.clear()
+            status.update(msg=tr("aucune source activée"), t=now, err=True)
+            continue
         if not hub.any_ok():
             h = hub.health()
             msg = next((v["err"] for v in h.values() if v.get("err")), "") or "aucune source ne repond"

@@ -6,6 +6,7 @@
   "de {0}": "from {0}",
   "vers {0}": "to {0}",
   "erreur réseau : {0}": "network error: {0}",
+  "aucune source activée": "no source enabled",
   "AU SOL ({0})": "ON THE GROUND ({0})",
   "Photo indisponible": "Photo unavailable",
   "Chargement des détails...": "Loading details...",

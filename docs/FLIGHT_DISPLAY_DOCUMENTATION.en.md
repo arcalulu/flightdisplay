@@ -1094,7 +1094,7 @@ The program can read aircraft from several sources (five in all), set in webadmi
 | `[tar1090] interval_seconds` | 2 | Reading interval (0.5 to 60). |
 | `[online] interval_seconds` | 5 | Reading interval of the three online services (1 to 60). |
 
-If no source is ticked, Flightradar24 is used. Each source has its own settings page, reachable only through the "Settings" button of its card in "Aircraft sources" (Flightradar24: `[api]`, section 8.4; tar1090: address, reading interval and test). The "Test the connection" button on the tar1090 page reads the file and shows the number of aircraft, how many have a position, and whether the file already gives the registration and type.
+If no source is ticked, no aircraft is shown (the screen says "no source enabled"). Each source has its own settings page, reachable only through the "Settings" button of its card in "Aircraft sources" (Flightradar24: `[api]`, section 8.4; tar1090: address, reading interval and test). The "Test the connection" button on the tar1090 page reads the file and shows the number of aircraft, how many have a position, and whether the file already gives the registration and type.
 
 **What the program always does.** The same aircraft is recognised from one source to another by its ICAO address (the hexadecimal code of its transponder): it is never counted or shown twice (map, alert, history, MQTT). Position, speed, altitude and heading always come from a single source per aircraft: they are never mixed or averaged. Missing information (registration, type, callsign, route) is completed by the other sources, whatever the mode. A source that stops responding is ignored after a few seconds and flagged in webadmin; the others carry on.
 
