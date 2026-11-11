@@ -1095,6 +1095,38 @@ def manual_save(fid, cat, code, model):
         os.replace(tmp, manual_path())
 
 
+def aircraft_lookup(fid):
+    """Cherche le type, le modèle et l'immatriculation d'un avion de l'historique sur adsbdb.com (gratuit, sans clé) : par adresse ICAO, puis par
+    immatriculation. Appelé par le bouton « Suggérer » (l'adresse ICAO ou l'immatriculation sont alors envoyées à ce service)."""
+    e = next((x for x in _history_list() if str(x.get("id")) == fid), None)
+    if not e:
+        raise ValueError("avion inconnu")
+    reg = aircraft_types.norm_reg(e.get("reg"), e.get("cs"))
+    cs = (e.get("cs") or "").strip().upper()
+    keys = ([fid.lower()] if re.fullmatch(r"[0-9a-fA-F]{6}", fid) else []) + ([reg] if reg else [])
+    if not reg and re.fullmatch(r"[A-Z0-9-]{4,7}", cs) and not re.fullmatch(r"[A-Z]{3}[0-9]{1,4}[A-Z]{0,2}", cs):
+        keys.append(cs)  # indicatif qui ressemble à une immatriculation (N88ST) : tenté en dernier
+    if not keys:
+        return dict(found=False, reg=reg)
+    errors = 0
+    for k in keys:
+        try:
+            x = sources.adsbdb_details(urllib.parse.quote(k, safe="-"), "")
+        except Exception:
+            errors += 1
+            continue
+        if x.get("model") or x.get("code"):
+            xcat = dict(aircraft_types.BUILTIN); xcat.update(aircraft_types.read_extra(S.TYPES_FILE))
+            code = x.get("code") or ""
+            cat = xcat.get(code) or aircraft_types.suggest(x.get("model"))
+            if aircraft_types.is_ulm(x.get("reg") or reg):
+                cat = "ulm"
+            return dict(found=True, model=x.get("model") or "", code=code, reg=aircraft_types.norm_reg(x.get("reg") or reg), owner=x.get("owner") or "", cat=cat or "", source="adsbdb.com")
+    if errors == len(keys):
+        raise OSError("hors ligne")
+    return dict(found=False, reg=reg)
+
+
 def perso_dir():
     return os.path.join(S.APP_DIR, aircraft_types.PERSO_DIR)
 
@@ -1786,6 +1818,16 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json(suggest_type(code))
                 except Exception:
                     self.send_json({"error": "Recherche impossible (pas d'accès à internet ?)"}, 502)
+            elif u.path == "/api/aircraft/lookup":
+                fid = parse_qs(u.query).get("id", [""])[0]
+                if not re.fullmatch(r"[A-Za-z0-9:]{1,40}", fid):
+                    return self.send_json({"error": "avion inconnu"}, 400)
+                try:
+                    self.send_json(aircraft_lookup(fid))
+                except ValueError as ex:
+                    self.send_json({"error": str(ex)}, 404)
+                except Exception:
+                    self.send_json({"error": "Recherche impossible (pas d'accès à internet ?)"}, 502)
             elif u.path == "/api/types/photo":
                 code = parse_qs(u.query).get("code", [""])[0].upper()
                 try:
@@ -2081,7 +2123,7 @@ h2.t{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.04
 .hsc{padding:14px 16px 16px}.hsc h3{margin:0;font-size:20px}.hsc .ha{color:var(--mut);margin-top:2px}.hcr{font-size:11px;color:var(--mut);margin-top:6px}
 .hdl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:12px 0;font-size:14px}.hdl dt{color:var(--mut)}.hdl dd{margin:0;min-width:0;overflow-wrap:anywhere}
 .hnav{display:flex;gap:8px;flex-wrap:wrap}
-.hcls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0}.hcls small{flex:1 0 100%;color:var(--mut)}.hcls select,.hcls input{background:var(--card2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 9px;min-width:0;flex:1 1 150px}
+.hcls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0}.hcls small{flex:1 0 100%;color:var(--mut)}.hcls .hnote{min-height:1em}.hcls select,.hcls input{background:var(--card2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 9px;min-width:0;flex:1 1 150px}
 .hx{position:absolute;top:8px;right:8px;z-index:2;width:30px;height:30px;padding:0;border-radius:50%;border:1px solid var(--line);background:#0b0f14d9;color:var(--txt);font-size:14px;cursor:pointer}
 .hbt{display:inline-flex;align-items:center;justify-content:center;width:28px;height:24px;margin-left:8px;padding:0;vertical-align:middle;border-radius:7px;border:1px solid var(--line);background:#1b2431;color:var(--txt);cursor:pointer}.hbt:hover,.hbt.on{border-color:var(--acc)}
 .hht{margin:2px 0 14px;overflow:auto;background:#0e141b;border:1px solid var(--line);border-radius:10px;padding:6px 8px}.hht h5{margin:2px 0 6px;font-size:12px;color:var(--mut);font-weight:600}
@@ -3541,9 +3583,29 @@ function drawCls() {  // onglet « À classer » : avions vus sans type ICAO ni 
       if (!sl.value && !cd.value.trim() && !md.value.trim()) { toast('Choisissez une catégorie, un type ou un modèle', true); return; }
       try { await api('/api/aircraft/manual', {id: e.id, cat: sl.value, code: cd.value, model: md.value}); toast('Classement enregistré'); await loadHist(); } catch (er) { toast(er.message, true); }
     };
-    ct.append(sl, cd, md, sv); r.append(hd, ct); card.append(r);
+    const nt = el('small', 'hnote'); ct.append(sl, cd, md, ...lookupButtons(e, sl, cd, md, nt), sv, nt); r.append(hd, ct); card.append(r);
   }
   c.append(card);
+}
+function lookupButtons(e, sl, cd, md, note) {  // « Suggérer » (adsbdb.com, par adresse ICAO puis immatriculation) et recherche sur internet ; remplit le formulaire sans enregistrer
+  const out = [], sg = el('button', 'b s', 'Suggérer');
+  sg.onclick = async () => {
+    sg.disabled = true; note.textContent = tl('Recherche…');
+    try {
+      const r = await api('/api/aircraft/lookup?id=' + encodeURIComponent(e.id));
+      if (!r.found) { note.textContent = tl('Aucune information trouvée pour cet avion.'); }
+      else {
+        if (r.cat) sl.value = r.cat; if (r.code) cd.value = r.code; if (r.model) md.value = r.model;
+        note.textContent = _t('Trouvé sur {0} : {1}', r.source, [r.model, r.code, r.reg, r.owner].filter(Boolean).join(' · ')) + ' — ' + tl('vérifiez puis enregistrez.');
+      }
+    } catch (er) { note.textContent = er.message; }
+    sg.disabled = false;
+  };
+  const ws = el('button', 'b s', 'Chercher sur internet ↗');
+  ws.onclick = () => window.open('https://www.google.com/search?q=' + encodeURIComponent((e.reg || e.cs || e.id) + ' aircraft'), '_blank', 'noopener');
+  out.push(sg, ws);
+  if (e.reg) { const jp = el('button', 'b s', 'Photos sur JetPhotos ↗'); jp.onclick = () => window.open('https://www.jetphotos.com/registration/' + encodeURIComponent(e.reg), '_blank', 'noopener'); out.push(jp); }
+  return out;
 }
 function setHistTab(v) {
   histTab = v;
@@ -3796,7 +3858,7 @@ function histSheet(L, i) {
     const mod = document.createElement('input'); mod.placeholder = tl('Modèle (ex. Cessna 172)'); mod.maxLength = 80; mod.value = e.mmodel || '';
     const sv = el('button', 'b s', 'Enregistrer le classement');
     sv.onclick = async () => { try { await api('/api/aircraft/manual', {id: e.id, cat: sel.value, code: code.value, model: mod.value}); toast('Classement enregistré'); ov.remove(); await loadHist(); } catch (er) { toast(er.message, true); } };
-    box.append(hint, sel, code, mod, sv);
+    const nt = el('small', 'hnote'); box.append(hint, sel, code, mod, ...lookupButtons(e, sel, code, mod, nt), sv, nt);
     if (e.mc || e.mcode || e.mmodel) { const rs = el('button', 'b s', 'Retirer le classement'); rs.onclick = async () => { try { await api('/api/aircraft/manual', {id: e.id, cat: '', code: '', model: ''}); toast('Classement retiré'); ov.remove(); await loadHist(); } catch (er) { toast(er.message, true); } }; box.append(rs); }
     sc.append(box);
   }
