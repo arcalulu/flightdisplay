@@ -1077,16 +1077,15 @@ Le programme peut lire les avions depuis plusieurs sources (cinq au total), rég
 
 - **Flightradar24** : données mondiales par Internet, avec immatriculation, modèle, compagnie, trajet et photo. Positions rafraîchies toutes les 30 s environ (section `[api]`).
 - **tar1090** ([wiedehopf/tar1090](https://github.com/wiedehopf/tar1090)) : serveur de votre réseau alimenté par une antenne ADS-B, lu par son fichier `aircraft.json`. Positions quasi instantanées (2 s), sans quota ni Internet. Il ne voit que les avions captés par l'antenne et ne donne ni modèle, ni compagnie, ni trajet. Les installations `dump1090-fa` ou `readsb` seules produisent le même fichier et fonctionnent aussi.
-- **airplanes.live**, **adsb.lol** et **adsb.fi** : services communautaires gratuits, sans clé, qui diffusent les avions captés par des milliers d'antennes ADS-B, positions MLAT comprises (usage non commercial ; airplanes.live demande au plus une requête par seconde). Le programme demande les avions dans un cercle autour de votre position qui couvre tout l'écran (250 milles nautiques au plus). Comme tar1090, ils ne donnent ni modèle précis, ni compagnie, ni trajet : adsbdb.com les complète. Ils sont activés et classés comme les autres, et partagent une page de réglages (« Services ADS-B en ligne ») avec un bouton de test par service.
+- **adsb.lol** et **adsb.fi** : services communautaires gratuits, sans clé, qui diffusent les avions captés par des milliers d'antennes ADS-B, positions MLAT comprises (usage non commercial). Le programme demande les avions dans un cercle autour de votre position qui couvre tout l'écran (250 milles nautiques au plus). Comme tar1090, ils ne donnent ni modèle précis, ni compagnie, ni trajet : adsbdb.com les complète. Ils sont activés et classés comme les autres, et partagent une page de réglages (« Services ADS-B en ligne ») avec un bouton de test par service.
 
 | Option | Défaut | Description |
 |---|---|---|
 | `[sources] fr24_enabled` | `true` | Utiliser Flightradar24. |
 | `[sources] tar1090_enabled` | `false` | Utiliser le serveur tar1090. |
-| `[sources] airplaneslive_enabled` | `false` | Utiliser airplanes.live. |
 | `[sources] adsblol_enabled` | `false` | Utiliser adsb.lol. |
 | `[sources] adsbfi_enabled` | `false` | Utiliser adsb.fi. |
-| `[sources] order` | `fr24,tar1090,airplaneslive,adsblol,adsbfi` | Ordre de priorité des sources (la première a la priorité n°1). |
+| `[sources] order` | `fr24,tar1090,adsblol,adsbfi` | Ordre de priorité des sources (la première a la priorité n°1). |
 | `[sources] mode` | `combine` | Mode de combinaison : `combine`, `primary` ou `failover` (ci-dessous). |
 | `[sources] overlap` | `freshest` | Pour `combine` : `freshest` (position la plus récente) ou `priority` (source la mieux classée). |
 | `[sources] enrich` | `true` | Compléter les avions absents de Flightradar24 (immatriculation, modèle, compagnie, trajet, photo) via adsbdb.com. |
@@ -1109,7 +1108,7 @@ Si aucune source n'est cochée, aucun avion n'est affiché (l'écran indique « 
 
 Pour les avions que Flightradar24 ne voit pas, les détails viennent de adsbdb.com (service gratuit sans clé) : l'adresse ICAO et l'indicatif de l'avion lui sont envoyés. Décochez `enrich` pour rester entièrement local ; l'avion s'affiche alors sans détails.
 
-**Couleur des icônes.** L'option `[display] color_by_source = true` (page « Sources des avions ») colore les avions à l'écran selon leur source : `plane_color_fr24` (vus par Flightradar24 seulement, `#ffd250`), `plane_color_tar1090` (vus par tar1090 seulement, `#5ac8ff`), `plane_color_airplaneslive` (`#ff8c3c`), `plane_color_adsblol` (`#ff78be`), `plane_color_adsbfi` (`#b496ff`) et `plane_color_multi` (vus par plusieurs sources, `#78e68c`). L'avion du panneau photo garde sa couleur habituelle. Les avions militaires (signalés par une source, ou de type militaire, transports compris) ont leur propre couleur, `plane_color_military` (`#8fd15a`), quelle que soit leur source ; elle passe avant la couleur par source et se désactive avec `[display] color_military = false`.
+**Couleur des icônes.** L'option `[display] color_by_source = true` (page « Sources des avions ») colore les avions à l'écran selon leur source : `plane_color_fr24` (vus par Flightradar24 seulement, `#ffd250`), `plane_color_tar1090` (vus par tar1090 seulement, `#5ac8ff`), `plane_color_adsblol` (`#ff78be`), `plane_color_adsbfi` (`#b496ff`) et `plane_color_multi` (vus par plusieurs sources, `#78e68c`). L'avion du panneau photo garde sa couleur habituelle. Les avions militaires (signalés par une source, ou de type militaire, transports compris) ont leur propre couleur, `plane_color_military` (`#8fd15a`), quelle que soit leur source ; elle passe avant la couleur par source et se désactive avec `[display] color_military = false`.
 
 **Positions MLAT.** Quand tar1090 indique qu'une position est calculée par multilatération (MLAT, avions sans ADS-B ; tar1090 et les services en ligne l'indiquent), un petit « M » s'affiche à l'angle de l'icône à l'écran, et l'onglet « Avions vus » porte un badge « MLAT » (la fiche l'indique aussi).
 

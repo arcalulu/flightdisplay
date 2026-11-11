@@ -1,5 +1,5 @@
 """Sources de donnees des avions (Flightradar24, serveur tar1090 : solution de wiedehopf, compatible dump1090 / readsb,
-services en ligne airplanes.live, adsb.lol et adsb.fi) et fusion de leurs resultats.
+services en ligne adsb.lol et adsb.fi) et fusion de leurs resultats.
 
 Module partage par main.py (programme d'affichage) et webadmin.py (test d'un serveur tar1090).
 Chaque source produit des objets Flight normalises (memes champs que ceux de FlightRadar24). Un meme avion est reconnu d'une
@@ -21,17 +21,15 @@ import time
 import urllib.error
 import urllib.request
 
-NAMES = ("fr24", "tar1090", "airplaneslive", "adsblol", "adsbfi")
-ONLINE = ("airplaneslive", "adsblol", "adsbfi")  # services publics gratuits au format ADSBexchange v2 (sans cle), MLAT compris
-LABELS = {"fr24": "Flightradar24", "tar1090": "tar1090", "airplaneslive": "airplanes.live", "adsblol": "adsb.lol", "adsbfi": "adsb.fi"}
+NAMES = ("fr24", "tar1090", "adsblol", "adsbfi")
+ONLINE = ("adsblol", "adsbfi")  # services publics gratuits au format ADSBexchange v2 (sans cle), MLAT compris
+LABELS = {"fr24": "Flightradar24", "tar1090": "tar1090", "adsblol": "adsb.lol", "adsbfi": "adsb.fi"}
 MAX_NM = 250  # rayon maximal accepte par ces services
 
 
 def online_url(name, lat, lon, nm):
     """Adresse d'interrogation d'un service en ligne : tous les avions dans un cercle de nm milles nautiques autour du point."""
     nm = int(max(1, min(MAX_NM, round(nm))))
-    if name == "airplaneslive":
-        return "https://api.airplanes.live/v2/point/%.5f/%.5f/%d" % (lat, lon, nm)
     if name == "adsblol":
         return "https://api.adsb.lol/v2/lat/%.5f/lon/%.5f/dist/%d" % (lat, lon, nm)
     if name == "adsbfi":

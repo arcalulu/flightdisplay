@@ -168,7 +168,7 @@ CAT_NOTES = {
     "sources": "D'où viennent les avions affichés. Cochez une ou plusieurs sources, classez-les par priorité et choisissez comment combiner leurs résultats. Un même avion reconnu par plusieurs sources n'est jamais affiché deux fois. Les changements demandent de relancer le programme.",
     "api": "Flightradar24 fournit les positions mondiales par Internet, ainsi que l'immatriculation, le modèle, la compagnie, le trajet et la photo de chaque avion. Les positions sont rafraîchies toutes les 30 s environ ; un intervalle trop court provoque des erreurs 429. Cette source s'active et se classe dans « Sources des avions ».",
     "tar1090": "Serveur tar1090 (https://github.com/wiedehopf/tar1090) de votre réseau, alimenté par une antenne ADS-B et lu par son fichier aircraft.json. Positions quasi instantanées, sans quota ni Internet. Il ne voit que les avions captés par l'antenne et ne donne ni modèle, ni compagnie, ni trajet : ils sont alors demandés à adsbdb.com (option « Compléter les avions captés seulement par l'antenne », dans « Sources des avions »). Cette source s'active et se classe dans « Sources des avions ».",
-    "online": "airplanes.live, adsb.lol et adsb.fi sont des services communautaires gratuits, sans clé, qui diffusent les avions captés par des milliers d'antennes ADS-B, positions MLAT comprises. Le programme leur demande les avions dans un cercle autour de votre position qui couvre tout l'écran. Ils ne donnent ni modèle précis, ni compagnie, ni trajet : ils sont alors demandés à adsbdb.com (option « Compléter les avions absents de Flightradar24 », dans « Sources des avions »). Usage non commercial ; airplanes.live demande au plus une requête par seconde. Ces sources s'activent et se classent dans « Sources des avions ».",
+    "online": "adsb.lol et adsb.fi sont des services communautaires gratuits, sans clé, qui diffusent les avions captés par des milliers d'antennes ADS-B, positions MLAT comprises. Le programme leur demande les avions dans un cercle autour de votre position qui couvre tout l'écran. Ils ne donnent ni modèle précis, ni compagnie, ni trajet : ils sont alors demandés à adsbdb.com (option « Compléter les avions absents de Flightradar24 », dans « Sources des avions »). Usage non commercial. Ces sources s'activent et se classent dans « Sources des avions ».",
     "mapstyle": "Personnalisez le fond de carte : thème, éléments affichés, couleurs et noms de lieux. Choisir un thème affiche tout de suite une carte d'exemple (indicatif) ; « Mettre à jour l'aperçu » donne le rendu fidèle de votre zone, avec vos couleurs et vos éléments. Il faut ensuite enregistrer puis reconstruire la carte pour que l'écran l'utilise.",
     "history": "Nombre d'avions gardés dans la page « Avions vus » : au-delà, les plus anciens sont supprimés. Un historique plus long ralentit la page et pèse sur la carte SD : la valeur par défaut est de 1000 avions, et de 500 sur un Raspberry Pi Zero, mais vous pouvez choisir la valeur que vous voulez. Le changement demande de relancer le programme.",
     "server": "Le port et l'adresse d'écoute demandent un redémarrage de webadmin. L'identifiant et le mot de passe s'appliquent immédiatement.",
@@ -262,17 +262,15 @@ PARAMS = [
     
     C("sources", "sources", "fr24_enabled", "bool", True, "Utiliser Flightradar24", "", "Sources"),
     C("sources", "sources", "tar1090_enabled", "bool", False, "Utiliser tar1090", "", "Sources"),
-    C("sources", "sources", "airplaneslive_enabled", "bool", False, "Utiliser airplanes.live", "", "Sources"),
     C("sources", "sources", "adsblol_enabled", "bool", False, "Utiliser adsb.lol", "", "Sources"),
     C("sources", "sources", "adsbfi_enabled", "bool", False, "Utiliser adsb.fi", "", "Sources"),
-    C("sources", "sources", "order", "text", "fr24,tar1090,airplaneslive,adsblol,adsbfi", "Ordre de priorité", "", "Sources"),
+    C("sources", "sources", "order", "text", "fr24,tar1090,adsblol,adsbfi", "Ordre de priorité", "", "Sources"),
     C("sources", "sources", "mode", "choice", "combine", "Mode de combinaison", "", "Combinaison", options=["combine", "primary", "failover"]),
     C("sources", "sources", "overlap", "choice", "freshest", "Avion vu par plusieurs sources", "", "Combinaison", options=["freshest", "priority"]),
     C("sources", "sources", "enrich", "bool", True, "Compléter les avions absents de Flightradar24", "Un avion absent de Flightradar24 n'a que sa position : l'immatriculation, le modèle, la compagnie, le trajet et une photo sont alors demandés à adsbdb.com (service gratuit, sans clé). Il en va de même pour un avion que Flightradar24 connaît mais pour lequel il ne donne pas de photo. L'adresse ICAO et l'indicatif de l'avion sont envoyés à ce service. Décochez pour rester entièrement local : l'avion s'affiche alors sans détails.", "Compléments"),
     C("sources", "display", "color_by_source", "bool", False, "Colorer les avions selon leur source", "Les icônes prennent une couleur selon la ou les sources qui voient l'avion (l'avion du panneau photo reste dans sa couleur habituelle).", "Couleurs"),
     C("sources", "display", "plane_color_fr24", "color", "#ffd250", "Vus par Flightradar24 seulement", "", "Couleurs"),
     C("sources", "display", "plane_color_tar1090", "color", "#5ac8ff", "Vus par tar1090 seulement", "", "Couleurs"),
-    C("sources", "display", "plane_color_airplaneslive", "color", "#ff8c3c", "Vus par airplanes.live seulement", "", "Couleurs"),
     C("sources", "display", "plane_color_adsblol", "color", "#ff78be", "Vus par adsb.lol seulement", "", "Couleurs"),
     C("sources", "display", "plane_color_adsbfi", "color", "#b496ff", "Vus par adsb.fi seulement", "", "Couleurs"),
     C("sources", "display", "plane_color_multi", "color", "#78e68c", "Vus par plusieurs sources", "", "Couleurs"),
@@ -426,6 +424,9 @@ def fmt_default(v):
     return str(v)
 
 
+RETIRED = {("sources", "airplaneslive_enabled"), ("display", "plane_color_airplaneslive")}  # airplanes.live : service arrete
+
+
 def get_settings():
     state = {f: parse(read_lines(path_of(f)))[0] for f in ("config", "web")}
     cats = {cid: dict(id=cid, title=tr(t), menu=m, groups=collections.OrderedDict(), note=tr(CAT_NOTES.get(cid, "")))
@@ -447,7 +448,7 @@ def get_settings():
         for (sec, key), cur in vals.items():
             if (sec in WEB_SECS) != (f == "web"):
                 continue
-            if (f, sec, key) not in SPEC:
+            if (f, sec, key) not in SPEC and (sec, key) not in RETIRED:  # RETIRED : reglages d'une source supprimee, laisses dans les anciens config.ini
                 label = f'[{sec}] {cur["orig"]}'
                 cats["other"]["groups"].setdefault("Hors schéma (config.ini)", []).append(
                     dict(id=f"{f}:{sec}.{key}", cat="other", key=key, type="text", label=label, help="", options=None,
@@ -3114,14 +3115,13 @@ async function restartWeb(port, noAsk) {
 }
 
 /* ---------- Sources des avions ---------- */
-const SRC_NAMES = {fr24: 'Flightradar24', tar1090: 'tar1090', airplaneslive: 'airplanes.live', adsblol: 'adsb.lol', adsbfi: 'adsb.fi'};
+const SRC_NAMES = {fr24: 'Flightradar24', tar1090: 'tar1090', adsblol: 'adsb.lol', adsbfi: 'adsb.fi'};
 const SRC_PAGES = ['api', 'tar1090', 'online'];  // pages de réglages des sources (hors menu, depuis « Sources des avions »)
-const SRC_PAGE = {fr24: 'api', tar1090: 'tar1090', airplaneslive: 'online', adsblol: 'online', adsbfi: 'online'};
-const ONLINE = ['airplaneslive', 'adsblol', 'adsbfi'];
+const SRC_PAGE = {fr24: 'api', tar1090: 'tar1090', adsblol: 'online', adsbfi: 'online'};
+const ONLINE = ['adsblol', 'adsbfi'];
 const SRC_DESC = {
   fr24: "Positions mondiales par Internet, avec détails et photo de chaque avion.",
   tar1090: "Votre antenne ADS-B locale : positions quasi instantanées, sans Internet.",
-  airplaneslive: "Service communautaire gratuit : les avions captés par des milliers d'antennes, MLAT compris.",
   adsblol: "Service communautaire gratuit : les avions captés par des milliers d'antennes, MLAT compris.",
   adsbfi: "Service communautaire gratuit : les avions captés par des milliers d'antennes, MLAT compris."
 };
@@ -3213,7 +3213,7 @@ function renderSources(box, cat) {
   }
   sec.append(tb);
   sec.append(el('h2', 't', 'Couleur des icônes'));
-  const cl = el('div', 'list'), tp = gp('display.color_by_source'), cols = ['plane_color_fr24', 'plane_color_tar1090', 'plane_color_airplaneslive', 'plane_color_adsblol', 'plane_color_adsbfi', 'plane_color_multi'].map(k => gp('display.' + k));
+  const cl = el('div', 'list'), tp = gp('display.color_by_source'), cols = ['plane_color_fr24', 'plane_color_tar1090', 'plane_color_adsblol', 'plane_color_adsbfi', 'plane_color_multi'].map(k => gp('display.' + k));
   const mk = (p, id) => { const c = control(p), r = el('div', 'li'), t = el('div', 'lt'); t.append(el('b', null, p.label)); if (p.help) t.append(el('small', null, p.help)); r.dataset.row = id; r.append(t, c.c); return r; };
   cl.append(mk(tp, 'tg'));
   for (const p of cols) cl.append(mk(p, p.id));

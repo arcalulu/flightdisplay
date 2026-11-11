@@ -52,7 +52,7 @@ POLL = cfg.getfloat("api", "poll_seconds", fallback=30)
 DETAILS_PAUSE = cfg.getfloat("api", "details_pause_seconds", fallback=4)
 STALE = cfg.getfloat("api", "stale_seconds", fallback=30)
 
-# Sources des avions : Flightradar24, serveur tar1090 (https://github.com/wiedehopf/tar1090), services en ligne airplanes.live / adsb.lol / adsb.fi
+# Sources des avions : Flightradar24, serveur tar1090 (https://github.com/wiedehopf/tar1090), services en ligne adsb.lol / adsb.fi
 # (voir sources.py pour les modes de combinaison)
 SRC_ENABLED = [n for n in sources.NAMES if cfg.getboolean("sources", n + "_enabled", fallback=(n == "fr24"))]
 TAR_URL = cfg.get("tar1090", "url", fallback="").strip()
@@ -676,7 +676,7 @@ def tar_loop():
 
 
 def online_loop(name):
-    """Source en ligne (airplanes.live, adsb.lol, adsb.fi) : tous les avions autour de la position, au format ADSBexchange v2."""
+    """Source en ligne (adsb.lol, adsb.fi) : tous les avions autour de la position, au format ADSBexchange v2."""
     label = sources.LABELS[name]
     nm = min(sources.MAX_NM, math.ceil(math.hypot(W, H) * MPP / 2 / 1852 + 1))  # cercle qui couvre tout l'ecran
     url = sources.online_url(name, LAT, LON, nm)
@@ -964,7 +964,7 @@ PLANE_UNKNOWN = cfg_color("plane_color_unknown", (255, 170, 90))
 # couleur des avions selon la source qui les voit (option, voir sources.py) : Flightradar24 seul, tar1090 seul, plusieurs sources
 COLOR_BY_SRC = cfg.getboolean("display", "color_by_source", fallback=False)
 SRC_COLORS = {"fr24": cfg_color("plane_color_fr24", (255, 210, 80)), "tar1090": cfg_color("plane_color_tar1090", (90, 200, 255)),
-              "airplaneslive": cfg_color("plane_color_airplaneslive", (255, 140, 60)), "adsblol": cfg_color("plane_color_adsblol", (255, 120, 190)),
+              "adsblol": cfg_color("plane_color_adsblol", (255, 120, 190)),
               "adsbfi": cfg_color("plane_color_adsbfi", (180, 150, 255)), "multi": cfg_color("plane_color_multi", (120, 230, 140))}
 COLOR_MIL = cfg.getboolean("display", "color_military", fallback=True)  # avions militaires : couleur propre
 MIL_COLOR = cfg_color("plane_color_military", (143, 209, 90))
