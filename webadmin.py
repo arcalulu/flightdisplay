@@ -3785,7 +3785,7 @@ function histBadges(e) {
 }
 function histPager(host, pages) {
   host.innerHTML = ''; if (pages <= 1) return;
-  const go = p => { histPage = Math.min(pages, Math.max(1, p)); drawHist(); const c = $('#hCrumb'); if (c) c.scrollIntoView({block: 'start'}); };
+  const go = p => { histPage = Math.min(pages, Math.max(1, p)); drawHist(); const c = $('#hCrumb'); if (c) c.scrollIntoView({block: 'nearest'}); };  // 'nearest' : la page ne bouge pas si le début de la liste est déjà visible
   const add = (label, p, cls, dis) => { const b = el('button', 'hpg' + (cls ? ' ' + cls : ''), label); b.disabled = !!dis; b.onclick = () => go(p); host.append(b); };
   host.append(el('span', 'hpi', _t('Page {0} sur {1}', histPage, pages)));
   add('‹', histPage - 1, '', histPage === 1);
