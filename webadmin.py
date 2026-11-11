@@ -2173,27 +2173,30 @@ h2.t{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.04
 .opt b{display:block;font-size:14px}.opt small{display:block;margin-top:3px;color:var(--mut);font-size:12.5px;line-height:1.4}.opts.chg .opt.on{box-shadow:0 0 0 1px var(--acc)}
 .srcmode.dim{opacity:.5}.srcul{margin:6px 0 14px;padding-left:20px;color:var(--mut);font-size:13px;line-height:1.5}.srcul b{color:var(--txt)}
 .srctab{width:100%;border-collapse:collapse;font-size:12.5px;margin:6px 0 14px}.srctab th{color:var(--mut);font-weight:600;text-align:left;padding:6px;border-bottom:1px solid var(--line)}.srctab td{padding:6px;border-bottom:1px solid #1b2431;vertical-align:top}.srctab tr.cur td{background:#13202e}
-.hlayout{display:flex;gap:14px;align-items:flex-start}
-.haside{width:236px;flex:none;position:sticky;top:8px;max-height:calc(100vh - 70px);overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 8px}
-.haside h4{margin:2px 6px 6px;font-size:12px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
-.haside .seg{display:flex;margin:0 4px 10px}.haside .seg button{flex:1;padding:6px 4px;font-size:13px}
-.hnode{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;text-align:left;border:0;background:none;color:var(--txt);padding:7px 10px;border-radius:9px;font-size:14px;cursor:pointer}
-.hnode:hover{background:#1b2431}.hnode.on{background:#2c3a4d;font-weight:600}.hnode>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hnode b{font-weight:400;color:var(--mut);font-size:12px}
-.hnode.sub{padding-left:26px;font-size:13px}.hnode>span.hnt{display:flex;align-items:center;gap:9px;white-space:normal;overflow:visible;line-height:1.25}.hnt .hns{flex:none;width:24px}.hnt svg{flex:none;color:#9db4cf}.hnode.on .hnt svg{color:var(--acc)}.hnode.multi.on{border-color:#5b3f96}.hnode.alert{color:#ff9d96}
+.hfbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 8px}.hfbar .hsp{flex:1}.hfbar small{color:var(--mut)}
+.hmw{position:relative}.hchip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:#0e141b;color:var(--mut);border-radius:99px;padding:7px 13px;font-size:14px;cursor:pointer;white-space:nowrap}
+.hchip:hover{border-color:#3a4c63}.hchip.on{background:#1d2d45;color:var(--txt);border-color:#3b5d8c}.hchip.al.on{background:#4a1a17;border-color:#8a2f29;color:#ffb4ae}.hchip.clr{border-style:dashed}
+.hchip em{font-style:normal;background:#5aa2ff;color:#06101c;border-radius:99px;padding:0 7px;font-size:11.5px;font-weight:700}
+.hpop{position:absolute;z-index:30;top:calc(100% + 6px);left:0;width:280px;max-width:calc(100vw - 32px);background:#0e141b;border:1px solid #3b5d8c;border-radius:12px;padding:8px;box-shadow:0 12px 34px #000a}
+.hpop input{width:100%;margin-bottom:6px;padding:7px 10px;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#0b1017;color:var(--txt)}
+.hpl{max-height:320px;overflow:auto;display:flex;flex-direction:column;gap:1px}
+.hpi2{display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:0;background:none;color:var(--mut);padding:6px 8px;border-radius:7px;font-size:14px;cursor:pointer}
+.hpi2:hover{background:#172539}.hpi2.on{background:#172539;color:var(--txt)}.hpi2.sub{padding-left:30px;font-size:13px}.hpi2 span.t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hpi2 b{font-weight:400;opacity:.7;font-size:12px}
+.hpi2 svg{flex:none;color:#9db4cf}.hbox{width:16px;height:16px;border:1.5px solid #4a6285;border-radius:4px;flex:none;display:grid;place-items:center}.hpi2.on .hbox{background:#5aa2ff;border-color:#5aa2ff}.hpi2.on .hbox:after{content:"✓";color:#06101c;font-size:11px;font-weight:700;line-height:1}
+.hrad{width:16px;height:16px;border:1.5px solid #4a6285;border-radius:50%;flex:none}.hpi2.on .hrad{border-color:#5aa2ff;background:radial-gradient(#5aa2ff 40%,transparent 45%)}
+.hact{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}.hact:empty{display:none}
+.htok{display:inline-flex;align-items:center;gap:6px;background:#1d2d45;border:1px solid #33507a;color:#cfe0f7;border-radius:8px;padding:3px 6px 3px 10px;font-size:13px}.htok button{border:0;background:none;color:#9db4cf;cursor:pointer;padding:0 3px;font-size:13px}.htok button:hover{color:#fff}
+.hmode button{padding:6px 10px;display:inline-flex}.hmode svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .hmain{flex:1;min-width:0}
-.hcrumb{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:0 0 10px;font-size:14px}.hcrumb button{border:0;background:none;color:var(--acc);padding:2px 4px;font-size:14px;cursor:pointer}.hcrumb button:hover{text-decoration:underline}.hcrumb i{font-style:normal;color:var(--mut)}.hcrumb span{color:var(--txt);font-weight:600}.hcrumb small{color:var(--mut);margin-left:auto}
 .hpager{display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin:12px 0}.hpager .hpi{color:var(--mut);font-size:13px;margin-right:8px}.hpager .hpe{color:var(--mut);padding:0 4px}
 .hpg{min-width:34px;height:34px;padding:0 8px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--txt);font-size:14px;cursor:pointer}.hpg:hover:not(:disabled){border-color:#3a4c63}.hpg.on{background:#2c3a4d;border-color:var(--acc);font-weight:600}.hpg:disabled{opacity:.35;cursor:default}
 .hrows{display:flex;flex-direction:column;gap:6px}
 .hrow{display:grid;grid-template-columns:64px minmax(0,1.15fr) minmax(0,1.6fr) 92px 74px 150px;align-items:center;gap:10px;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:6px 10px 6px 6px;color:var(--txt);cursor:pointer}
 .hrow:hover{border-color:#3a4c63}.hrow .hrt{position:relative;width:64px;height:42px;border-radius:8px;overflow:hidden;background:#0e141b;display:flex;align-items:center;justify-content:center;color:#3f5269;font-size:20px}.hrow .hrt img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .hrow b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hrow small{display:block;color:var(--mut);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hrow code{font:12px ui-monospace,Consolas,monospace}.hrow .hbadges{position:static;justify-content:flex-end;align-content:center;gap:3px}.hrow .hbadge{font-size:10px;padding:1px 6px}.hrow .hroutel b{white-space:normal;line-height:1.25}
-.hfilt{display:none}
-@media(max-width:820px){.hlayout{flex-direction:column}.haside{width:100%;position:static;max-height:none;display:none}.haside.open{display:block}.hfilt{display:inline-block}.hrow{grid-template-columns:64px minmax(0,1fr) 92px}.hrow>:nth-child(3),.hrow>:nth-child(4){display:none}}
+@media(max-width:820px){.hrow{grid-template-columns:64px minmax(0,1fr) 92px}.hrow>:nth-child(3),.hrow>:nth-child(4){display:none}}
 .hbadge.mlat{background:#16303a;border-color:#2f7186;color:#8fd8ee}.hbadge.multi{background:#2a1d44;border-color:#5b3f96;color:#c9b2f5}.hbadge.alert{background:#4a1a17;border-color:#8a2f29;color:#ffb4ae}.hbadge.cnt{background:#243040;border-color:#3a4a5f;color:#c4cfdc}
 .hbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:4px 0 12px}.hbar input[type=search]{flex:1 1 200px;min-width:0;padding:9px 12px;font-size:14px;border-radius:9px;border:1px solid var(--line);background:#0e141b;color:var(--txt)}
-.hstats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px}
-.hstat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}.hstat b{display:block;font-size:24px;font-weight:600}.hstat small{color:var(--mut);font-size:12px}
 .hgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:10px}
 .hcard{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;text-align:left;color:var(--txt);padding:0;display:flex;flex-direction:column;transition:transform .12s,border-color .12s}
 .hcard:hover{transform:translateY(-2px);border-color:#3a4c63}
@@ -2226,10 +2229,6 @@ h2.t{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.04
 .hbt{display:inline-flex;align-items:center;justify-content:center;width:28px;height:24px;margin-left:8px;padding:0;vertical-align:middle;border-radius:7px;border:1px solid var(--line);background:#1b2431;color:var(--txt);cursor:pointer}.hbt:hover,.hbt.on{border-color:var(--acc)}
 .hht{margin:2px 0 14px;overflow:auto;background:#0e141b;border:1px solid var(--line);border-radius:10px;padding:6px 8px}.hht h5{margin:2px 0 6px;font-size:12px;color:var(--mut);font-weight:600}
 .htab{width:100%;border-collapse:collapse;font-size:12px}.htab th{color:var(--mut);font-weight:600;text-align:left;padding:4px 6px;border-bottom:1px solid var(--line);white-space:nowrap}.htab td{padding:5px 6px;border-bottom:1px solid #1b2431;vertical-align:top}.htab tr:last-child td{border-bottom:0}
-.hlb{margin:0 0 12px}.hlb summary{cursor:pointer;color:var(--mut);font-size:13px;margin-bottom:8px}.hlbg{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
-.hlbc{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}.hlbc h4{margin:0 0 6px;font-size:13px;color:var(--mut);font-weight:600}
-.hlr{display:flex;align-items:center;gap:8px;font-size:13px;margin:5px 0}.hlr>span:first-child{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hlr .hlt{width:56px;height:5px;border-radius:3px;background:#243040;flex:none}.hlr .hlt i{display:block;height:100%;border-radius:3px;background:var(--acc)}.hlr b{min-width:18px;text-align:right}
-@media(min-width:720px){.hstats{grid-template-columns:repeat(4,minmax(0,1fr))}}
 .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px}
 .tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 13px}
 .tile small{display:block;color:var(--mut);font-size:12px;margin-bottom:2px}
@@ -3656,9 +3655,9 @@ async function renderStorage(box) {
 
 /* ---------- Avions vus : l'historique, en cartes ou en liste, avec filtres et pages ---------- */
 const HV = (() => { try { return JSON.parse(localStorage.getItem('histView') || '{}'); } catch (e) { return {}; } })();
-let HIST = null, histQ = '', histPeriod = HV.period || 'all', histSort = HV.sort || 'recent', histMode = HV.mode || 'cards', histGroup = HV.group || 'brand', histPer = HV.per || 24;
-let histBrand = '', histFam = '', histAirline = '', histCat = '', histAlert = false, histTc = false, histSrc = '', histPage = 1;
-const histSave = () => { try { localStorage.setItem('histView', JSON.stringify({period: histPeriod, sort: histSort, mode: histMode, group: histGroup, per: histPer})); } catch (e) {} };
+let HIST = null, histQ = '', histPeriod = HV.period || 'all', histSort = HV.sort || 'recent', histMode = HV.mode || 'cards', histPer = HV.per || 24;
+let fType = new Set(), fAir = new Set(), fBrand = new Set(), fFam = new Set(), fSrc = new Set(), histAlert = false, histTc = false, histOpen = '', histMq = '', histPage = 1;
+const histSave = () => { try { localStorage.setItem('histView', JSON.stringify({period: histPeriod, sort: histSort, mode: histMode, per: histPer})); } catch (e) {} };
 async function loadHist() {
   try { HIST = await api('/api/history'); } catch (e) { toast(e.message, true); return; }
   buildHist(); drawHist(); drawCls();
@@ -3739,30 +3738,25 @@ function setHistTab(v) {
 }
 function buildHist() {
   const box = $('#t-hist'); if (box.dataset.ready) return; box.dataset.ready = '1';
-  const stats = el('div', 'hstats'); stats.id = 'hStats';
-  const lb = document.createElement('details'); lb.className = 'hlb'; lb.id = 'hLb';
   const bar = el('div', 'hbar'), q = document.createElement('input'); q.type = 'search'; q.autocomplete = 'off'; q.placeholder = tl('Rechercher un avion, une compagnie, une ville…');
   q.oninput = () => { histQ = q.value; histPage = 1; drawHist(); };
-  const seg = (opts, get, set) => {
-    const d = el('div', 'seg');
-    for (const [v, t] of opts) { const b = el('button', get() === v ? 'on' : '', t); b.dataset.v = v; b.onclick = () => { set(v); histSave(); d.querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.v === v)); histPage = 1; drawHist(); }; d.append(b); }
-    return d;
-  };
   const per = document.createElement('select'); per.style.width = 'auto'; per.title = tl('Avions par page');
   for (const n of [12, 24, 48, 96, 200]) { const o = el('option', null, _t('{0} par page', n)); o.value = n; per.append(o); }
   per.value = histPer; per.onchange = () => { histPer = +per.value; histSave(); histPage = 1; drawHist(); };
-  const fb = el('button', 'b s hfilt', 'Filtres'); fb.onclick = () => $('#hAside').classList.toggle('open');
-  bar.append(q, fb, seg([['day', "Aujourd'hui"], ['week', '7 jours'], ['all', 'Tout']], () => histPeriod, v => { histPeriod = v; }), seg([['recent', 'Récents'], ['often', 'Habitués']], () => histSort, v => { histSort = v; }),
-    seg([['cards', 'Cartes'], ['list', 'Liste']], () => histMode, v => { histMode = v; }), per);
-  const lay = el('div', 'hlayout'), aside = el('div', 'haside'), main = el('div', 'hmain');
-  aside.id = 'hAside';
-  const crumb = el('div', 'hcrumb'); crumb.id = 'hCrumb';
+  const mode = el('div', 'seg hmode'), ICO = {cards: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg>', list: '<svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r=".8"/><circle cx="3.5" cy="12" r=".8"/><circle cx="3.5" cy="18" r=".8"/></svg>'};
+  for (const [v, tt] of [['cards', 'Cartes'], ['list', 'Liste']]) {
+    const b = el('button', histMode === v ? 'on' : ''); b.innerHTML = ICO[v]; b.title = tl(tt); b.setAttribute('aria-label', tl(tt)); b.dataset.v = v;
+    b.onclick = () => { histMode = v; histSave(); mode.querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.v === v)); histPage = 1; drawHist(); }; mode.append(b);
+  }
+  bar.append(q, mode, per);
+  const main = el('div', 'hmain'), filt = el('div', 'hfbar'), act = el('div', 'hact');
+  filt.id = 'hFilt'; act.id = 'hAct';
   const p1 = el('div', 'hpager'); p1.id = 'hPg1';
   const res = el('div'); res.id = 'hRes';
   const p2 = el('div', 'hpager'); p2.id = 'hPg2';
   const empty = el('p', 'note'); empty.id = 'hEmpty';
-  main.append(crumb, p1, res, p2, empty); lay.append(aside, main);
-  const hv = el('div'); hv.id = 'hView'; hv.append(stats, lb, bar, lay);
+  main.append(filt, act, p1, res, p2, empty);
+  const hv = el('div'); hv.id = 'hView'; hv.append(bar, main);
   const tabs = el('div', 'seg'), t1 = el('button', 'on', 'Historique'), t2 = el('button', '', 'À classer'), cv = el('div'); cv.id = 'hCls'; cv.style.display = 'none';
   t1.id = 'hTabHist'; t2.id = 'hTabCls'; t1.onclick = () => setHistTab('hist'); t2.onclick = () => setHistTab('cls'); tabs.append(t1, t2); tabs.style.marginBottom = '12px';
   box.append(tabs, hv, cv);
@@ -3772,21 +3766,33 @@ function buildHist() {
     else if (ev.key === 'ArrowLeft' && o._nav) o._nav(-1);
     else if (ev.key === 'ArrowRight' && o._nav) o._nav(1);
   });
-  setInterval(() => { if (cur === 'hist' && !document.querySelector('.hover') && document.activeElement !== q) loadHist(); }, 30000);
+  document.addEventListener('click', ev => { if (histOpen && !(ev.target.closest && ev.target.closest('.hmw'))) { histOpen = ''; if (HIST) drawFilters(histPick().length); } });
+  document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && histOpen) { histOpen = ''; if (HIST) drawFilters(histPick().length); } });
+  setInterval(() => { if (cur === 'hist' && !document.querySelector('.hover') && document.activeElement !== q && !histOpen) loadHist(); }, 30000);
 }
 function histCo(e) { return (e.airline || '').replace(/\s*\(.*$/, '').trim() || 'Inconnue'; }  // livrée spéciale entre parenthèses : même compagnie
 const SRC_SHORT = SRC_NAMES;
-function histSrcOk(e) {  // filtre « sources » : plusieurs sources, ou une seule (les anciens avions sans information comptent pour Flightradar24)
-  if (!histSrc) return true;
+function histSrcTags(e) {  // « multi » : plusieurs sources ; sinon la source unique (les anciens avions sans information comptent pour Flightradar24)
   const s = e.src && e.src.length ? e.src : ['fr24'];
-  return histSrc === 'multi' ? s.length >= 2 : (s.length === 1 && s[0] === histSrc);
+  return s.length >= 2 ? ['multi'] : [s[0]];
 }
-function histBase() {  // période, recherche et alerte : ce qui sert aussi à compter dans la colonne de gauche
+function histMatcher(skip) {  // filtre cumulable : un avion passe si, pour chaque critère choisi, il correspond à l'une de ses valeurs ; skip = critère ignoré (pour les compteurs de son propre menu)
   const now = Date.now() / 1000, lim = histPeriod === 'day' ? now - 86400 : (histPeriod === 'week' ? now - 7 * 86400 : 0), q = histQ.trim().toLowerCase();
-  return HIST.entries.filter(e => e.t >= lim && (!histAlert || e.al) && (!histTc || e.tc) && histSrcOk(e) && (!q || [e.model, e.reg, e.cs, e.airline, e.frm, e.to, e.fi, e.ti, e.code].join(' ').toLowerCase().includes(q)));
+  return e => {
+    if (e.t < lim || (histAlert && !e.al) || (histTc && !e.tc)) return false;
+    if (q && ![e.model, e.reg, e.cs, e.airline, e.frm, e.to, e.fi, e.ti, e.code].join(' ').toLowerCase().includes(q)) return false;
+    if (skip !== 'type' && fType.size && !fType.has(e.cat || '?')) return false;
+    if (skip !== 'air' && fAir.size && !fAir.has(histCo(e))) return false;
+    if (skip !== 'brand' && fBrand.size) {
+      if (!fBrand.has(e.br)) return false;
+      if ([...fFam].some(k => k.startsWith(e.br + '|')) && !fFam.has(e.br + '|' + e.fa)) return false;
+    }
+    if (skip !== 'src' && fSrc.size && !histSrcTags(e).some(x => fSrc.has(x))) return false;
+    return true;
+  };
 }
-function histPick(base) {
-  let L = base.filter(e => (!histBrand || e.br === histBrand) && (!histFam || e.fa === histFam) && (!histAirline || histCo(e) === histAirline) && (!histCat || (histCat === '?' ? !e.cat : e.cat === histCat)));
+function histPick() {
+  let L = HIST.entries.filter(histMatcher(''));
   if (histSort === 'often') L = L.slice().sort((a, b) => b.n - a.n || b.t - a.t);
   return L;
 }
@@ -3811,7 +3817,7 @@ function histBadges(e) {
 }
 function histPager(host, pages) {
   host.innerHTML = ''; if (pages <= 1) return;
-  const go = p => { histPage = Math.min(pages, Math.max(1, p)); drawHist(); const c = $('#hCrumb'); if (c) c.scrollIntoView({block: 'nearest'}); };  // 'nearest' : la page ne bouge pas si le début de la liste est déjà visible
+  const go = p => { histPage = Math.min(pages, Math.max(1, p)); drawHist(); const c = $('#hFilt'); if (c) c.scrollIntoView({block: 'nearest'}); };  // 'nearest' : la page ne bouge pas si le début de la liste est déjà visible
   const add = (label, p, cls, dis) => { const b = el('button', 'hpg' + (cls ? ' ' + cls : ''), label); b.disabled = !!dis; b.onclick = () => go(p); host.append(b); };
   host.append(el('span', 'hpi', _t('Page {0} sur {1}', histPage, pages)));
   add('‹', histPage - 1, '', histPage === 1);
@@ -3820,81 +3826,106 @@ function histPager(host, pages) {
   for (const p of [...set].filter(p => p >= 1 && p <= pages).sort((a, b) => a - b)) { if (p - last > 1) host.append(el('span', 'hpe', '…')); add(String(p), p, p === histPage ? 'on' : ''); last = p; }
   add('›', histPage + 1, '', histPage === pages);
 }
-function drawAside(base) {
-  const a = $('#hAside'); a.innerHTML = '';
-  const gs = el('div', 'seg');
-  for (const [v, t] of [['brand', 'Constructeur'], ['airline', 'Compagnie'], ['type', 'Type']]) { const b = el('button', histGroup === v ? 'on' : '', t); b.onclick = () => { histGroup = v; histBrand = histFam = histAirline = histCat = ''; histPage = 1; histSave(); drawHist(); }; gs.append(b); }
-  a.append(el('h4', null, 'Regrouper par'), gs);
-  const node = (label, n, on, fn, cls) => { const b = el('button', 'hnode' + (cls ? ' ' + cls : '') + (on ? ' on' : '')); b.append(el('span', null, label), el('b', null, String(n))); b.onclick = () => { fn(); histPage = 1; drawHist(); }; return b; };
-  const alerts = HIST.entries.filter(e => e.al).length;
-  a.append(el('h4', null, 'Filtres'));
-  a.append(node("Zone d'alerte", alerts, histAlert, () => { histAlert = !histAlert; }, 'alert'));
-  const tcn = HIST.entries.filter(e => e.tc).length;
-  if (tcn || histTc) a.append(node('À classer', tcn, histTc, () => { histTc = !histTc; }, 'alert'));
-  if (HIST.entries.some(e => e.src && e.src.some(x => x !== 'fr24'))) {  // plusieurs sources utilisées : filtres par source
-    const cnt = f => HIST.entries.filter(e => { const o = histSrc; histSrc = f; const r = histSrcOk(e); histSrc = o; return r; }).length;
-    a.append(node('Vus par plusieurs sources', cnt('multi'), histSrc === 'multi', () => { histSrc = histSrc === 'multi' ? '' : 'multi'; }, 'multi'));
-    for (const n of Object.keys(SRC_NAMES)) {
-      const k = cnt(n);
-      if (k || n === 'fr24') a.append(node(_t('{0} seulement', SRC_NAMES[n]), k, histSrc === n, () => { histSrc = histSrc === n ? '' : n; }));
-    }
+const histAnyFilter = () => !!(fType.size || fAir.size || fBrand.size || fFam.size || fSrc.size || histAlert || histTc);
+function histClear() { fType.clear(); fAir.clear(); fBrand.clear(); fFam.clear(); fSrc.clear(); histAlert = false; histTc = false; histOpen = ''; histMq = ''; }
+function histDim(name) {  // contenu du menu : lignes {k, label, n, on, sub, cat}, ensemble choisi
+  const rows = HIST.entries.filter(histMatcher(name)), cnt = new Map(), items = [];
+  const bump = (k, e) => cnt.set(k, (cnt.get(k) || 0) + 1);
+  if (name === 'type') {
+    for (const e of rows) bump(e.cat || '?');
+    for (const [c, l] of HIST.cats) { const n = cnt.get(c) || 0; if (n || fType.has(c)) items.push({k: c, label: l, n: n, on: fType.has(c), cat: c}); }
+    const n = cnt.get('?') || 0; if (n || fType.has('?')) items.push({k: '?', label: tl('Type inconnu'), n: n, on: fType.has('?')});
+    return {items, set: fType};
   }
-  a.append(el('h4', null, histGroup === 'brand' ? 'Constructeurs' : (histGroup === 'type' ? 'Types' : 'Compagnies')));
-  a.append(node('Tous les avions', base.length, !histBrand && !histFam && !histAirline && !histCat, () => { histBrand = histFam = histAirline = histCat = ''; }));
-  if (histGroup === 'type') {  // un type = une forme d'icône, avec son nom
-    const tn = (cat, label, n) => { const b = el('button', 'hnode' + (histCat === cat ? ' on' : '')), sp = el('span', 'hnt'); if (cat !== '?') sp.append(planeSvg({shapes: HIST.shapes}, cat, 24)); else sp.append(el('i', 'hns')); sp.append(document.createTextNode(label)); b.append(sp, el('b', null, String(n))); b.onclick = () => { histCat = cat; histBrand = histFam = histAirline = ''; histPage = 1; drawHist(); }; return b; };
-    for (const [cat, label] of HIST.cats) { const n = base.filter(e => e.cat === cat).length; if (n || histCat === cat) a.append(tn(cat, label, n)); }
-    const unk = base.filter(e => !e.cat).length; if (unk || histCat === '?') a.append(tn('?', tl('Type inconnu'), unk));
-  } else if (histGroup === 'brand') {
-    const br = new Map();
-    for (const e of base) { const b = br.get(e.br) || {n: 0, f: new Map()}; b.n++; b.f.set(e.fa, (b.f.get(e.fa) || 0) + 1); br.set(e.br, b); }
-    for (const [name, b] of [...br].sort((x, y) => y[1].n - x[1].n || x[0].localeCompare(y[0]))) {
-      a.append(node(name, b.n, histBrand === name && !histFam, () => { histBrand = name; histFam = ''; histAirline = ''; }));
-      if (histBrand === name) for (const [fam, n] of [...b.f].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]))) a.append(node(fam, n, histFam === fam, () => { histFam = fam; }, 'sub'));
-    }
-  } else {
-    const al = new Map(); for (const e of base) { const k = histCo(e); al.set(k, (al.get(k) || 0) + 1); }
-    for (const [name, n] of [...al].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]))) a.append(node(name, n, histAirline === name, () => { histAirline = name; histBrand = histFam = ''; }));
+  if (name === 'air') {
+    for (const e of rows) bump(histCo(e), e);
+    for (const k of new Set([...cnt.keys(), ...fAir])) items.push({k, label: k, n: cnt.get(k) || 0, on: fAir.has(k)});
+    items.sort((a, b) => b.n - a.n || a.label.localeCompare(b.label));
+    return {items, set: fAir};
   }
+  if (name === 'brand') {
+    const fam = new Map();
+    for (const e of rows) { bump(e.br); const k = e.br + '|' + e.fa; fam.set(k, (fam.get(k) || 0) + 1); }
+    const bs = [...new Set([...cnt.keys(), ...fBrand])].sort((a, b) => (cnt.get(b) || 0) - (cnt.get(a) || 0) || a.localeCompare(b));
+    for (const b of bs) {
+      items.push({k: b, label: b, n: cnt.get(b) || 0, on: fBrand.has(b)});
+      if (fBrand.has(b)) for (const [k, n] of [...fam].filter(x => x[0].startsWith(b + '|')).sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]))) items.push({k, label: k.slice(b.length + 1), n, on: fFam.has(k), sub: true});
+    }
+    return {items, set: fBrand};
+  }
+  for (const e of rows) for (const x of histSrcTags(e)) bump(x);  // src
+  items.push({k: 'multi', label: tl('Vus par plusieurs sources'), n: cnt.get('multi') || 0, on: fSrc.has('multi')});
+  for (const n of Object.keys(SRC_NAMES)) { const c = cnt.get(n) || 0; if (c || fSrc.has(n) || n === 'fr24') items.push({k: n, label: _t('{0} seulement', SRC_NAMES[n]), n: c, on: fSrc.has(n)}); }
+  return {items, set: fSrc};
 }
-function drawCrumb(total) {
-  const c = $('#hCrumb'); c.innerHTML = '';
-  const link = (t, fn) => { const b = el('button', null, t); b.onclick = () => { fn(); histPage = 1; drawHist(); }; return b; };
-  const sel = histBrand || histAirline || histCat;
-  if (!sel && !histAlert && !histTc && !histSrc) c.append(el('span', null, 'Tous les avions'));
-  else c.append(link('Tous les avions', () => { histBrand = histFam = histAirline = histCat = ''; histAlert = false; histTc = false; histSrc = ''; }));
-  if (histAlert) { c.append(el('i', null, '›')); c.append(sel ? link("Zone d'alerte", () => { histAlert = false; }) : el('span', null, "Zone d'alerte")); }
-  if (histTc) { c.append(el('i', null, '›')); c.append(sel ? link('À classer', () => { histTc = false; }) : el('span', null, 'À classer')); }
-  if (histSrc) { const t = histSrc === 'multi' ? 'Vus par plusieurs sources' : _t('{0} seulement', SRC_NAMES[histSrc] || histSrc); c.append(el('i', null, '›')); c.append(sel ? link(t, () => { histSrc = ''; }) : el('span', null, t)); }
-  if (histBrand) { c.append(el('i', null, '›')); c.append(histFam ? link(histBrand, () => { histFam = ''; }) : el('span', null, histBrand)); if (histFam) { c.append(el('i', null, '›'), el('span', null, histFam)); } }
-  if (histAirline) { c.append(el('i', null, '›'), el('span', null, histAirline)); }
-  if (histCat) { const m = HIST.cats.find(x => x[0] === histCat); c.append(el('i', null, '›'), el('span', null, m ? m[1] : tl('Type inconnu'))); }
-  c.append(el('small', null, _t(total > 1 ? '{0} avions' : '{0} avion', total)));
+function histToggle(name, k) {
+  const set = name === 'type' ? fType : (name === 'air' ? fAir : (name === 'src' ? fSrc : (k.includes('|') ? fFam : fBrand)));
+  if (set.has(k)) { set.delete(k); if (set === fBrand) for (const f of [...fFam]) if (f.startsWith(k + '|')) fFam.delete(f); } else set.add(k);
+  histPage = 1; drawHist();
+}
+function histPopup(name, wrap) {
+  const pop = el('div', 'hpop'), single = name === 'period' || name === 'sort';
+  let items;
+  if (name === 'period') items = [['day', "Aujourd'hui"], ['week', '7 jours'], ['all', 'Tout']].map(([k, l]) => ({k, label: tl(l), on: histPeriod === k}));
+  else if (name === 'sort') items = [['recent', 'Récents'], ['often', 'Habitués']].map(([k, l]) => ({k, label: tl(l), on: histSort === k}));
+  else items = histDim(name).items;
+  const mq = histMq.trim().toLowerCase(), list = el('div', 'hpl');
+  if (!single && (items.length > 8 || histMq)) {
+    const i = document.createElement('input'); i.className = 'hmq'; i.type = 'search'; i.autocomplete = 'off'; i.placeholder = tl('Chercher…'); i.value = histMq;
+    i.oninput = () => { histMq = i.value; drawFilters(histPick().length); };
+    pop.append(i);
+  }
+  for (const it of items) {
+    if (mq && !it.label.toLowerCase().includes(mq) && !it.on) continue;
+    const b = el('button', 'hpi2' + (it.on ? ' on' : '') + (it.sub ? ' sub' : ''));
+    if (single) b.append(el('i', 'hrad')); else b.append(el('i', 'hbox'));
+    if (it.cat) b.append(planeSvg({shapes: HIST.shapes}, it.cat, 20));
+    b.append(el('span', 't', it.label)); if (it.n !== undefined) b.append(el('b', null, String(it.n)));
+    b.onclick = () => {
+      if (name === 'period') { histPeriod = it.k; histSave(); histOpen = ''; histPage = 1; drawHist(); }
+      else if (name === 'sort') { histSort = it.k; histSave(); histOpen = ''; histPage = 1; drawHist(); }
+      else histToggle(name, it.k);
+    };
+    list.append(b);
+  }
+  if (!list.firstChild) list.append(el('p', 'note', 'Aucun résultat'));
+  pop.append(list); wrap.append(pop);
+}
+function drawFilters(total) {
+  const f = $('#hFilt'); if (!f) return;
+  const hadQ = document.activeElement && document.activeElement.classList && document.activeElement.classList.contains('hmq');
+  f.innerHTML = '';
+  const menu = (name, label, n) => {
+    const w = el('div', 'hmw'), b = el('button', 'hchip' + (n ? ' on' : '')); b.append(document.createTextNode(label)); if (n) b.append(el('em', null, String(n))); b.append(document.createTextNode('▾'));
+    b.onclick = () => { histOpen = histOpen === name ? '' : name; histMq = ''; drawFilters(total); };
+    w.append(b); if (histOpen === name) histPopup(name, w); f.append(w);
+  };
+  const flag = (label, on, cls, fn) => { const b = el('button', 'hchip ' + cls + (on ? ' on' : ''), label); b.onclick = () => { fn(); histPage = 1; drawHist(); }; f.append(b); };
+  menu('period', histPeriod === 'day' ? tl("Aujourd'hui") : (histPeriod === 'week' ? tl('7 jours') : tl('Tout')), 0);
+  menu('sort', histSort === 'often' ? tl('Habitués') : tl('Récents'), 0);
+  flag(tl("Zone d'alerte"), histAlert, 'al', () => { histAlert = !histAlert; });
+  if (HIST.entries.some(e => e.tc) || histTc) flag(tl('À classer'), histTc, 'al', () => { histTc = !histTc; });
+  menu('type', tl('Type'), fType.size); menu('air', tl('Compagnie'), fAir.size); menu('brand', tl('Constructeur'), fBrand.size + fFam.size);
+  if (HIST.entries.some(e => e.src && e.src.some(x => x !== 'fr24'))) menu('src', tl('Source'), fSrc.size);
+  f.append(el('span', 'hsp'));
+  if (histAnyFilter()) { const c = el('button', 'hchip clr', 'Effacer'); c.onclick = () => { histClear(); histPage = 1; drawHist(); }; f.append(c); }
+  f.append(el('small', null, _t(total > 1 ? '{0} avions' : '{0} avion', total)));
+  // filtres choisis : un jeton par valeur, retirable d'un clic
+  const a = $('#hAct'); a.innerHTML = '';
+  const tok = (label, fn) => { const s = el('span', 'htok'), x = el('button', null, '✕'); x.title = tl('Retirer'); x.onclick = fn; s.append(document.createTextNode(label), x); a.append(s); };
+  for (const k of fType) { const m = HIST.cats.find(x => x[0] === k); tok(_t('Type : {0}', m ? m[1] : tl('Type inconnu')), () => histToggle('type', k)); }
+  for (const k of fAir) tok(_t('Compagnie : {0}', k), () => histToggle('air', k));
+  for (const k of fBrand) tok(_t('Constructeur : {0}', k), () => histToggle('brand', k));
+  for (const k of fFam) { const i = k.indexOf('|'); tok(k.slice(0, i) + ' ' + k.slice(i + 1), () => histToggle('brand', k)); }
+  for (const k of fSrc) tok(k === 'multi' ? tl('Vus par plusieurs sources') : _t('{0} seulement', SRC_NAMES[k] || k), () => histToggle('src', k));
+  if (hadQ) { const i = f.querySelector('.hmq'); if (i) { i.focus(); const n = i.value.length; try { i.setSelectionRange(n, n); } catch (e) {} } }
 }
 function drawHist() {
   if (!HIST) return;
-  const st = HIST.stats, S_ = $('#hStats'); S_.innerHTML = '';
-  const tile = (n, label) => { const d = el('div', 'hstat'); d.append(el('b', null, String(n)), el('small', null, label)); return d; };
-  S_.append(tile(st.total, 'avions vus'), tile(st.regs, 'appareils différents'), tile(st.airlines, 'compagnies'), tile(st.today, 'ces dernières 24 h'));
-  const lb = $('#hLb'), open = lb.open; lb.innerHTML = '';
-  lb.append(el('summary', null, st.first ? _t('Palmarès · premier avion enregistré le {0}', new Date(st.first * 1000).toLocaleDateString()) : 'Palmarès'));
-  const g = el('div', 'hlbg');
-  const board = (title, rows) => {
-    const c = el('div', 'hlbc'); c.append(el('h4', null, title)); const mx = Math.max(1, ...rows.map(r => r[1]));
-    if (!rows.length) c.append(el('div', 'note', '–'));
-    for (const [name, n] of rows) { const r = el('div', 'hlr'), t = el('span', 'hlt'), i = el('i'); i.style.width = (n / mx * 100) + '%'; t.append(i); r.append(el('span', null, name), t, el('b', null, String(n))); c.append(r); }
-    return c;
-  };
-  g.append(board('Compagnies les plus vues', st.top_airlines), board('Modèles les plus vus', st.top_types), board('Habitués (même appareil)', st.regulars.map(r => [r[0] + ' · ' + r[1], r[2]])));
-  lb.append(g); lb.open = open;
-  const base = histBase();
-  if ((histBrand && !base.some(e => e.br === histBrand)) || (histAirline && !base.some(e => histCo(e) === histAirline)) || (histCat && !base.some(e => histCat === '?' ? !e.cat : e.cat === histCat))) { histBrand = histFam = histAirline = histCat = ''; }
-  if (histFam && !base.some(e => e.br === histBrand && e.fa === histFam)) histFam = '';
-  drawAside(base);
-  const L = histPick(base), pages = Math.max(1, Math.ceil(L.length / histPer));
+  const L = histPick(), pages = Math.max(1, Math.ceil(L.length / histPer));
   if (histPage > pages) histPage = pages;
   const from = (histPage - 1) * histPer, part = L.slice(from, from + histPer), res = $('#hRes'); res.innerHTML = '';
-  drawCrumb(L.length);
+  drawFilters(L.length);
   if (histMode === 'list') {
     res.className = 'hrows';
     part.forEach((e, k) => {
