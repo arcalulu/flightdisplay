@@ -1071,23 +1071,28 @@ Valid categories: `narrow`, `wide`, `quad`, `regional`, `turbo`, `light`, `bizje
 | `SDL_AUDIODRIVER` | Set to `dummy` only if `[alert] sound = false`. Do not set it otherwise. |
 | `WEBADMIN_INI` | Alternative path of the settings file read by webadmin (`config.ini` by default). |
 
-### 9.10 Aircraft sources (Flightradar24, tar1090)
+### 9.10 Aircraft sources (Flightradar24, tar1090, online services)
 
-The program can read aircraft from several sources, set in webadmin, category "Aircraft sources" (`[sources]` and `[tar1090]` sections of `config.ini`):
+The program can read aircraft from several sources (five in all), set in webadmin, category "Aircraft sources" (`[sources]` and `[tar1090]` sections of `config.ini`):
 
 - **Flightradar24**: worldwide data over the Internet, with registration, model, airline, route and photo. Positions refreshed about every 30 s (`[api]` section).
 - **tar1090** ([wiedehopf/tar1090](https://github.com/wiedehopf/tar1090)): a server on your network fed by an ADS-B antenna, read through its `aircraft.json` file. Near-instant positions (2 s), no quota and no Internet. It only sees aircraft picked up by the antenna and gives no model, airline or route. Standalone `dump1090-fa` or `readsb` installs produce the same file and work too.
+- **airplanes.live**, **adsb.lol** and **adsb.fi**: free community services, with no key, that broadcast aircraft picked up by thousands of ADS-B antennas, MLAT positions included (non-commercial use; airplanes.live asks for at most one request per second). The program asks for the aircraft inside a circle around your position that covers the whole screen (250 nautical miles at most). Like tar1090, they give no precise model, airline or route: adsbdb.com completes them. They are enabled and ranked like the others, and share one settings page ("Online ADS-B services") with a test button per service.
 
 | Option | Default | Description |
 |---|---|---|
 | `[sources] fr24_enabled` | `true` | Use Flightradar24. |
 | `[sources] tar1090_enabled` | `false` | Use the tar1090 server. |
-| `[sources] order` | `fr24,tar1090` | Priority order of the sources (the first one has priority no. 1). |
+| `[sources] airplaneslive_enabled` | `false` | Use airplanes.live. |
+| `[sources] adsblol_enabled` | `false` | Use adsb.lol. |
+| `[sources] adsbfi_enabled` | `false` | Use adsb.fi. |
+| `[sources] order` | `fr24,tar1090,airplaneslive,adsblol,adsbfi` | Priority order of the sources (the first one has priority no. 1). |
 | `[sources] mode` | `combine` | Combination mode: `combine`, `primary` or `failover` (below). |
 | `[sources] overlap` | `freshest` | For `combine`: `freshest` (most recent position) or `priority` (highest-ranked source). |
-| `[sources] enrich` | `true` | Complete aircraft seen only by tar1090 (registration, model, airline, route, photo) through adsbdb.com. |
+| `[sources] enrich` | `true` | Complete aircraft missing from Flightradar24 (registration, model, airline, route, photo) through adsbdb.com. |
 | `[tar1090] url` | empty | Address of the file, for example `http://adresse/tar1090/data/aircraft.json`. |
 | `[tar1090] interval_seconds` | 2 | Reading interval (0.5 to 60). |
+| `[online] interval_seconds` | 5 | Reading interval of the three online services (1 to 60). |
 
 If no source is ticked, Flightradar24 is used. Each source has its own settings page, reachable only through the "Settings" button of its card in "Aircraft sources" (Flightradar24: `[api]`, section 8.4; tar1090: address, reading interval and test). The "Test the connection" button on the tar1090 page reads the file and shows the number of aircraft, how many have a position, and whether the file already gives the registration and type.
 
@@ -1104,9 +1109,9 @@ If no source is ticked, Flightradar24 is used. Each source has its own settings 
 
 For aircraft Flightradar24 does not see, the details come from adsbdb.com (free service, no key): the aircraft's ICAO address and callsign are sent to it. Untick `enrich` to stay fully local; the aircraft is then shown without details.
 
-**Icon colour.** The `[display] color_by_source = true` option ("Aircraft sources" page) colours aircraft on screen according to their source: `plane_color_fr24` (seen by Flightradar24 only, `#ffd250`), `plane_color_tar1090` (seen by tar1090 only, `#5ac8ff`) and `plane_color_multi` (seen by several sources, `#78e68c`). The aircraft shown in the photo panel keeps its usual colour.
+**Icon colour.** The `[display] color_by_source = true` option ("Aircraft sources" page) colours aircraft on screen according to their source: `plane_color_fr24` (seen by Flightradar24 only, `#ffd250`), `plane_color_tar1090` (seen by tar1090 only, `#5ac8ff`), `plane_color_airplaneslive` (`#ff8c3c`), `plane_color_adsblol` (`#ff78be`), `plane_color_adsbfi` (`#b496ff`) and `plane_color_multi` (seen by several sources, `#78e68c`). The aircraft shown in the photo panel keeps its usual colour.
 
-**MLAT positions.** When tar1090 reports a position computed by multilateration (MLAT, aircraft without ADS-B), a small "M" is drawn at the corner of the icon on screen, and the "Aircraft seen" tab shows an "MLAT" badge (the aircraft's sheet says so too).
+**MLAT positions.** When tar1090 reports a position computed by multilateration (MLAT, aircraft without ADS-B; tar1090 and the online services report it), a small "M" is drawn at the corner of the icon on screen, and the "Aircraft seen" tab shows an "MLAT" badge (the aircraft's sheet says so too).
 
 In the "Aircraft seen" tab, a purple "⇄ 2" badge marks aircraft seen by several sources, an aircraft's sheet lists its sources, and three filters are offered as soon as tar1090 is used: "Seen by several sources", "Flightradar24 only" and "tar1090 only". Aircraft recorded before sources were enabled count as Flightradar24.
 

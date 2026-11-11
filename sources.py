@@ -1,4 +1,5 @@
-"""Sources de donnees des avions (Flightradar24, serveur tar1090 : solution de wiedehopf, compatible dump1090 / readsb) et fusion de leurs resultats.
+"""Sources de donnees des avions (Flightradar24, serveur tar1090 : solution de wiedehopf, compatible dump1090 / readsb,
+services en ligne airplanes.live, adsb.lol et adsb.fi) et fusion de leurs resultats.
 
 Module partage par main.py (programme d'affichage) et webadmin.py (test d'un serveur tar1090).
 Chaque source produit des objets Flight normalises (memes champs que ceux de FlightRadar24). Un meme avion est reconnu d'une
@@ -18,7 +19,22 @@ import time
 import urllib.error
 import urllib.request
 
-NAMES = ("fr24", "tar1090")
+NAMES = ("fr24", "tar1090", "airplaneslive", "adsblol", "adsbfi")
+ONLINE = ("airplaneslive", "adsblol", "adsbfi")  # services publics gratuits au format ADSBexchange v2 (sans cle), MLAT compris
+LABELS = {"fr24": "Flightradar24", "tar1090": "tar1090", "airplaneslive": "airplanes.live", "adsblol": "adsb.lol", "adsbfi": "adsb.fi"}
+MAX_NM = 250  # rayon maximal accepte par ces services
+
+
+def online_url(name, lat, lon, nm):
+    """Adresse d'interrogation d'un service en ligne : tous les avions dans un cercle de nm milles nautiques autour du point."""
+    nm = int(max(1, min(MAX_NM, round(nm))))
+    if name == "airplaneslive":
+        return "https://api.airplanes.live/v2/point/%.5f/%.5f/%d" % (lat, lon, nm)
+    if name == "adsblol":
+        return "https://api.adsb.lol/v2/lat/%.5f/lon/%.5f/dist/%d" % (lat, lon, nm)
+    if name == "adsbfi":
+        return "https://opendata.adsb.fi/api/v2/lat/%.5f/lon/%.5f/dist/%d" % (lat, lon, nm)
+    raise ValueError(name)
 COMPLETE = ("registration", "aircraft_code", "callsign", "origin_airport_iata", "destination_airport_iata", "airline_icao")
 UA = {"User-Agent": "flightdisplay"}
 
@@ -71,11 +87,16 @@ def from_fr24(f, ts):
 
 
 def fetch_tar1090(url, max_age=30.0, timeout=6):
-    """Lit un aircraft.json (tar1090, dump1090-fa, readsb, tar1090). Renvoie (liste de Flight, nombre total d'avions du fichier)."""
+    """Lit un aircraft.json (tar1090, dump1090-fa, readsb). Renvoie (liste de Flight, nombre total d'avions du fichier)."""
+    return fetch_aircraft(url, "tar1090", max_age, timeout)
+
+
+def fetch_aircraft(url, source, max_age=30.0, timeout=6):
+    """Lit un fichier ou une reponse au format aircraft.json / ADSBexchange v2 (liste « aircraft » ou « ac »)."""
     _, d = http_json(url, timeout)
-    items = d.get("aircraft") if isinstance(d, dict) else None
+    items = (d.get("aircraft") if "aircraft" in d else d.get("ac")) if isinstance(d, dict) else None
     if not isinstance(items, list):
-        raise ValueError("fichier aircraft.json inattendu (pas de liste « aircraft »)")
+        raise ValueError("reponse inattendue (pas de liste « aircraft » ni « ac »)")
     now = time.time()
     out = []
     for a in items:
@@ -96,7 +117,7 @@ def fetch_tar1090(url, max_age=30.0, timeout=6):
                 continue
             mlat = a.get("type") == "mlat" or "lat" in (a.get("mlat") or ())  # type readsb, ou liste des champs issus de MLAT
             hd = a.get("track", a.get("true_heading", 0))
-            out.append(Flight(id=hx, hex=hx, source="tar1090", sources=["tar1090"], latitude=float(a["lat"]), longitude=float(a["lon"]),
+            out.append(Flight(id=hx, hex=hx, source=source, sources=[source], latitude=float(a["lat"]), longitude=float(a["lon"]),
                               ground_speed=int(round(float(a.get("gs") or 0))), heading=float(hd or 0), altitude=int(alt), on_ground=ground,
                               callsign=str(a.get("flight", "") or "").strip(), registration=str(a.get("r", "") or "").strip(),
                               aircraft_code=str(a.get("t", "") or "").strip().upper(), time=now - age, mlat=mlat))

@@ -51,13 +51,15 @@ POLL = cfg.getfloat("api", "poll_seconds", fallback=30)
 DETAILS_PAUSE = cfg.getfloat("api", "details_pause_seconds", fallback=4)
 STALE = cfg.getfloat("api", "stale_seconds", fallback=30)
 
-# Sources des avions : Flightradar24 et/ou un serveur tar1090 (https://github.com/wiedehopf/tar1090) (voir sources.py pour les modes de combinaison)
+# Sources des avions : Flightradar24, serveur tar1090 (https://github.com/wiedehopf/tar1090), services en ligne airplanes.live / adsb.lol / adsb.fi
+# (voir sources.py pour les modes de combinaison)
 SRC_ENABLED = [n for n in sources.NAMES if cfg.getboolean("sources", n + "_enabled", fallback=(n == "fr24"))]
 TAR_URL = cfg.get("tar1090", "url", fallback="").strip()
 TAR_EVERY = max(0.5, cfg.getfloat("tar1090", "interval_seconds", fallback=2))
 if "tar1090" in SRC_ENABLED and not TAR_URL:
     print("ATTENTION : source tar1090 activee sans adresse (section [tar1090], url) : ignoree")
     SRC_ENABLED.remove("tar1090")
+ONLINE_EVERY = max(1.0, cfg.getfloat("online", "interval_seconds", fallback=5))  # services en ligne : interrogation toutes les n secondes
 if not SRC_ENABLED:
     print("ATTENTION : aucune source de donnees activee, Flightradar24 utilise")
     SRC_ENABLED = ["fr24"]
@@ -624,6 +626,27 @@ def tar_loop():
         time.sleep(TAR_EVERY if not fails else min(TAR_EVERY * 2 ** min(fails, 6), 60))
 
 
+def online_loop(name):
+    """Source en ligne (airplanes.live, adsb.lol, adsb.fi) : tous les avions autour de la position, au format ADSBexchange v2."""
+    label = sources.LABELS[name]
+    nm = min(sources.MAX_NM, math.ceil(math.hypot(W, H) * MPP / 2 / 1852 + 1))  # cercle qui couvre tout l'ecran
+    url = sources.online_url(name, LAT, LON, nm)
+    fails = 0
+    while True:
+        try:
+            fl, total = sources.fetch_aircraft(url, name, STALE)
+            hub.publish(name, fl, ttl=max(20, ONLINE_EVERY * 4), total=total)
+            if fails:
+                print(time.strftime("%H:%M:%S"), label, ": connexion retablie")
+            fails = 0
+        except Exception as e:
+            fails += 1
+            if fails in (1, 10, 100):
+                print(time.strftime("%H:%M:%S"), "erreur", label, ":", type(e).__name__, str(e)[:200])
+            hub.fail(name, "%s: %s" % (type(e).__name__, e))
+        time.sleep(ONLINE_EVERY if not fails else min(ONLINE_EVERY * 2 ** min(fails, 5), 120))
+
+
 adsb_wait = {}  # avion -> heure avant laquelle on ne redemande pas ses informations (echec de adsbdb.com)
 
 
@@ -829,7 +852,8 @@ PLANE_UNKNOWN = cfg_color("plane_color_unknown", (255, 170, 90))
 # couleur des avions selon la source qui les voit (option, voir sources.py) : Flightradar24 seul, tar1090 seul, plusieurs sources
 COLOR_BY_SRC = cfg.getboolean("display", "color_by_source", fallback=False)
 SRC_COLORS = {"fr24": cfg_color("plane_color_fr24", (255, 210, 80)), "tar1090": cfg_color("plane_color_tar1090", (90, 200, 255)),
-              "multi": cfg_color("plane_color_multi", (120, 230, 140))}
+              "airplaneslive": cfg_color("plane_color_airplaneslive", (255, 140, 60)), "adsblol": cfg_color("plane_color_adsblol", (255, 120, 190)),
+              "adsbfi": cfg_color("plane_color_adsbfi", (180, 150, 255)), "multi": cfg_color("plane_color_multi", (120, 230, 140))}
 RING_COL = cfg_color("color", (45, 55, 70), "rings")
 RING_W = max(1, min(8, cfg.getint("rings", "width", fallback=1)))
 RING_LABELS = cfg.getboolean("rings", "show_labels", fallback=False)
@@ -870,6 +894,9 @@ def main():
         threading.Thread(target=fr24_loop, daemon=True).start()
     if "tar1090" in SRC_ENABLED:
         threading.Thread(target=tar_loop, daemon=True).start()
+    for n in sources.ONLINE:
+        if n in SRC_ENABLED:
+            threading.Thread(target=online_loop, args=(n,), daemon=True).start()
     threading.Thread(target=poll_loop, daemon=True).start()
     threading.Thread(target=details_loop, daemon=True).start()
     if not cfg.getboolean("storage", "auto_clean", fallback=False):  # sinon webadmin nettoie selon le quota

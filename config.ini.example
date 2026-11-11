@@ -44,17 +44,25 @@ stale_seconds = 30
 # Sources des avions : fr24 (Flightradar24) et/ou tar1090 (serveur ADS-B local). Voir la documentation (9.10).
 fr24_enabled = true
 tar1090_enabled = false
-order = fr24,tar1090
+# services en ligne gratuits, sans cle (MLAT compris) : airplanes.live, adsb.lol, adsb.fi
+airplaneslive_enabled = false
+adsblol_enabled = false
+adsbfi_enabled = false
+order = fr24,tar1090,airplaneslive,adsblol,adsbfi
 # combine : toutes les sources cumulees | primary : source principale + complements | failover : secours
 mode = combine
 # pour combine : freshest (position la plus recente) | priority (source la mieux classee)
 overlap = freshest
-# complete les avions vus seulement par tar1090 via adsbdb.com
+# complete les avions absents de Flightradar24 (tar1090, services en ligne) via adsbdb.com
 enrich = true
 
 [tar1090]
 # url = http://adresse/tar1090/data/aircraft.json
 interval_seconds = 2
+
+[online]
+# intervalle de lecture (s) des services en ligne, commun aux trois (ne pas descendre sous 1 s)
+interval_seconds = 5
 
 [display]
 # couleur des icones selon la source (voir [sources])

@@ -141,6 +141,7 @@ CATS = [
     ("sources", "Sources des avions", "Programme"),
     ("api", "Flightradar24", "Programme"),
     ("tar1090", "tar1090", "Programme"),
+    ("online", "Services ADS-B en ligne", "Programme"),
     ("display", "Affichage", "Programme"),
     ("label", "Étiquettes des avions", "Programme"),
     ("panel", "Panneau photo", "Programme"),
@@ -163,6 +164,7 @@ CAT_NOTES = {
     "sources": "D'où viennent les avions affichés. Cochez une ou plusieurs sources, classez-les par priorité et choisissez comment combiner leurs résultats. Un même avion reconnu par plusieurs sources n'est jamais affiché deux fois. Les changements demandent de relancer le programme.",
     "api": "Flightradar24 fournit les positions mondiales par Internet, ainsi que l'immatriculation, le modèle, la compagnie, le trajet et la photo de chaque avion. Les positions sont rafraîchies toutes les 30 s environ ; un intervalle trop court provoque des erreurs 429. Cette source s'active et se classe dans « Sources des avions ».",
     "tar1090": "Serveur tar1090 (https://github.com/wiedehopf/tar1090) de votre réseau, alimenté par une antenne ADS-B et lu par son fichier aircraft.json. Positions quasi instantanées, sans quota ni Internet. Il ne voit que les avions captés par l'antenne et ne donne ni modèle, ni compagnie, ni trajet : ils sont alors demandés à adsbdb.com (option « Compléter les avions captés seulement par l'antenne », dans « Sources des avions »). Cette source s'active et se classe dans « Sources des avions ».",
+    "online": "airplanes.live, adsb.lol et adsb.fi sont des services communautaires gratuits, sans clé, qui diffusent les avions captés par des milliers d'antennes ADS-B, positions MLAT comprises. Le programme leur demande les avions dans un cercle autour de votre position qui couvre tout l'écran. Ils ne donnent ni modèle précis, ni compagnie, ni trajet : ils sont alors demandés à adsbdb.com (option « Compléter les avions absents de Flightradar24 », dans « Sources des avions »). Usage non commercial ; airplanes.live demande au plus une requête par seconde. Ces sources s'activent et se classent dans « Sources des avions ».",
     "mapstyle": "Personnalisez le fond de carte : thème, éléments affichés, couleurs et noms de lieux. Choisir un thème affiche tout de suite une carte d'exemple (indicatif) ; « Mettre à jour l'aperçu » donne le rendu fidèle de votre zone, avec vos couleurs et vos éléments. Il faut ensuite enregistrer puis reconstruire la carte pour que l'écran l'utilise.",
     "server": "Le port et l'adresse d'écoute demandent un redémarrage de webadmin. L'identifiant et le mot de passe s'appliquent immédiatement.",
     "paths": "Réglages avancés. Une valeur vide utilise le comportement par défaut.",
@@ -255,16 +257,23 @@ PARAMS = [
     
     C("sources", "sources", "fr24_enabled", "bool", True, "Utiliser Flightradar24", "", "Sources"),
     C("sources", "sources", "tar1090_enabled", "bool", False, "Utiliser tar1090", "", "Sources"),
-    C("sources", "sources", "order", "text", "fr24,tar1090", "Ordre de priorité", "", "Sources"),
+    C("sources", "sources", "airplaneslive_enabled", "bool", False, "Utiliser airplanes.live", "", "Sources"),
+    C("sources", "sources", "adsblol_enabled", "bool", False, "Utiliser adsb.lol", "", "Sources"),
+    C("sources", "sources", "adsbfi_enabled", "bool", False, "Utiliser adsb.fi", "", "Sources"),
+    C("sources", "sources", "order", "text", "fr24,tar1090,airplaneslive,adsblol,adsbfi", "Ordre de priorité", "", "Sources"),
     C("sources", "sources", "mode", "choice", "combine", "Mode de combinaison", "", "Combinaison", options=["combine", "primary", "failover"]),
     C("sources", "sources", "overlap", "choice", "freshest", "Avion vu par plusieurs sources", "", "Combinaison", options=["freshest", "priority"]),
-    C("sources", "sources", "enrich", "bool", True, "Compléter les avions captés seulement par l'antenne", "Un avion absent de Flightradar24 n'a que sa position : l'immatriculation, le modèle, la compagnie, le trajet et une photo sont alors demandés à adsbdb.com (service gratuit, sans clé). L'adresse ICAO et l'indicatif de l'avion sont envoyés à ce service. Décochez pour rester entièrement local : l'avion s'affiche alors sans détails.", "Compléments"),
+    C("sources", "sources", "enrich", "bool", True, "Compléter les avions absents de Flightradar24", "Un avion absent de Flightradar24 n'a que sa position : l'immatriculation, le modèle, la compagnie, le trajet et une photo sont alors demandés à adsbdb.com (service gratuit, sans clé). L'adresse ICAO et l'indicatif de l'avion sont envoyés à ce service. Décochez pour rester entièrement local : l'avion s'affiche alors sans détails.", "Compléments"),
     C("sources", "display", "color_by_source", "bool", False, "Colorer les avions selon leur source", "Les icônes prennent une couleur selon la ou les sources qui voient l'avion (l'avion du panneau photo reste dans sa couleur habituelle).", "Couleurs"),
     C("sources", "display", "plane_color_fr24", "color", "#ffd250", "Vus par Flightradar24 seulement", "", "Couleurs"),
     C("sources", "display", "plane_color_tar1090", "color", "#5ac8ff", "Vus par tar1090 seulement", "", "Couleurs"),
+    C("sources", "display", "plane_color_airplaneslive", "color", "#ff8c3c", "Vus par airplanes.live seulement", "", "Couleurs"),
+    C("sources", "display", "plane_color_adsblol", "color", "#ff78be", "Vus par adsb.lol seulement", "", "Couleurs"),
+    C("sources", "display", "plane_color_adsbfi", "color", "#b496ff", "Vus par adsb.fi seulement", "", "Couleurs"),
     C("sources", "display", "plane_color_multi", "color", "#78e68c", "Vus par plusieurs sources", "", "Couleurs"),
     C("tar1090", "tar1090", "url", "text", "", "Adresse du fichier aircraft.json", "Pour tar1090 : http://adresse/tar1090/data/aircraft.json. Les installations dump1090-fa ou readsb seules fonctionnent aussi (http://adresse/dump1090-fa/data/aircraft.json).", "Connexion"),
     C("tar1090", "tar1090", "interval_seconds", "float", 2, "Intervalle de lecture (s)", "", "Connexion", min=0.5, max=60),
+    C("online", "online", "interval_seconds", "float", 5, "Intervalle de lecture (s)", "Commun aux trois services. Ne descendez pas sous 1 s : ils limitent le nombre de requêtes.", "Connexion", min=1, max=60),
     C("api", "api", "poll_seconds", "float", 30, "Intervalle de requête (s)", "Trop bas : risque d'erreur 429.", "Fréquence", min=5, max=600),
     C("api", "api", "details_pause_seconds", "float", 4, "Pause entre les détails (s)", "Délai entre deux requêtes de détails d'avion.", "Fréquence", min=0, max=60),
     C("api", "api", "stale_seconds", "float", 30, "Durée de validité d'une position (s)", "Au-delà, l'avion est retiré de la carte.", "Validité des données", min=5, max=600),
@@ -449,7 +458,7 @@ def get_settings():
         items = []
         for cid, title, m in CATS:
             c = cats[cid]
-            if m == gname and cid not in ("api", "tar1090") and (cid in ("types", "backup") or c["groups"]):
+            if m == gname and cid not in ("api", "tar1090", "online") and (cid in ("types", "backup") or c["groups"]):
                 items.append(dict(id=cid, title=title))
         if items:
             menu.append(dict(group=tr(gname), items=items))
@@ -1854,6 +1863,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(dict(ok=True))
             if path == "/api/sources/test":
                 url = str(body.get("url", "")).strip()
+                if body.get("source") in sources.ONLINE:  # service en ligne : l'adresse est construite avec la position de la carte
+                    try:
+                        km = float(body.get("radius_km") or 20)
+                        url = sources.online_url(body["source"], float(body["lat"]), float(body["lon"]), km * 1.5 / 1.852)
+                    except (KeyError, TypeError, ValueError):
+                        raise ValueError("position invalide : renseignez la latitude et la longitude dans « Carte et position »")
                 if not re.match(r"^https?://[^\s]+$", url):
                     raise ValueError("adresse invalide : elle doit commencer par http:// ou https://")
                 try:
@@ -1862,9 +1877,9 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError(str(e)[:160])
                 if code_ == 404:
                     raise ValueError("page introuvable (404) : vérifiez le chemin du fichier")
-                items = d.get("aircraft") if isinstance(d, dict) else None
+                items = (d.get("aircraft") if "aircraft" in d else d.get("ac")) if isinstance(d, dict) else None
                 if not isinstance(items, list):
-                    raise ValueError("ce n'est pas un fichier aircraft.json (pas de liste « aircraft »)")
+                    raise ValueError("ce n'est pas un fichier aircraft.json (pas de liste « aircraft » ni « ac »)")
                 return self.send_json(dict(ok=True, total=len(items), positions=sum(1 for a in items if a.get("lat") is not None and a.get("lon") is not None),
                                            has_db=any(a.get("r") or a.get("t") for a in items)))
             if path == "/api/mqtt/reconnect":
@@ -2555,7 +2570,7 @@ function updateBar() {
   }
 }
 function markMenu() {
-  const dirty = new Set(); for (const p of allParams()) if (p.id in edits) dirty.add(p.cat === 'api' || p.cat === 'tar1090' ? 'sources' : p.cat);
+  const dirty = new Set(); for (const p of allParams()) if (p.id in edits) dirty.add(SRC_PAGES.includes(p.cat) ? 'sources' : p.cat);
   if (TYPES_DIRTY) dirty.add('types');
   document.querySelectorAll('#menu button').forEach(b => b.classList.toggle('dot', dirty.has(b.dataset.c)));
 }
@@ -2563,7 +2578,7 @@ function renderMenu() {
   const m = $('#menu'); m.innerHTML = '';
   for (const g of SET.menu) {
     m.append(el('div', 'mg', g.group));
-    for (const it of g.items) { const b = el('button', (it.id === curCat || (it.id === 'sources' && (curCat === 'api' || curCat === 'tar1090'))) ? 'on' : '', it.title); b.dataset.c = it.id; b.onclick = () => { curCat = it.id; renderMenu(); renderCat(); }; m.append(b); }
+    for (const it of g.items) { const b = el('button', (it.id === curCat || (it.id === 'sources' && SRC_PAGES.includes(curCat))) ? 'on' : '', it.title); b.dataset.c = it.id; b.onclick = () => { curCat = it.id; renderMenu(); renderCat(); }; m.append(b); }
   }
   markMenu();
 }
@@ -2693,7 +2708,7 @@ function renderCatBase() {
     if (tab === 'content') { if (cat.editor.note) box.append(el('p', 'note', cat.editor.note)); return renderFields(box, cat); }
     renderGroups(box, cat); return;
   }
-  if (cat.id === 'api' || cat.id === 'tar1090') {  // pages de source : accessibles seulement depuis « Sources des avions »
+  if (SRC_PAGES.includes(cat.id)) {  // pages de source : accessibles seulement depuis « Sources des avions »
     const bk = el('button', 'b s', '← Sources des avions'); bk.style.marginBottom = '12px'; bk.onclick = () => { curCat = 'sources'; renderMenu(); renderCat(); window.scrollTo(0, 0); };
     box.append(bk);
   }
@@ -2708,6 +2723,22 @@ function renderCatBase() {
   renderGroups(box, cat);
   if (cat.id === 'position' || cat.id === 'storage') ringVis();
   if (cat.id === 'alert') linkSync();
+  if (cat.id === 'online') {
+    const res = el('div', 'sres'), bx = el('div', 'sft'); bx.style.margin = '12px 0 6px';
+    for (const n of ONLINE) {
+      const tb = el('button', 'b s', _t('Tester {0}', SRC_NAMES[n]));
+      tb.onclick = async () => {
+        res.className = 'sres'; res.textContent = tl('Test en cours…');
+        try {
+          const r = await api('/api/sources/test', {source: n, lat: pval(gp('position.latitude')), lon: pval(gp('position.longitude')), radius_km: pval(gp('position.radius_km'))});
+          res.className = 'sres ok';
+          res.textContent = SRC_NAMES[n] + ' : ' + _t('Connexion réussie : {0} avions dans le fichier, {1} avec une position.', r.total, r.positions);
+        } catch (e) { res.className = 'sres bad'; res.textContent = SRC_NAMES[n] + ' : ' + _t('Échec : {0}', e.message); }
+      };
+      bx.append(tb);
+    }
+    box.append(bx, res);
+  }
   if (cat.id === 'tar1090') {
     const up_ = allParams().find(p => p.id === 'config:tar1090.url'), i1 = document.querySelector('[data-row="' + up_.id + '"] input');
     if (i1) i1.placeholder = 'http://adresse/tar1090/data/aircraft.json';
@@ -2769,10 +2800,16 @@ async function restartWeb(port, noAsk) {
 }
 
 /* ---------- Sources des avions ---------- */
-const SRC_NAMES = {fr24: 'Flightradar24', tar1090: 'tar1090'};
+const SRC_NAMES = {fr24: 'Flightradar24', tar1090: 'tar1090', airplaneslive: 'airplanes.live', adsblol: 'adsb.lol', adsbfi: 'adsb.fi'};
+const SRC_PAGES = ['api', 'tar1090', 'online'];  // pages de réglages des sources (hors menu, depuis « Sources des avions »)
+const SRC_PAGE = {fr24: 'api', tar1090: 'tar1090', airplaneslive: 'online', adsblol: 'online', adsbfi: 'online'};
+const ONLINE = ['airplaneslive', 'adsblol', 'adsbfi'];
 const SRC_DESC = {
   fr24: "Positions mondiales par Internet, avec détails et photo de chaque avion.",
-  tar1090: "Votre antenne ADS-B locale : positions quasi instantanées, sans Internet."
+  tar1090: "Votre antenne ADS-B locale : positions quasi instantanées, sans Internet.",
+  airplaneslive: "Service communautaire gratuit : les avions captés par des milliers d'antennes, MLAT compris.",
+  adsblol: "Service communautaire gratuit : les avions captés par des milliers d'antennes, MLAT compris.",
+  adsbfi: "Service communautaire gratuit : les avions captés par des milliers d'antennes, MLAT compris."
 };
 const gp = id => allParams().find(p => p.id === 'config:' + id);
 function srcOrder() {
@@ -2813,8 +2850,8 @@ function renderSources(box, cat) {
     const rk = el('span', 'rk', String(i + 1)); rk.title = _t('Priorité {0}', i + 1);
     const tt = el('div', 'st'), sst = el('span', 'sst'); sst.dataset.src = n; tt.append(el('b', null, SRC_NAMES[n]), sst);
     hd.append(rk, tt, control(gp('sources.' + n + '_enabled')).c); card.append(hd, el('p', 'sd', SRC_DESC[n]));
-    const ft = el('div', 'sft'), cfgb = el('button', 'b s', n === 'tar1090' ? 'Réglages de tar1090' : 'Réglages de Flightradar24');
-    cfgb.onclick = () => { curCat = n === 'tar1090' ? 'tar1090' : 'api'; renderMenu(); renderCat(); window.scrollTo(0, 0); };
+    const ft = el('div', 'sft'), cfgb = el('button', 'b s', n === 'tar1090' ? 'Réglages de tar1090' : (n === 'fr24' ? 'Réglages de Flightradar24' : 'Réglages des services en ligne'));
+    cfgb.onclick = () => { curCat = SRC_PAGE[n]; renderMenu(); renderCat(); window.scrollTo(0, 0); };
     ft.append(cfgb);
     if (i > 0) {  // un seul bouton : passer devant la source du dessus
       const up = el('button', 'b s', _t('↑ Passer en n°{0}', i)); up.title = tl('Donne à cette source la priorité sur celle du dessus');
@@ -2862,7 +2899,7 @@ function renderSources(box, cat) {
   }
   sec.append(tb);
   sec.append(el('h2', 't', 'Couleur des icônes selon la source'));
-  const cl = el('div', 'list'), tp = gp('display.color_by_source'), cols = ['plane_color_fr24', 'plane_color_tar1090', 'plane_color_multi'].map(k => gp('display.' + k));
+  const cl = el('div', 'list'), tp = gp('display.color_by_source'), cols = ['plane_color_fr24', 'plane_color_tar1090', 'plane_color_airplaneslive', 'plane_color_adsblol', 'plane_color_adsbfi', 'plane_color_multi'].map(k => gp('display.' + k));
   const mk = (p, id) => { const c = control(p), r = el('div', 'li'), t = el('div', 'lt'); t.append(el('b', null, p.label)); if (p.help) t.append(el('small', null, p.help)); r.dataset.row = id; r.append(t, c.c); return r; };
   cl.append(mk(tp, 'tg'));
   for (const p of cols) cl.append(mk(p, p.id));
@@ -3406,7 +3443,7 @@ function buildHist() {
   setInterval(() => { if (cur === 'hist' && !document.querySelector('.hover') && document.activeElement !== q) loadHist(); }, 30000);
 }
 function histCo(e) { return (e.airline || '').replace(/\s*\(.*$/, '').trim() || 'Inconnue'; }  // livrée spéciale entre parenthèses : même compagnie
-const SRC_SHORT = {fr24: 'Flightradar24', tar1090: 'tar1090'};
+const SRC_SHORT = SRC_NAMES;
 function histSrcOk(e) {  // filtre « sources » : plusieurs sources, ou une seule (les anciens avions sans information comptent pour Flightradar24)
   if (!histSrc) return true;
   const s = e.src && e.src.length ? e.src : ['fr24'];
@@ -3430,7 +3467,7 @@ function histRoute(e) { return [e.frm || e.fi || '?', e.to || e.ti || '?']; }
 function histBadges(e) {
   const bd = el('div', 'hbadges');
   if (e.al) bd.append(el('span', 'hbadge alert', 'Alerte'));
-  if (e.ml) { const m = el('span', 'hbadge mlat', 'MLAT'); m.title = tl('Position calculée par multilatération (MLAT) par le serveur tar1090'); bd.append(m); }
+  if (e.ml) { const m = el('span', 'hbadge mlat', 'MLAT'); m.title = tl('Position calculée par multilatération (MLAT) par la source'); bd.append(m); }
   if (e.src && e.src.length >= 2) { const m = el('span', 'hbadge multi', '⇄ ' + e.src.length); m.title = _t('Vu par {0} sources : {1}', e.src.length, e.src.map(x => SRC_SHORT[x] || x).join(', ')); bd.append(m); }
   if (e.n === 1 && e.reg) bd.append(el('span', 'hbadge new', '1re fois'));
   if (e.rare) bd.append(el('span', 'hbadge rare', 'Type rare'));
@@ -3457,11 +3494,13 @@ function drawAside(base) {
   const alerts = HIST.entries.filter(e => e.al).length;
   a.append(el('h4', null, 'Filtres'));
   a.append(node("Zone d'alerte", alerts, histAlert, () => { histAlert = !histAlert; }, 'alert'));
-  if (HIST.entries.some(e => e.src && e.src.includes('tar1090'))) {  // plusieurs sources utilisées : filtres par source
+  if (HIST.entries.some(e => e.src && e.src.some(x => x !== 'fr24'))) {  // plusieurs sources utilisées : filtres par source
     const cnt = f => HIST.entries.filter(e => { const o = histSrc; histSrc = f; const r = histSrcOk(e); histSrc = o; return r; }).length;
     a.append(node('Vus par plusieurs sources', cnt('multi'), histSrc === 'multi', () => { histSrc = histSrc === 'multi' ? '' : 'multi'; }, 'multi'));
-    a.append(node('Flightradar24 seulement', cnt('fr24'), histSrc === 'fr24', () => { histSrc = histSrc === 'fr24' ? '' : 'fr24'; }));
-    a.append(node("tar1090 seulement", cnt('tar1090'), histSrc === 'tar1090', () => { histSrc = histSrc === 'tar1090' ? '' : 'tar1090'; }));
+    for (const n of Object.keys(SRC_NAMES)) {
+      const k = cnt(n);
+      if (k || n === 'fr24') a.append(node(_t('{0} seulement', SRC_NAMES[n]), k, histSrc === n, () => { histSrc = histSrc === n ? '' : n; }));
+    }
   }
   a.append(el('h4', null, histGroup === 'brand' ? 'Constructeurs' : 'Compagnies'));
   a.append(node('Tous les avions', base.length, !histBrand && !histFam && !histAirline, () => { histBrand = histFam = histAirline = ''; }));
@@ -3484,7 +3523,7 @@ function drawCrumb(total) {
   if (!sel && !histAlert && !histSrc) c.append(el('span', null, 'Tous les avions'));
   else c.append(link('Tous les avions', () => { histBrand = histFam = histAirline = ''; histAlert = false; histSrc = ''; }));
   if (histAlert) { c.append(el('i', null, '›')); c.append(sel ? link("Zone d'alerte", () => { histAlert = false; }) : el('span', null, "Zone d'alerte")); }
-  if (histSrc) { const t = histSrc === 'multi' ? 'Vus par plusieurs sources' : (histSrc === 'fr24' ? 'Flightradar24 seulement' : 'tar1090 seulement'); c.append(el('i', null, '›')); c.append(sel ? link(t, () => { histSrc = ''; }) : el('span', null, t)); }
+  if (histSrc) { const t = histSrc === 'multi' ? 'Vus par plusieurs sources' : _t('{0} seulement', SRC_NAMES[histSrc] || histSrc); c.append(el('i', null, '›')); c.append(sel ? link(t, () => { histSrc = ''; }) : el('span', null, t)); }
   if (histBrand) { c.append(el('i', null, '›')); c.append(histFam ? link(histBrand, () => { histFam = ''; }) : el('span', null, histBrand)); if (histFam) { c.append(el('i', null, '›'), el('span', null, histFam)); } }
   if (histAirline) { c.append(el('i', null, '›'), el('span', null, histAirline)); }
   c.append(el('small', null, _t(total > 1 ? '{0} avions' : '{0} avion', total)));
