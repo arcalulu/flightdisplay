@@ -2660,7 +2660,7 @@ if (TL_ON) {
 
 let lastStAt = 0, SET = null, edits = {}, curCat = null, cur = 'home', logText = '', lastSt = null, volDrag = false, volTimer = null;
 let TYPES_DIRTY = false, TYPES_TEXT = '';
-let pend = {app: false, web: false}, TYPES = null, rows = {}, UPD = null, updWasRunning = false, updBusy = false, updAuto = false, updTick = 0, histShut = {};
+let pend = {app: false, web: false}, TYPES = null, rows = {}, UPD = null, updWasRunning = false, updBusy = false, updAuto = false, updTick = 0, updPage = 1, histShut = {};
 const $ = s => document.querySelector(s);
 const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
 
@@ -4454,7 +4454,21 @@ function renderUpd(lost) {
     }
     const isCur = m => u.current && m.short === u.current.short;
     const fbOf = m => (m.new || isCur(m)) ? null : (u.fallbacks || []).find(f => m.short.startsWith(f.short) || f.short.startsWith(m.short));
-    groups.forEach((g, gi) => {
+    const per = 10, pages = Math.max(1, Math.ceil(groups.length / per));  // 10 versions par page : la liste grandit a chaque publication
+    if (updPage > pages) updPage = pages;
+    const from = (updPage - 1) * per;
+    const pager = () => {
+      const h = el('div', 'hpager');
+      if (pages <= 1) return h;
+      const add = (label, n, cls, dis) => { const b = el('button', 'hpg' + (cls ? ' ' + cls : ''), label); b.disabled = !!dis; b.onclick = () => { updPage = Math.min(pages, Math.max(1, n)); renderUpd(); }; h.append(b); };
+      h.append(el('span', 'hpi', _t('Page {0} sur {1}', updPage, pages)));
+      add('‹', updPage - 1, '', updPage === 1);
+      for (let n = 1; n <= pages; n++) add(String(n), n, n === updPage ? 'on' : '');
+      add('›', updPage + 1, '', updPage === pages);
+      return h;
+    };
+    groups.slice(from, from + per).forEach((g, k) => {
+      const gi = from + k;
       const shut = g.key in histShut ? histShut[g.key] : gi > 0;
       const head = el('div', 'vh' + (shut ? ' shut' : ''));
       head.append(el('span', 'chev', '▾'), el('b', null, g.title));
@@ -4476,6 +4490,7 @@ function renderUpd(lost) {
       }
       cl.append(head, body);
     });
+    if (pages > 1) cl.append(pager());
   } else nw.style.display = 'none';
 }
 
