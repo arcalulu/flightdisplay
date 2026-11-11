@@ -166,12 +166,17 @@ def screen_asleep():
     return _sl["v"]
 
 
-def fps_publish(fps, aircraft=0, ground=0, zone=0, paused=False):
+def live_pack(pairs):
+    """Avions affiches en direct, pour webadmin (onglet Direct) : {identifiant: [indicatif, altitude, vitesse, au sol, type, immatriculation]}."""
+    return {str(k): [s.get("callsign", ""), int(s.get("alt") or 0), int(s.get("speed") or 0), bool(s.get("ground")), s.get("code", ""), s.get("reg", "")] for k, s in pairs}
+
+
+def fps_publish(fps, aircraft=0, ground=0, zone=0, paused=False, live=None):
     """Etat en direct lu par webadmin : images par seconde, avions en vol / au sol / dans la zone d'alerte."""
     try:
         tmp = FPS_FILE + f".{os.getpid()}.tmp"
         with open(tmp, "w", encoding="utf-8") as fh:
-            json.dump({"fps": round(fps, 1), "t": time.time(), "pid": os.getpid(), "aircraft": aircraft, "ground": ground, "zone": zone, "paused": bool(paused), "sources": hub.health(), "mode": hub.mode, "overlap": hub.overlap}, fh)
+            json.dump({"fps": round(fps, 1), "t": time.time(), "pid": os.getpid(), "aircraft": aircraft, "ground": ground, "zone": zone, "paused": bool(paused), "sources": hub.health(), "mode": hub.mode, "overlap": hub.overlap, "live": live or {}}, fh)
         os.replace(tmp, FPS_FILE)
     except OSError:
         pass
@@ -1202,7 +1207,7 @@ def main():
                     history_alert(zone_now - zone_ids)
             zone_ids = zone_now
             if now - paused_pub >= 2.0:
-                fps_publish(0, len(air_now), 0, len(zone_ids), paused=True); paused_pub = now
+                fps_publish(0, len(air_now), 0, len(zone_ids), paused=True, live=live_pack(air_now)); paused_pub = now
             fps_n, fps_t0 = 0, now
             clock.tick(2)
             continue
@@ -1396,7 +1401,7 @@ def main():
         fps_n += 1
         t_fps = time.time()
         if t_fps - fps_t0 >= 2.0:
-            fps_publish(fps_n / (t_fps - fps_t0), on_screen, len(gnd), len(zone_keys)); fps_n, fps_t0 = 0, t_fps
+            fps_publish(fps_n / (t_fps - fps_t0), on_screen, len(gnd), len(zone_keys), live=live_pack([(v[0], v[1]) for v in vis if 0 <= v[3] <= W and 0 <= v[4] <= H] + [(it[0], it[1]) for it in gnd])); fps_n, fps_t0 = 0, t_fps
         if first:
             print("premiere image apres", round(time.time() - T0, 1), "s"); first = False
         clock.tick(FPS)

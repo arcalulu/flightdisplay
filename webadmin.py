@@ -966,7 +966,7 @@ def live_info():
             d = json.load(fh)
         if time.time() - float(d["t"]) > 8:
             return None
-        return dict(fps=float(d["fps"]), aircraft=int(d.get("aircraft", 0)), ground=int(d.get("ground", 0)), zone=int(d.get("zone", 0)), paused=bool(d.get("paused")), sources=d.get("sources"))
+        return dict(fps=float(d["fps"]), aircraft=int(d.get("aircraft", 0)), ground=int(d.get("ground", 0)), zone=int(d.get("zone", 0)), paused=bool(d.get("paused")), sources=d.get("sources"), live=d.get("live") or {})
     except Exception:
         return None
 
@@ -1942,6 +1942,9 @@ class Handler(BaseHTTPRequestHandler):
                 s["helper_old"] = screen_helper_version() is not None and screen_helper_version() < 2
                 s["sources"] = lv.get("sources") if lv else None
                 self.send_json(s)
+            elif u.path == "/api/live":  # avions affiches en ce moment sur la carte (onglet Direct d'Avions vus)
+                lv = live_info()
+                self.send_json(dict(running=lv is not None, paused=bool(lv and lv.get("paused")), live=(lv or {}).get("live") or {}))
             elif u.path == "/api/settings":
                 self.send_json(get_settings())
             elif u.path == "/api/types":
@@ -2250,6 +2253,7 @@ h2.t{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.04
 .hrad{width:16px;height:16px;border:1.5px solid #4a6285;border-radius:50%;flex:none}.hpi2.on .hrad{border-color:#5aa2ff;background:radial-gradient(#5aa2ff 40%,transparent 45%)}
 .hact{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}.hact:empty{display:none}
 .htok{display:inline-flex;align-items:center;gap:6px;background:#1d2d45;border:1px solid #33507a;color:#cfe0f7;border-radius:8px;padding:3px 6px 3px 10px;font-size:13px}.htok button{border:0;background:none;color:#9db4cf;cursor:pointer;padding:0 3px;font-size:13px}.htok button:hover{color:#fff}
+.hlivebar{display:flex;align-items:center;gap:10px;margin:0 0 12px}.hlivebar .hsp{flex:1}.hdot{width:10px;height:10px;border-radius:50%;background:#59657a;flex:none}.hdot.on{background:#4fd18b;box-shadow:0 0 0 0 #4fd18b99;animation:hpulse 2s infinite}@keyframes hpulse{70%{box-shadow:0 0 0 8px #4fd18b00}100%{box-shadow:0 0 0 0 #4fd18b00}}
 .hmode button{padding:6px 10px;display:inline-flex}.hmode svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .hmain{flex:1;min-width:0}
 .hpager{display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin:12px 0}.hpager .hpi{color:var(--mut);font-size:13px;margin-right:8px}.hpager .hpe{color:var(--mut);padding:0 4px}
@@ -3731,7 +3735,7 @@ let fType = new Set(), fAir = new Set(), fBrand = new Set(), fFam = new Set(), f
 const histSave = () => { try { localStorage.setItem('histView', JSON.stringify({period: histPeriod, sort: histSort, mode: histMode, per: histPer})); } catch (e) {} };
 async function loadHist() {
   try { HIST = await api('/api/history'); } catch (e) { toast(e.message, true); return; }
-  buildHist(); drawHist(); drawCls();
+  buildHist(); drawHist(); drawCls(); liveSig = ''; if (histTab === 'live') pollLive();
 }
 let histTab = 'hist';
 let clsId = '', clsSt = {edit: false};
@@ -3804,8 +3808,9 @@ function drawCls() {  // onglet « À classer » : liste à gauche, fiche de l'a
 }
 function setHistTab(v) {
   histTab = v;
-  for (const [id, k] of [['hTabHist', 'hist'], ['hTabCls', 'cls']]) { const b = $('#' + id); if (b) b.classList.toggle('on', k === v); }
-  const a = $('#hView'), b = $('#hCls'); if (a) a.style.display = v === 'hist' ? '' : 'none'; if (b) b.style.display = v === 'cls' ? '' : 'none';
+  for (const [id, k] of [['hTabLive', 'live'], ['hTabHist', 'hist'], ['hTabCls', 'cls']]) { const b = $('#' + id); if (b) b.classList.toggle('on', k === v); }
+  const a = $('#hView'), b = $('#hCls'), l = $('#hLive'); if (a) a.style.display = v === 'hist' ? '' : 'none'; if (b) b.style.display = v === 'cls' ? '' : 'none'; if (l) l.style.display = v === 'live' ? '' : 'none';
+  if (v === 'live') { liveSig = ''; pollLive(); }
 }
 function buildHist() {
   const box = $('#t-hist'); if (box.dataset.ready) return; box.dataset.ready = '1';
@@ -3814,11 +3819,7 @@ function buildHist() {
   const per = document.createElement('select'); per.style.width = 'auto'; per.title = tl('Avions par page');
   for (const n of [12, 24, 48, 96, 200]) { const o = el('option', null, _t('{0} par page', n)); o.value = n; per.append(o); }
   per.value = histPer; per.onchange = () => { histPer = +per.value; histSave(); histPage = 1; drawHist(); };
-  const mode = el('div', 'seg hmode'), ICO = {cards: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg>', list: '<svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r=".8"/><circle cx="3.5" cy="12" r=".8"/><circle cx="3.5" cy="18" r=".8"/></svg>'};
-  for (const [v, tt] of [['cards', 'Cartes'], ['list', 'Liste']]) {
-    const b = el('button', histMode === v ? 'on' : ''); b.innerHTML = ICO[v]; b.title = tl(tt); b.setAttribute('aria-label', tl(tt)); b.dataset.v = v;
-    b.onclick = () => { histMode = v; histSave(); mode.querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.v === v)); histPage = 1; drawHist(); }; mode.append(b);
-  }
+  const mode = histModeSeg();
   bar.append(q, mode, per);
   const main = el('div', 'hmain'), filt = el('div', 'hfbar'), act = el('div', 'hact');
   filt.id = 'hFilt'; act.id = 'hAct';
@@ -3828,9 +3829,9 @@ function buildHist() {
   const empty = el('p', 'note'); empty.id = 'hEmpty';
   main.append(filt, act, p1, res, p2, empty);
   const hv = el('div'); hv.id = 'hView'; hv.append(bar, main);
-  const tabs = el('div', 'seg'), t1 = el('button', 'on', 'Historique'), t2 = el('button', '', 'À classer'), cv = el('div'); cv.id = 'hCls'; cv.style.display = 'none';
-  t1.id = 'hTabHist'; t2.id = 'hTabCls'; t1.onclick = () => setHistTab('hist'); t2.onclick = () => setHistTab('cls'); tabs.append(t1, t2); tabs.style.marginBottom = '12px';
-  box.append(tabs, hv, cv);
+  const tabs = el('div', 'seg'), t0 = el('button', '', 'Direct'), t1 = el('button', 'on', 'Historique'), t2 = el('button', '', 'À classer'), cv = el('div'), lv = el('div'); cv.id = 'hCls'; cv.style.display = 'none'; lv.id = 'hLive'; lv.style.display = 'none';
+  t0.id = 'hTabLive'; t1.id = 'hTabHist'; t2.id = 'hTabCls'; t0.onclick = () => setHistTab('live'); t1.onclick = () => setHistTab('hist'); t2.onclick = () => setHistTab('cls'); tabs.append(t0, t1, t2); tabs.style.marginBottom = '12px';
+  box.append(tabs, lv, hv, cv);
   document.addEventListener('keydown', ev => {
     const o = document.querySelector('.hover'); if (!o) return;
     if (ev.key === 'Escape') o.remove();
@@ -3840,6 +3841,15 @@ function buildHist() {
   document.addEventListener('click', ev => { if (histOpen && !(ev.target.closest && ev.target.closest('.hmw'))) { histOpen = ''; if (HIST) drawFilters(histPick().length); } });
   document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && histOpen) { histOpen = ''; if (HIST) drawFilters(histPick().length); } });
   setInterval(() => { if (cur === 'hist' && !document.querySelector('.hover') && document.activeElement !== q && !histOpen) loadHist(); }, 30000);
+}
+const HICO = {cards: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg>', list: '<svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r=".8"/><circle cx="3.5" cy="12" r=".8"/><circle cx="3.5" cy="18" r=".8"/></svg>'};
+function histModeSeg() {  // Cartes / Liste : deux icones, partagees par l'historique et l'onglet Direct
+  const mode = el('div', 'seg hmode');
+  for (const [v, tt] of [['cards', 'Cartes'], ['list', 'Liste']]) {
+    const b = el('button', histMode === v ? 'on' : ''); b.innerHTML = HICO[v]; b.title = tl(tt); b.setAttribute('aria-label', tl(tt)); b.dataset.v = v;
+    b.onclick = () => { histMode = v; histSave(); document.querySelectorAll('.hmode button').forEach(x => x.classList.toggle('on', x.dataset.v === v)); histPage = 1; liveSig = ''; if (HIST) { drawHist(); drawLive(); } }; mode.append(b);
+  }
+  return mode;
 }
 function histCo(e) { return (e.airline || '').replace(/\s*\(.*$/, '').trim() || 'Inconnue'; }  // livrée spéciale entre parenthèses : même compagnie
 const SRC_SHORT = SRC_NAMES;
@@ -3998,30 +4008,62 @@ function drawHist() {
   if (histPage > pages) histPage = pages;
   const from = (histPage - 1) * histPer, part = L.slice(from, from + histPer), res = $('#hRes'); res.innerHTML = '';
   drawFilters(L.length);
+  histRender(res, part, L);
+  histPager($('#hPg1'), pages); histPager($('#hPg2'), pages);
+  $('#hEmpty').textContent = L.length ? '' : tl(HIST.entries.length ? 'Aucun avion ne correspond à ces filtres.' : "Aucun avion pour le moment. Dès qu'un avion passe au-dessus de chez vous, il apparaît ici avec sa photo.");
+}
+function histRender(res, part, L) {  // cartes ou lignes d'une liste d'avions (historique et Direct) ; un clic ouvre la fiche, sauf pour un avion dont les details ne sont pas encore connus
+  res.innerHTML = '';
+  const sheetL = L.filter(x => !x.pseudo), open = e => { if (!e.pseudo) histSheet(sheetL, sheetL.indexOf(e)); };
   if (histMode === 'list') {
     res.className = 'hrows';
-    part.forEach((e, k) => {
+    for (const e of part) {
       const r = el('button', 'hrow'), rt = histRoute(e), t1 = el('div'), t2 = el('div');
       t1.append(el('b', null, e.model && e.model !== '?' ? e.model : (e.code || '?')), el('small', null, e.airline || ' '));
       t2.className = 'hroutel'; t2.append(el('b', null, rt[0] + ' → ' + rt[1]), el('small', null, [e.fi, e.ti].filter(Boolean).join(' → ') || ' '));
       const t3 = el('div'); t3.append(el('b', null, e.reg || e.cs || '?'), el('small', null, e.reg ? (e.cs || ' ') : ' '));  // immatriculation, puis indicatif dessous
       r.append(histPhoto(e, 'hrt'), t1, t2, t3, el('small', null, ago(e.t)), histBadges(e));
-      r.onclick = () => histSheet(L, from + k); res.append(r);
-    });
+      r.onclick = () => open(e); res.append(r);
+    }
   } else {
     res.className = 'hgrid';
-    part.forEach((e, k) => {
+    for (const e of part) {
       const c = el('button', 'hcard'), ph = histPhoto(e);
       ph.append(histBadges(e));
       const bo = el('div', 'hbody'), r = histRoute(e), rt = el('div', 'hroute');
       rt.append(el('span', null, r[0]), el('i', null, '→'), el('span', null, r[1]));
       const mt = el('div', 'hmeta'); mt.append(el('code', null, e.reg || e.cs || '?'), el('span', null, ago(e.t)));
       bo.append(el('b', null, e.model && e.model !== '?' ? e.model : (e.code || '?')), el('div', 'ha', e.airline || ' '), rt, mt);
-      c.append(ph, bo); c.onclick = () => histSheet(L, from + k); res.append(c);
-    });
+      c.append(ph, bo); c.onclick = () => open(e); res.append(c);
+    }
   }
-  histPager($('#hPg1'), pages); histPager($('#hPg2'), pages);
-  $('#hEmpty').textContent = L.length ? '' : tl(HIST.entries.length ? 'Aucun avion ne correspond à ces filtres.' : "Aucun avion pour le moment. Dès qu'un avion passe au-dessus de chez vous, il apparaît ici avec sa photo.");
+}
+let LIVE = null, liveSig = '', liveLoad = 0;
+async function pollLive() {
+  try { LIVE = await api('/api/live'); } catch (e) { return; }
+  const miss = HIST && Object.keys(LIVE.live).some(id => !HIST.entries.some(e => e.id === id));
+  if (miss && Date.now() - liveLoad > 20000) { liveLoad = Date.now(); loadHist(); return; }  // un avion vient d'entrer dans l'historique
+  drawLive();
+}
+function drawLive() {  // onglet Direct : les avions affichés en ce moment sur la carte, sans filtre ni tri
+  const c = $('#hLive'); if (!c) return;
+  if (!HIST || !LIVE) { if (!c.firstChild) c.append(el('p', 'note', 'Chargement…')); return; }
+  const by = new Map(HIST.entries.map(e => [e.id, e])), now = Math.floor(Date.now() / 1000), L = [];
+  for (const [id, v] of Object.entries(LIVE.live)) {
+    L.push(by.get(id) || {id, pseudo: true, t: now, l: now, cs: v[0] || '', reg: v[5] || '', code: v[4] || '', model: '', airline: tl('Détails en cours de chargement'), frm: '', to: '', fi: '', ti: '', n: 1, al: 0, photo: false, src: [], cat: ''});
+  }
+  L.sort((a, b) => (b.pseudo ? 1 : 0) - (a.pseudo ? 1 : 0) || b.t - a.t);
+  const sig = L.map(e => e.id + (e.pseudo ? '?' : '')).join(',') + '|' + histMode + '|' + LIVE.running + LIVE.paused + '|' + HIST.now;
+  if (sig === liveSig && c.firstChild) return;
+  liveSig = sig; c.replaceChildren();
+  const top = el('div', 'hlivebar'), dot = el('i', 'hdot' + (LIVE.running && !LIVE.paused ? ' on' : ''));
+  let msg = _t(L.length > 1 ? '{0} avions en direct' : '{0} avion en direct', L.length);
+  if (!LIVE.running) msg = tl("Le programme d'affichage ne tourne pas");
+  else if (LIVE.paused) msg += ' · ' + tl('écran en veille');
+  top.append(dot, el('b', null, msg), el('span', 'hsp'), histModeSeg()); c.append(top);
+  const res = el('div'); c.append(res);
+  if (!L.length) { res.append(el('p', 'note', LIVE.running ? "Aucun avion sur la carte pour le moment." : "Les avions en direct apparaissent dès que le programme d'affichage tourne.")); return; }
+  histRender(res, L, L);
 }
 function histTable(e) {  // tous les passages de cet appareil (même immatriculation) vus par le programme
   const rows = [];  // un passage par ligne : début, fin, alerte, et l'entrée pour l'indicatif et le trajet
@@ -4530,6 +4572,7 @@ async function pollBuild() {
 buildHome();
 setInterval(pollStatus, 4000);
 setInterval(tickClock, 1000);
+setInterval(() => { if (cur === 'hist' && histTab === 'live' && !document.querySelector('.hover')) pollLive(); }, 4000);
 setInterval(() => { if (cur === 'cfg' && curCat === 'logs' && $('#logAuto') && $('#logAuto').checked) loadLogs(); }, 3000);
 setInterval(() => { if (cur === 'cfg' && (curCat === 'position' || curCat === 'mapstyle')) pollBuild(); }, 2000);
 setInterval(() => { if (updWasRunning || (cur === 'upd' && ++updTick % 7 === 0)) pollUpd(); }, 1500);
