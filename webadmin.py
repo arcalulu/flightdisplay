@@ -4043,7 +4043,8 @@ let LIVE = null, liveSig = '', liveLoad = 0;
 async function pollLive() {
   try { LIVE = await api('/api/live'); } catch (e) { return; }
   const tb = $('#hTabLive');  // nombre d'avions affichés, comme « À classer » ; onglet masqué quand le programme d'affichage ne tourne pas
-  if (tb) { tb.textContent = _t('Direct ({0})', Object.keys(LIVE.live).length); tb.style.display = LIVE.running ? '' : 'none'; }
+  const nb = Object.keys(LIVE.live).length;  // 0 avion : « Direct » sans parenthèses
+  if (tb) { tb.textContent = nb ? _t('Direct ({0})', nb) : tl('Direct'); tb.style.display = LIVE.running ? '' : 'none'; }
   if (!LIVE.running && histTab === 'live') { setHistTab('hist'); return; }
   if (histTab !== 'live') return;
   const miss = HIST && Object.keys(LIVE.live).some(id => !HIST.entries.some(e => e.id === id));
