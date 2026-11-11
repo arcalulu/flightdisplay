@@ -2254,6 +2254,7 @@ h2.t{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.04
 .hact{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}.hact:empty{display:none}
 .htok{display:inline-flex;align-items:center;gap:6px;background:#1d2d45;border:1px solid #33507a;color:#cfe0f7;border-radius:8px;padding:3px 6px 3px 10px;font-size:13px}.htok button{border:0;background:none;color:#9db4cf;cursor:pointer;padding:0 3px;font-size:13px}.htok button:hover{color:#fff}
 .hlivebar{display:flex;align-items:center;gap:10px;margin:0 0 12px}.hlivebar .hsp{flex:1}.hdot{width:10px;height:10px;border-radius:50%;background:#59657a;flex:none}.hdot.on{background:#4fd18b;box-shadow:0 0 0 0 #4fd18b99;animation:hpulse 2s infinite}@keyframes hpulse{70%{box-shadow:0 0 0 8px #4fd18b00}100%{box-shadow:0 0 0 0 #4fd18b00}}
+.hzone{border:1px solid #8a2f29;background:#241210;border-radius:14px;padding:12px;margin:0 0 16px}.hzh{display:flex;align-items:center;gap:10px;margin:0 0 10px}.hzt{margin:4px 2px 10px;font-size:12px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
 .hmode button{padding:6px 10px;display:inline-flex}.hmode svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .hmain{flex:1;min-width:0}
 .hpager{display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin:12px 0}.hpager .hpi{color:var(--mut);font-size:13px;margin-right:8px}.hpager .hpe{color:var(--mut);padding:0 4px}
@@ -4053,17 +4054,25 @@ function drawLive() {  // onglet Direct : les avions affichés en ce moment sur 
     L.push(by.get(id) || {id, pseudo: true, t: now, l: now, cs: v[0] || '', reg: v[5] || '', code: v[4] || '', model: '', airline: tl('Détails en cours de chargement'), frm: '', to: '', fi: '', ti: '', n: 1, al: 0, photo: false, src: [], cat: ''});
   }
   L.sort((a, b) => (b.pseudo ? 1 : 0) - (a.pseudo ? 1 : 0) || b.t - a.t);
-  const sig = L.map(e => e.id + (e.pseudo ? '?' : '')).join(',') + '|' + histMode + '|' + LIVE.running + LIVE.paused + '|' + HIST.now;
+  const sig = L.map(e => e.id + (e.pseudo ? '?' : '') + ((LIVE.live[e.id] || [])[6] ? 'z' : '')).join(',') + '|' + histMode + '|' + LIVE.running + LIVE.paused + '|' + HIST.now;
   if (sig === liveSig && c.firstChild) return;
   liveSig = sig; c.replaceChildren();
+  const zl = L.filter(e => LIVE.live[e.id] && LIVE.live[e.id][6]), rl = L.filter(e => !(LIVE.live[e.id] && LIVE.live[e.id][6]));
+  L.splice(0, L.length, ...zl, ...rl);  // zone d'alerte d'abord : la fiche garde cet ordre
   const top = el('div', 'hlivebar'), dot = el('i', 'hdot' + (LIVE.running && !LIVE.paused ? ' on' : ''));
   let msg = _t(L.length > 1 ? '{0} avions en direct' : '{0} avion en direct', L.length);
   if (!LIVE.running) msg = tl("Le programme d'affichage ne tourne pas");
   else if (LIVE.paused) msg += ' · ' + tl('écran en veille');
   top.append(dot, el('b', null, msg), el('span', 'hsp'), histModeSeg()); c.append(top);
+  if (zl.length) {  // section dédiée aux avions dans la zone d'alerte, en tête de page, absente quand il n'y en a aucun
+    const zb = el('div', 'hzone'), zh = el('div', 'hzh'), zr = el('div');
+    zh.append(el('span', 'hbadge alert', "Zone d'alerte"), el('b', null, _t(zl.length > 1 ? '{0} avions dans la zone' : '{0} avion dans la zone', zl.length)));
+    zb.append(zh, zr); c.append(zb); histRender(zr, zl, L);
+    if (rl.length) c.append(el('h4', 'hzt', _t(rl.length > 1 ? 'Autres avions sur la carte · {0}' : 'Autre avion sur la carte · {0}', rl.length)));
+  }
   const res = el('div'); c.append(res);
   if (!L.length) { res.append(el('p', 'note', LIVE.running ? "Aucun avion sur la carte pour le moment." : "Les avions en direct apparaissent dès que le programme d'affichage tourne.")); return; }
-  histRender(res, L, L);
+  histRender(res, rl, L);
 }
 function histTable(e) {  // tous les passages de cet appareil (même immatriculation) vus par le programme
   const rows = [];  // un passage par ligne : début, fin, alerte, et l'entrée pour l'indicatif et le trajet
