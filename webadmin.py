@@ -843,7 +843,7 @@ def seen_types():
             ok = bool(re.fullmatch(r"[0-9a-f]{32}\.jpg", ph)) and os.path.exists(os.path.join(S.APP_DIR, "cache", ph))
             model = str(v.get("model") or "")[:80]
             out.append(dict(code=str(k).upper(), n=int(v.get("n", 0)), t=int(v.get("t", 0)), model=model, reg=str(v.get("reg") or "")[:12],
-                            photo=ok, suggest=aircraft_types.suggest(model)))
+                            photo=ok, suggest="ulm" if aircraft_types.is_ulm(v.get("reg")) else aircraft_types.suggest(model)))
     except (OSError, ValueError):
         return []
     return sorted(out, key=lambda e: (-e["n"], e["code"]))
@@ -1041,6 +1041,9 @@ def history_data():
     for e in L[:1000]:
         reg = e.get("reg") or ""
         br, fa = split_model(e.get("model"), e.get("code"))
+        if aircraft_types.is_ulm(reg):  # immatriculation F-J : toujours rangé dans les ULM (filtre Constructeur), le constructeur d'origine passe dans la famille
+            fa = (fa if br == "Inconnu" else (br + " " + fa).strip()) or "?"
+            br = "ULM"
         entries.append(dict(br=br, fa=fa, al=int(e.get("al") or 0), id=str(e["id"]), t=int(e.get("t", 0)), l=int(e.get("l", e.get("t", 0))), cs=e.get("cs", ""), reg=reg,
                             code=e.get("code", ""), model=e.get("model", ""), airline=e.get("airline", ""), frm=e.get("frm", ""), to=e.get("to", ""),
                             fi=e.get("fi", ""), ti=e.get("ti", ""), photo=bool(e.get("photo") or e.get("url")) or bool(perso_entry(e, mine)), credit=e.get("credit", ""), mp=perso_entry(e, mine), ulm=aircraft_types.is_ulm(reg),
