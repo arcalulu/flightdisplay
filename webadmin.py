@@ -977,13 +977,35 @@ def cache_stats():
     return dict(photos=photos, other=other, now=time.time())
 
 
+_hl = {"v": None}  # (signature du fichier, liste, index par identifiant) : le fichier n'est relu que s'il a change
+
+
 def _history_list():
+    """Historique des avions (cache/history.json, ecrit par main.py). Garde en memoire tant que le fichier ne change pas :
+    chaque photo de la page Avions vus le consultait, et le relire (1 000 avions) a chaque photo ralentissait beaucoup un Pi Zero."""
+    p = os.path.join(S.APP_DIR, "cache", "history.json")
     try:
-        with open(os.path.join(S.APP_DIR, "cache", "history.json"), encoding="utf-8") as fh:
+        st = os.stat(p)
+        sig = (st.st_mtime_ns, st.st_size)
+    except OSError:
+        return []
+    v = _hl["v"]
+    if v and v[0] == sig:
+        return v[1]
+    try:
+        with open(p, encoding="utf-8") as fh:
             d = json.load(fh)
     except (OSError, ValueError):
         return []
-    return [e for e in d if isinstance(e, dict) and e.get("id")] if isinstance(d, list) else []
+    L = [e for e in d if isinstance(e, dict) and e.get("id")] if isinstance(d, list) else []
+    _hl["v"] = (sig, L, {str(e["id"]): e for e in L})
+    return L
+
+
+def _history_entry(fid):
+    _history_list()
+    v = _hl["v"]
+    return v[2].get(str(fid)) if v else None
 
 
 _BRANDS = sorted(["Airbus Helicopters", "Airbus", "Boeing", "ATR", "Embraer", "Bombardier", "De Havilland Canada", "De Havilland", "Dassault", "Cessna",
@@ -1098,7 +1120,7 @@ def manual_save(fid, cat, code, model):
 def aircraft_lookup(fid):
     """Cherche le type, le modèle et l'immatriculation d'un avion de l'historique sur adsbdb.com (gratuit, sans clé) : par adresse ICAO, puis par
     immatriculation. Appelé par le bouton « Suggérer » (l'adresse ICAO ou l'immatriculation sont alors envoyées à ce service)."""
-    e = next((x for x in _history_list() if str(x.get("id")) == fid), None)
+    e = _history_entry(fid)
     if not e:
         raise ValueError("avion inconnu")
     reg = aircraft_types.norm_reg(e.get("reg"), e.get("cs"))
@@ -1176,7 +1198,7 @@ def perso_entry(e, listing=None):
 
 def perso_save(fid, data_b64, remove=False):
     """Enregistre (ou retire) la photo personnelle de l'avion fid de l'historique."""
-    e = next((x for x in _history_list() if str(x.get("id")) == fid), None)
+    e = _history_entry(fid)
     if not e:
         raise ValueError("avion inconnu")
     names = aircraft_types.perso_names(fid, e.get("reg"))
@@ -1204,7 +1226,7 @@ def perso_save(fid, data_b64, remove=False):
 
 def history_photo(fid):
     """Photo d'un avion de l'historique : celle du cache, sinon retelechargee depuis son adresse (apres un nettoyage du cache)."""
-    e = next((x for x in _history_list() if str(x.get("id")) == fid), None)
+    e = _history_entry(fid)
     if not e:
         return None
     cache = os.path.join(S.APP_DIR, "cache")
