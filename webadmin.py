@@ -2452,6 +2452,7 @@ p.note{color:var(--mut);font-size:13px;margin:0 4px 10px}
 pre{margin:0;padding:10px;background:#080b10;border:1px solid var(--line);border-radius:10px;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word;max-height:58vh;overflow:auto}
 pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 .bar{position:fixed;left:0;right:0;bottom:calc(52px + env(safe-area-inset-bottom));padding:8px 12px;background:#0e141bf2;backdrop-filter:blur(8px);border-top:1px solid var(--line);z-index:7;display:none}
+.hasbar main{padding-bottom:130px}
 .bar.on{display:block}.bar .in{max-width:1100px;margin:0 auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.bar .in span{flex:1 1 100%;font-size:12px;color:var(--mut)}.bar .in #barTxt{font-size:14px;font-weight:600;color:var(--txt)}.bar .in button{flex:1}
 .hint{background:#2a2108;border:1px solid #5a4410;color:#f0d78c;padding:10px 12px;border-radius:10px;margin-bottom:12px;display:none;font-size:14px}
 .hint .btns{display:flex;gap:8px;margin-top:8px}.hint .btns button{flex:1}
@@ -2523,7 +2524,8 @@ pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
   .menu button.on{background:var(--card2);color:var(--acc)}
   .menu button.dot::after{top:14px;right:12px}
   .menu button.on.dot::after{background:var(--acc)}
-  .bar{bottom:14px;left:50%;right:auto;transform:translateX(-50%);width:min(760px,94vw);border:1px solid var(--line);border-radius:14px}
+  .bar{bottom:14px;left:50%;right:auto;transform:translateX(-50%);width:min(760px,94vw);border:1px solid var(--line);border-radius:14px;padding:6px 10px}
+  .bar .in{flex-wrap:nowrap}.bar .in span{flex:none}.bar .in #barHelp{display:none}.bar .in #barTxt{flex:none;white-space:nowrap;margin-right:6px}.bar .in button{padding-top:7px;padding-bottom:7px}
 }
 </style>
 </head>
@@ -2908,12 +2910,13 @@ function applyNeeds() {
 }
 function updateBar() {
   const n = Object.keys(edits).length + (TYPES_DIRTY ? 1 : 0), b = $('#saveBar');
-  b.classList.toggle('on', cur === 'cfg' && n > 0);
+  b.classList.toggle('on', cur === 'cfg' && n > 0); document.body.classList.toggle('hasbar', cur === 'cfg' && n > 0);  // de la place sous la page : la barre ne cache plus le bas du contenu
   if (n) {
     const a = applyNeeds(); if (TYPES_DIRTY) a.app = true;
     $('#barTxt').textContent = _t(n > 1 ? '{0} modifications' : '{0} modification', n);
     $('#barSave').textContent = tl(a.app && a.web ? 'Enregistrer et relancer le programme et webadmin' : (a.app ? 'Enregistrer et relancer le programme' : (a.web ? 'Enregistrer et redémarrer webadmin' : 'Enregistrer')));
     $('#barHelp').textContent = tl(a.app && a.web ? "L'enregistrement relance le programme d'affichage et webadmin pour appliquer ces valeurs." : (a.app ? "L'enregistrement relance le programme d'affichage pour appliquer ces valeurs (quelques secondes sans image à l'écran)." : (a.web ? "L'enregistrement redémarre webadmin pour appliquer ces valeurs (la page sera indisponible quelques secondes)." : "Appliqué dès l'enregistrement.")));
+    b.title = $('#barHelp').textContent;  // l'explication reste visible au survol (le texte est masqué sur grand écran pour gagner de la place)
   }
 }
 function markMenu() {
