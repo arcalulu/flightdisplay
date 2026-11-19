@@ -22,6 +22,8 @@ const sBtn = document.getElementById('s');
 sBtn.onclick = () => { try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); AC.resume(); sBtn.style.display = 'none'; chime(0.3); } catch (e) {} };
 function chime(vol) {
   if (!AC) return;
+  // le navigateur peut mettre l'audio en pause quand rien n'a sonné depuis un moment : on le relance avant chaque carillon
+  if (AC.state !== 'running') { AC.resume().then(() => { if (AC.state === 'running') chime(vol); }, () => {}); return; }
   let t = AC.currentTime + 0.02;
   for (const [f, d] of [[659, 0.2], [880, 0.2], [1175, 0.5]]) {
     for (const [mul, amp] of [[1, 1], [2, 0.3]]) {
