@@ -1019,6 +1019,8 @@ Quand un avion en vol entre dans le cercle d'alerte (`[alert] radius_km`) et res
 
 La distance est mesurée au sol, avec une marge de sortie de 10 % du rayon pour éviter les alertes à répétition. Un avion déjà en alerte garde une marge de 10 % sur les bornes d'altitude. Le son n'est joué qu'à l'entrée d'un avion, jamais deux fois en parallèle.
 
+**Test à la demande** : dans Réglages, Alerte de proximité, le bouton « Tester l'alerte et le clignotement maintenant » simule une alerte pendant 10 secondes (carillon, clignotement, panneau d'alerte) sur l'avion le plus proche du centre de la carte, sur l'écran et sur l'écran web, avec un bandeau « Test alerte de proximité » en bas. Il faut que le programme d'affichage tourne et qu'un avion soit visible.
+
 **Au lancement du programme** : un avion déjà présent dans la zone déclenche une vraie alerte, comme à tout autre moment. Pour tester le son et la teinte sans avion, deux options indépendantes existent (section 8.9) : « Son au lancement du programme » (un carillon) et « Simuler une alerte au démarrage » (teinte rouge et carillon). Il n'y a jamais deux carillons à la fois.
 
 ### 9.5 Contrôle du son pendant l'exécution

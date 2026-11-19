@@ -245,6 +245,11 @@ function draw(C, now, dt) {
       text(fSmall, '#aab4be', model.slice(0, 20), gnd.x + S(345), y + S(3)); text(fMid, '#ffd278', where.slice(0, 20), gnd.x + S(520), y); y += gnd.rh;
     }
   }
+  if (SC.test) {  // bandeau du test d'alerte
+    const ft = F(SZ.large, true), tw = textW(ft, SC.test), bw = tw + S(60), bh = fontH(ft) + S(14), bx = W / 2 - bw / 2, by = H - S(34) - bh;
+    ctx.fillStyle = Math.floor(now * 2) % 2 === 0 ? '#c81e1e' : '#961414'; ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, S(8)); ctx.fill();
+    text(ft, WHITE, SC.test, bx + S(30), by + S(7));
+  }
   // barre d'état : icône son coupé, message, crédits
   let tx = S(12);
   if (SC.muted) {

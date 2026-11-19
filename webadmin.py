@@ -2190,6 +2190,9 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("liste d'avions invalide")
                 history_delete(ids)
                 return self.send_json(dict(ok=True))
+            if path == "/api/alert/test":
+                runtime_set("alert_test", int(time.time() * 1000))  # le programme d'affichage voit la valeur changer
+                return self.send_json(dict(ok=True))
             if path == "/api/webscreen":
                 webscreen_set(bool(body.get("enabled")))
                 return self.send_json(dict(ok=True, port=S.SCREEN_PORT))
@@ -3090,7 +3093,13 @@ function renderCatBase() {
   }
   renderGroups(box, cat, only);
   if (cat.id === 'position' || cat.id === 'storage') ringVis();
-  if (cat.id === 'alert') linkSync();
+  if (cat.id === 'alert') {
+    linkSync();
+    const tb = el('button', 'b s', "Tester l'alerte et le clignotement maintenant"); tb.style.marginTop = '12px';
+    tb.onclick = () => busy(tb, async () => { await api('/api/alert/test', {}); toast("Test lancé : 10 secondes sur l'écran et l'écran web"); });
+    const th = el('p', 'note', "Simule une alerte pendant 10 secondes (son et clignotement) avec l'avion le plus proche du centre, sur l'écran et sur l'écran web, avec un bandeau « Test alerte de proximité ». Les réglages en attente d'enregistrement ne sont pas pris en compte.");
+    box.append(tb, th);
+  }
   if (cat.id === 'online') {
     const res = el('div', 'sres'), bx = el('div', 'sft'); bx.style.margin = '12px 0 6px';
     for (const n of ONLINE) {

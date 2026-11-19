@@ -250,7 +250,7 @@ def scene_publish(now, vis, gnd, zone_ids, cur_key, corner, dist_of, msg, alert_
                              ph_text=tr("Photo indisponible") if d else tr("Chargement des détails..."))
                 break
     ground = dict(total=len(gnd), rows=[ground_row(s, d) for _, s, d in gnd[:G_MAX]]) if (GROUND_ON and gnd) else None
-    scene = dict(t=round(now, 2), cfg=scene_cfg(), air=air, panel=panel, ground=ground, zone=sorted(zone_ids), alert=bool(alert_visible), muted=bool(rt["muted"]), chime=dict(n=CHIME_SEQ[0], vol=round(rt["volume"], 2), on=bool(ALERT_SOUND)), msg=msg)
+    scene = dict(t=round(now, 2), cfg=scene_cfg(), air=air, panel=panel, ground=ground, zone=sorted(zone_ids), alert=bool(alert_visible), muted=bool(rt["muted"]), test=(tr("Test alerte de proximité") if now < ATEST["until"] else ""), chime=dict(n=CHIME_SEQ[0], vol=round(rt["volume"], 2), on=bool(ALERT_SOUND)), msg=msg)
     try:
         tmp = SCENE_FILE + f".{os.getpid()}.tmp"
         with open(tmp, "w", encoding="utf-8") as fh:
@@ -429,7 +429,9 @@ def history_flush():
         pass
 
 
-rt = {"muted": False, "webscreen": False, "volume": ALERT_VOL, "seq": 0, "mtime": 0, "checked": 0.0}
+rt = {"muted": False, "webscreen": False, "volume": ALERT_VOL, "seq": 0, "mtime": 0, "checked": 0.0, "atest": 0, "atest_req": False}
+ATEST_SEC = 10
+ATEST = {"until": 0.0, "key": None}  # test d'alerte lance depuis webadmin : jusqu'a quand, et l'avion choisi
 
 
 def rt_refresh(first=False):
@@ -452,10 +454,15 @@ def rt_refresh(first=False):
         v = d.get("volume")
         rt["volume"] = max(0.0, min(1.0, float(v))) if isinstance(v, (int, float)) else ALERT_VOL
         seq = int(d.get("test_seq", 0))
+        atest = int(d.get("alert_test", 0))
     except Exception:
         return
     if first:
         rt["seq"] = seq
+        rt["atest"] = atest
+    elif atest != rt["atest"]:
+        rt["atest"] = atest
+        rt["atest_req"] = True
     elif seq != rt["seq"]:
         rt["seq"] = seq
         play_alert()
@@ -1344,7 +1351,10 @@ def main():
         if len(smooth) > 300: smooth.clear()
         screen.blit(bg, (0, 0))
         hx, hy = to_xy(LAT, LON)
-        alert_visible = ALERT_ON and (bool(zone_ids) or now < sim_until)
+        if rt["atest_req"]:  # test d'alerte demande dans webadmin : 10 s de simulation (son + clignotement) sur l'avion le plus proche du centre
+            rt["atest_req"] = False; ATEST["until"] = now + ATEST_SEC; ATEST["key"] = None; play_alert()
+        testing = now < ATEST["until"]
+        alert_visible = ALERT_ON and (bool(zone_ids) or now < sim_until or testing)
         if alert_visible:
             p = (1 - math.cos(2 * math.pi * now / ALERT_PULSE)) / 2
             screen.blit(overlays[int(p * (LEVELS - 1) + 0.5)], (int(hx) - ar, int(hy) - ar))
@@ -1399,6 +1409,13 @@ def main():
                 history_alert(zone_now - zone_ids)
                 play_alert()
         zone_ids = zone_now
+        if testing:
+            if ATEST["key"] not in [v[0] for v in vis]:
+                ATEST["key"] = min(vis, key=lambda v: math.hypot(v[3] - hx, v[4] - hy))[0] if vis else None
+            if ATEST["key"]:
+                zone_ids = zone_ids | {ATEST["key"]}
+                if ATEST["key"] not in dist_of:
+                    tv = next(v for v in vis if v[0] == ATEST["key"]); dist_of[ATEST["key"]] = math.hypot(tv[3] - hx, tv[4] - hy) * MPP / 1000.0
 
         placed = []
         ground_surf = ground_rect = None
@@ -1505,6 +1522,12 @@ def main():
             msg += "  " + tr("(données anciennes)")
         if status["err"]:
             msg += "  |  " + status["msg"]
+        if testing:  # bandeau du test d'alerte, en bas de l'ecran
+            bt = f_big.render(tr("Test alerte de proximité"), True, (255, 255, 255))
+            bw, bh = bt.get_width() + S(60), bt.get_height() + S(14)
+            br = pygame.Rect(0, 0, bw, bh); br.midbottom = (W // 2, H - S(34))
+            pygame.draw.rect(screen, (200, 30, 30) if int(now * 2) % 2 == 0 else (150, 20, 20), br, border_radius=S(8))
+            screen.blit(bt, bt.get_rect(center=br.center))
         tx = S(12)
         if rt["muted"]:
             screen.blit(mute_icon, (S(12), H - S(30)))
