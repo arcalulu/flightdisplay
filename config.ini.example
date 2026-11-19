@@ -93,6 +93,8 @@ height = 1080
 
 [panel]
 width = 480
+; show : false masque le panneau photo sur l'ecran (pour l'ecran web : [webscreen] show_panel)
+show = true
 rotate_seconds = 12
 ; Répéter le crédit du photographe sous la photo (il est déjà visible dans l'image)
 show_credit = true

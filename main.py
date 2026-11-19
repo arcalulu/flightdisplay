@@ -121,6 +121,8 @@ PANEL_W = S(cfg.getint("panel", "width", fallback=480))
 # Attributions exigees par les fournisseurs (OpenStreetMap : ODbL, CARTO : conditions du fond de carte) : ne pas retirer
 CREDITS = "\u00a9 OpenStreetMap contributors  \u00b7  \u00a9 CARTO  \u00b7  Flightradar24"
 ROTATE = cfg.getfloat("panel", "rotate_seconds", fallback=12)
+PANEL_SHOW = cfg.getboolean("panel", "show", fallback=True)  # panneau photo affiche sur l'ecran du Pi
+WEB_PANEL = cfg.getboolean("webscreen", "show_panel", fallback=True)  # ... et sur l'ecran web
 # Contenu du panneau photo (section [panel_content]) : ordre, visibilite, taille, gras, italique, meme ligne
 PANEL_FIELDS = ("model", "registration", "callsign", "airline", "route", "altitude", "speed", "credit")
 _PNL_DEF = {"model": (True, "large", True, False), "registration": (True, "large", True, True), "callsign": (False, "large", True, True),
@@ -243,7 +245,7 @@ def scene_publish(now, vis, gnd, zone_ids, cur_key, corner, dist_of, msg, alert_
                         col=_hexc(plane_color(s)), mlat=1 if s.get("mlat") else 0, lbl=label_lines(s, d),
                         tr=[[round(a, 4), round(b, 4)] for a, b in s["trail"]]))
     panel = None
-    if cur_key:
+    if cur_key and WEB_PANEL:
         for k, s, d, x, y in vis:
             if k == cur_key:
                 alert = tr("ALERTE  \u00b7  à {0} km de la maison", f"{dist_of.get(cur_key, 0):.1f}") if cur_key in zone_ids else ""
@@ -1452,7 +1454,7 @@ def main():
             cur_key = keys[(keys.index(cur_key) + 1) % len(keys)]; cur_t = now
 
         panel = None
-        if cur_key:
+        if cur_key and PANEL_SHOW:
             _, s, d, _, _ = next(v for v in vis if v[0] == cur_key)
             ph = None
             if d and d.get("photo_path"):

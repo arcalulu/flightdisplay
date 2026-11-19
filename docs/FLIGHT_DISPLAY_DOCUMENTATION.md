@@ -832,6 +832,8 @@ Toute l'interface est dessinée à la résolution de la carte. Sous Windows et s
 | Option | Défaut | Plage | Description |
 |---|---|---|---|
 | `width` | 480 | 200 à 1200 | Largeur du panneau (px, base 1080p). |
+| `show` | true | true / false | Affiche le panneau photo sur l'écran du Pi. Décoché : ni panneau ni surlignage de l'avion affiché. |
+| `[webscreen] show_panel` | true | true / false | Même choix pour la page « Écran web », indépendant de `show`. |
 | `rotate_seconds` | 12 | 3 à 120 | Durée d'affichage de chaque avion quand plusieurs sont éligibles. |
 | `corner_top_left`, `corner_top_right`, `corner_bottom_left`, `corner_bottom_right` | true | true / false | Angles où le panneau peut s'afficher. Un angle décoché n'est jamais utilisé, même si des avions passent derrière les autres angles (le panneau choisit alors le moins gênant parmi les angles autorisés). Si les quatre sont décochés, aucune restriction. |
 

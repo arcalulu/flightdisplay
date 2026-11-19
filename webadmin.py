@@ -304,6 +304,8 @@ PARAMS = [
     C("label", "label", "scale", "int", 100, "Taille des étiquettes sur l'écran", "Agrandit ou réduit toutes les étiquettes à côté des avions sur l'écran du Pi, en pourcentage de la taille choisie pour chaque élément (100 % = inchangé).", "Taille", min=20, max=200, ui="slider", step=5, unit="%"),
     C("label", "webscreen", "label_scale", "int", 100, "Taille des étiquettes sur l'écran web", "Même réglage pour la page « Écran web », indépendant de celui de l'écran (sa résolution peut être très différente).", "Taille", min=20, max=200, ui="slider", step=5, unit="%"),
     *PANEL_PARAMS,
+    C("panel", "panel", "show", "bool", True, "Afficher le panneau photo sur l'écran", "Décochez pour masquer le panneau photo (et le surlignage de l'avion affiché) sur l'écran du Pi.", "Fiche photo"),
+    C("panel", "webscreen", "show_panel", "bool", True, "Afficher le panneau photo sur l'écran web", "Décochez pour masquer le panneau photo sur la page « Écran web ». Indépendant de l'écran du Pi.", "Fiche photo"),
     C("panel", "panel", "width", "int", 480, "Largeur (px, base 1080p)", "", "Fiche photo", min=200, max=1200),
     C("panel", "panel", "rotate_seconds", "float", 12, "Rotation entre avions (s)", "", "Fiche photo", min=3, max=120),
     C("panel", "panel", "corner_top_left", "bool", True, "Haut gauche", "Décochez un angle pour que le panneau n'y soit jamais affiché, même si un avion passe derrière les autres angles. Si tout est décoché, aucune restriction.", "Angles autorisés"),

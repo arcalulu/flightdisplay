@@ -832,6 +832,8 @@ The whole interface is drawn at the resolution of the map. On Windows and on the
 | Option | Default | Range | Description |
 |---|---|---|---|
 | `width` | 480 | 200 to 1200 | Panel width (px, 1080p basis). |
+| `show` | true | true / false | Shows the photo panel on the Pi's screen. Unticked: no panel and no highlight of the displayed aircraft. |
+| `[webscreen] show_panel` | true | true / false | Same choice for the "Web screen" page, independent of `show`. |
 | `rotate_seconds` | 12 | 3 to 120 | Display time of each aircraft when several are eligible. |
 | `corner_top_left`, `corner_top_right`, `corner_bottom_left`, `corner_bottom_right` | true | true / false | Corners where the panel may be shown. An unticked corner is never used, even if aircraft pass behind the other corners (the panel then picks the least obstructive among the allowed corners). If all four are unticked, there is no restriction. |
 
