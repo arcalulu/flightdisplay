@@ -11,7 +11,7 @@ canvas{display:block;width:100vw;height:100vh}
 // Ecran web : la même vue que l'écran du Pi, redessinée ici en HTML5 (canvas) à partir de /scene.json (un petit fichier par seconde).
 // Le dessin suit celui du programme d'affichage (main.py) et s'adapte à la taille de la fenêtre : tout est redimensionné, nettement.
 const cv = document.getElementById('c'), ctx = cv.getContext('2d'), msgBox = document.getElementById('m');
-let SC = null, recv = 0, bg = null, bgV = -1, smooth = {}, lastT = performance.now(), lastDraw = 0, photos = {};
+let SC = null, recv = 0, bg = null, bgV = -1, smooth = {}, lastT = performance.now(), lastDraw = 0, photos = {}, PF = {key: '', last: null, prev: null, t0: 0}, lblSide = {}, lblCache = {};
 
 function fit() { const d = window.devicePixelRatio || 1; cv.width = Math.round(innerWidth * d); cv.height = Math.round(innerHeight * d); }
 addEventListener('resize', fit); fit();
@@ -62,6 +62,7 @@ function fitLine(pieces, maxw) {  // garde la ligne dans maxw pixels : le texte 
   return out;
 }
 
+let CK = 1;  // échelle de la fenêtre (pour les images d'étiquettes)
 function draw(C, now, dt) {
   const W = C.w, H = C.h, S = v => Math.max(1, Math.round(v * C.ui));
   const F = (size, bold, italic) => (italic ? 'italic ' : '') + (bold ? 'bold ' : '') + size + 'px "DejaVu Sans", Verdana, "Segoe UI", Arial, sans-serif';
@@ -105,6 +106,8 @@ function draw(C, now, dt) {
     if (x > -S(50) && x < W + S(50) && y > -S(50) && y < H + S(50)) vis.push({a, x, y});
   }
   if (Object.keys(smooth).length > 300) smooth = {};
+  if (Object.keys(lblCache).length > 150) lblCache = {};
+  if (Object.keys(lblSide).length > 300) lblSide = {};
 
   const placed = [], inter = (r, q) => r.x < q.x + q.w && q.x < r.x + r.w && r.y < q.y + q.h && q.y < r.y + r.h;
   // avions au sol (tableau en bas à droite)
@@ -163,15 +166,29 @@ function draw(C, now, dt) {
     const w = Math.max(...rows.map(r => r.w)) + S(14), h = rows.reduce((s, r) => s + r.h, 0) + S(10);
     const dx = S(22), up = S(6), dn = S(10);
     const cands = [[x + dx, y - h - up], [x + dx, y + dn], [x - w - dx, y - h - up], [x - w - dx, y + dn]];
-    let pos = cands[0];
-    for (const c of cands) { const r = {x: c[0], y: c[1], w, h}; if (!placed.some(q => inter(r, q)) && r.x >= 0 && r.y >= 0 && r.x + w <= W && r.y + h <= H) { pos = c; break; } }
+    const fits = c => { const r = {x: c[0], y: c[1], w, h}; return !placed.some(q => inter(r, q)) && r.x >= 0 && r.y >= 0 && r.x + w <= W && r.y + h <= H; };
+    let ci = 0, last = lblSide[a.id];
+    if (last !== undefined && fits(cands[last])) ci = last;  // garde le côté choisi tant qu'il est libre : pas de sauts
+    else { ci = cands.findIndex(fits); if (ci < 0) ci = 0; }
+    lblSide[a.id] = ci;
+    const pos = cands[ci];
     placed.push({x: pos[0], y: pos[1], w, h});
-    ctx.fillStyle = hl ? 'rgba(70,14,14,0.745)' : 'rgba(10,14,20,0.667)'; ctx.fillRect(pos[0], pos[1], w, h);
-    let yy = pos[1] + S(5);
-    for (const r of rows) { let xx = pos[0] + S(7); for (const p of r.parts) { text(p.font, p.col, p.txt, xx, yy + r.h - p.h); xx += p.w; } yy += r.h; }
+    // l'étiquette est dessinée une fois dans une image, puis déplacée au sous-pixel (le texte direct est calé sur les pixels : déplacement « par blocs »)
+    const kk = CK, sig = (hl ? 'h' : 'n') + '|' + kk.toFixed(3) + '|' + w + 'x' + h + '|' + rows.map(r => r.parts.map(p => p.font + p.col + p.txt).join('')).join('/');
+    let lc = lblCache[a.id];
+    if (!lc || lc.sig !== sig) {
+      const cvs = document.createElement('canvas'); cvs.width = Math.ceil(w * kk); cvs.height = Math.ceil(h * kk);
+      const g = cvs.getContext('2d'); g.scale(kk, kk);
+      g.fillStyle = hl ? 'rgba(70,14,14,0.745)' : 'rgba(10,14,20,0.667)'; g.fillRect(0, 0, w, h); g.textBaseline = 'top';
+      let yy = S(5);
+      for (const r of rows) { let xx = S(7); for (const p of r.parts) { g.font = p.font; g.fillStyle = p.col; g.fillText(p.txt, xx, yy + r.h - p.h); xx += p.w; } yy += r.h; }
+      lc = lblCache[a.id] = {sig, cvs};
+    }
+    ctx.drawImage(lc.cvs, pos[0], pos[1], w, h);
   }
 
-  if (pnl) {  // panneau photo
+  const drawPanel = (pnl, alpha) => {  // panneau photo
+    ctx.save(); ctx.globalAlpha = alpha;
     ctx.fillStyle = 'rgba(10,14,20,0.843)'; ctx.fillRect(pnl.x, pnl.y, pnl.w, pnl.h);
     ctx.lineWidth = lw; ctx.strokeStyle = RED; ctx.strokeRect(pnl.x + lw / 2, pnl.y + lw / 2, pnl.w - lw, pnl.h - lw);
     const px = pnl.x + S(10), py = pnl.y + S(10);
@@ -179,6 +196,16 @@ function draw(C, now, dt) {
     else { ctx.fillStyle = '#1c222a'; ctx.fillRect(px, py, pnl.PW, pnl.phH); ctx.textAlign = 'center'; text(fMid, '#8c96a0', pnl.text, px + pnl.PW / 2, py + pnl.phH / 2 - fontH(fMid) / 2); ctx.textAlign = 'left'; }
     let ty = py + pnl.phH + S(6);
     for (const {l, lh} of pnl.lines) { let x = px; for (const p of l) { text(p.font, p.col, p.txt, x, ty + lh - fontH(p.font)); x += textW(p.font, p.txt); } ty += lh + 2; }
+    ctx.restore();
+  };
+  {  // fondu entre deux panneaux (autre avion, autre photo, apparition, disparition)
+    const key = pnl ? SC.panel.key + '|' + SC.panel.photo + '|' + (pnl.ph ? 1 : 0) : '', tn = performance.now();
+    if (key !== PF.key) { PF.prev = PF.last; PF.t0 = tn; PF.key = key; }
+    PF.last = pnl;
+    const a = Math.min(1, (tn - PF.t0) / 450), e = a * a * (3 - 2 * a);
+    if (PF.prev && a < 1) drawPanel(PF.prev, pnl ? 1 : 1 - e);
+    else PF.prev = null;
+    if (pnl) drawPanel(pnl, PF.prev ? e : 1);
   }
   if (gnd) {  // avions au sol
     ctx.fillStyle = 'rgba(10,14,20,0.784)'; ctx.fillRect(gnd.x, gnd.y, gnd.w, gnd.h);
@@ -207,11 +234,11 @@ function draw(C, now, dt) {
 
 function frame(t) {
   requestAnimationFrame(frame);
-  if (t - lastDraw < 45) return;  // ~20 images par seconde au plus
+  if (t - lastDraw < 28) return;  // ~30 images par seconde au plus
   const dt = Math.min(0.25, (t - lastT) / 1000); lastT = t; lastDraw = t;
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#0a0e14'; ctx.fillRect(0, 0, cv.width, cv.height);
   if (!SC) return;
-  const C = SC.cfg, k = Math.min(cv.width / C.w, cv.height / C.h);  // la vue entière s'adapte à la fenêtre
+  const C = SC.cfg, k = Math.min(cv.width / C.w, cv.height / C.h); CK = Math.round(k * 8) / 8 || 1;  // la vue entière s'adapte à la fenêtre
   ctx.setTransform(k, 0, 0, k, (cv.width - C.w * k) / 2, (cv.height - C.h * k) / 2);
   ctx.save(); ctx.beginPath(); ctx.rect(0, 0, C.w, C.h); ctx.clip();
   try { draw(C, SC.t + (performance.now() - recv) / 1000, dt); } catch (e) { console.error(e); }
