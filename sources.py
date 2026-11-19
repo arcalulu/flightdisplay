@@ -147,17 +147,24 @@ def merge(snaps, order, mode, overlap):
     main = {f.id for f in snaps[live[0]]} if mode == "primary" else None
     # FR24 cache le hex de certains avions (militaires) : son id est alors « fr24:… » et le meme avion apparait deux fois
     # (une fois par FR24, une fois par une source ADS-B). On rattache l'entree FR24 a l'avion ADS-B tout proche qui lui ressemble.
+    def _at(f, tref):  # position estimee a l'instant tref (cap et vitesse) : les sources n'ont pas leur position a la meme seconde
+        dt = max(-60.0, min(60.0, tref - (f.time or tref))) * (f.ground_speed or 0) * 0.514444
+        h = math.radians(f.heading or 0)
+        return f.latitude + dt * math.cos(h) / 110574.0, f.longitude + dt * math.sin(h) / (111320.0 * max(0.1, math.cos(math.radians(f.latitude))))
     for k in [k for k in groups if k.startswith("fr24:")]:
         f0 = groups[k][0]
         for k2, c2 in groups.items():
             if k2.startswith("fr24:"):
                 continue
             f2 = c2[0]
-            dy = (f0.latitude - f2.latitude) * 111.0
-            dx = (f0.longitude - f2.longitude) * 111.0 * math.cos(math.radians(f0.latitude))
+            tref = max(f0.time or 0, f2.time or 0)
+            la0, lo0 = _at(f0, tref); la2, lo2 = _at(f2, tref)
+            dy = (la0 - la2) * 111.0
+            dx = (lo0 - lo2) * 111.0 * math.cos(math.radians(la0))
             d = (dx * dx + dy * dy) ** 0.5
             same = (f0.callsign and f0.callsign == f2.callsign) or (f0.registration and f0.registration == f2.registration)
-            if d < 5 and (same or (d < 1.5 and f0.aircraft_code and f0.aircraft_code == f2.aircraft_code)):
+            kind = bool(f0.aircraft_code) and f0.aircraft_code == f2.aircraft_code and abs((f0.altitude or 0) - (f2.altitude or 0)) < 1500
+            if (d < 5 and same) or (d < 3 and kind):
                 groups[k2].extend(groups.pop(k))
                 if main is not None and k in main:
                     main.add(k2)
