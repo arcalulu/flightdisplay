@@ -320,6 +320,7 @@ PARAMS = [
     C("alert", "alert", "radius_km", "float", 5, "Rayon d'alerte (km)", "0 désactive toute l'alerte. Ignoré quand la distance du premier cercle est utilisée (option ci-dessous, proposée seulement s'il y a au moins un cercle affiché).", "Zone", min=0, max=50),
     C("alert", "alert", "link_first_ring", "bool", False, "Utiliser la distance du premier cercle", "Le rayon d'alerte prend la distance du premier cercle (Carte et position, Cercles de distance). Désactivez pour fixer une autre distance.", "Zone"),
     C("alert", "alert", "sound", "bool", True, "Son", "Interrupteur général. La coupure temporaire se fait dans Pilotage.", "Son"),
+    C("alert", "webscreen", "alert_when_asleep", "bool", False, "Alerte sur l'écran web quand l'écran est en veille", "L'écran du Pi reste éteint et silencieux, mais la page « Écran web » ouverte dans un navigateur signale quand même l'alerte (carillon, halo rouge et panneau).", "Écran web"),
     C("alert", "alert", "volume", "float", 0.6, "Volume par défaut", "Valeur de départ. Le curseur de Pilotage la remplace en direct.", "Son", min=0, max=1, ui="slider", step=0.05),
 
     C("alert", "alert", "pulse_seconds", "float", 3, "Durée d'un clignotement (s)", "", "Teinte rouge", min=0.5, max=30),

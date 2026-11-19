@@ -234,3 +234,5 @@ interval = 30
 width = 0
 height = 0
 label_scale = 100
+; alert_when_asleep : true = alerte (son, halo) sur la page Ecran web meme quand l ecran du Pi est en veille
+alert_when_asleep = false

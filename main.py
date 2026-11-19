@@ -21,6 +21,7 @@ ALERT_PULSE = max(0.5, cfg.getfloat("alert", "pulse_seconds", fallback=3))
 ALERT_A_MIN = cfg.getint("alert", "alpha_min", fallback=10)
 ALERT_A_MAX = cfg.getint("alert", "alpha_max", fallback=60)
 ALERT_SIM = cfg.getboolean("alert", "simulate_on_start", fallback=False)
+ASLEEP_WEB = cfg.getboolean("webscreen", "alert_when_asleep", fallback=False)  # ecran du Pi en veille : l'ecran web signale quand meme les alertes (son et halo)
 ALERT_SIM_SEC = cfg.getfloat("alert", "simulate_seconds", fallback=3)
 ALERT_ALT_MIN = cfg.getint("alert", "min_altitude_ft", fallback=0)
 ALERT_ALT_MAX = cfg.getint("alert", "max_altitude_ft", fallback=0)
@@ -1307,6 +1308,8 @@ def main():
                         zone_now.add(k)
                 if zone_now - zone_ids:
                     history_alert(zone_now - zone_ids)
+                    if ASLEEP_WEB and ALERT_SOUND and not rt["muted"]:
+                        CHIME_SEQ[0] += 1  # seul le navigateur joue le carillon : l'ecran du Pi reste en veille
             zone_ids = zone_now
             if now - paused_pub >= 2.0:
                 fps_publish(0, len(air_now), 0, len(zone_ids), paused=True, live=live_pack(air_now, zone_ids)); paused_pub = now
@@ -1331,7 +1334,7 @@ def main():
                     cur_key = keys[(keys.index(cur_key) + 1) % len(keys)]; cur_t = now
                 if corner not in PANEL_ALLOWED:
                     corner = PANEL_ALLOWED[0]
-                scene_publish(now, vis_s, gnd_s, zone_ids, cur_key, corner, dist_s, tr("{0} avion(s) en vol", len(vis_s)) + "  ·  " + tr("écran en veille"), False)
+                scene_publish(now, vis_s, gnd_s, zone_ids if ASLEEP_WEB else set(), cur_key, corner, dist_s, tr("{0} avion(s) en vol", len(vis_s)) + "  ·  " + tr("écran en veille"), bool(ASLEEP_WEB and ALERT_ON and zone_ids))
             fps_n, fps_t0 = 0, now
             clock.tick(2)
             continue
