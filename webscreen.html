@@ -13,7 +13,7 @@ canvas{display:block;width:100vw;height:100vh}
 // Ecran web : la même vue que l'écran du Pi, redessinée ici en HTML5 (canvas) à partir de /scene.json (un petit fichier par seconde).
 // Le dessin suit celui du programme d'affichage (main.py) et s'adapte à la taille de la fenêtre : tout est redimensionné, nettement.
 const cv = document.getElementById('c'), ctx = cv.getContext('2d'), msgBox = document.getElementById('m');
-let SC = null, recv = 0, bg = null, bgV = -1, smooth = {}, lastT = performance.now(), lastDraw = 0, photos = {}, PF = {key: '', last: null, prev: null, had: false, t0: 0}, lblSide = {}, lblCache = {};
+let clkOff = null, SC = null, recv = 0, bg = null, bgV = -1, smooth = {}, lastT = performance.now(), lastDraw = 0, photos = {}, PF = {key: '', last: null, prev: null, had: false, t0: 0}, lblSide = {}, lblCache = {};
 
 // Son des alertes : le même carillon que le Pi (3 notes), joué par le navigateur quand le programme d'affichage le déclenche.
 // Les navigateurs exigent un clic avant de jouer un son : le bouton active l'audio.
@@ -47,6 +47,9 @@ async function poll() {
     const r = await fetch('/scene.json?' + Date.now(), {cache: 'no-store'});
     if (r.status === 200) {
       SC = await r.json(); recv = performance.now(); if (SC.chime) onChime(SC.chime);
+      // horloge du Pi estimée côté navigateur : le retard d'une scène varie (0 à 2 s selon l'instant de la requête), la recaler à chaque réception faisait sauter les avions (accélérations puis ralentissements)
+      const no = recv / 1000 - SC.t;
+      if (clkOff === null || Math.abs(no - clkOff) > 20) clkOff = no; else if (no < clkOff) clkOff = no; else clkOff += (no - clkOff) * 0.02;
       if (SC.cfg.bg_v !== bgV) { bgV = SC.cfg.bg_v; bg = new Image(); bg.src = (SC.cfg.bg_url || '/bg.png') + '?v=' + bgV; }
       msgBox.style.display = 'none';
     } else { SC = null; msgBox.style.display = 'block'; }
@@ -290,7 +293,7 @@ function frame(t) {
   const C = SC.cfg, k = Math.min(cv.width / C.w, cv.height / C.h); CK = Math.round(k * 8) / 8 || 1;  // la vue entière s'adapte à la fenêtre
   ctx.setTransform(k, 0, 0, k, (cv.width - C.w * k) / 2, (cv.height - C.h * k) / 2);
   ctx.save(); ctx.beginPath(); ctx.rect(0, 0, C.w, C.h); ctx.clip();
-  try { draw(C, SC.t + (performance.now() - recv) / 1000, dt); } catch (e) { console.error(e); }
+  try { draw(C, performance.now() / 1000 - clkOff, dt); } catch (e) { console.error(e); }
   ctx.restore();
 }
 poll(); requestAnimationFrame(frame);
