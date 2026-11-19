@@ -1135,6 +1135,7 @@ In the "Aircraft seen" tab, a purple "⇄ 2" badge marks aircraft seen by severa
 - Toggle commands, like in iOS Settings or Home Assistant:
   - Flight Display program: starts or stops the service. It is the only way to stop the program. When the screen is asleep, the program keeps running: the "Program" tile at the top of the page shows "image paused (screen asleep)" instead of the frames per second, and the switch line shows "Running, image paused".
   - Screen: sleep and wake-up. The sleep does not stop the program: it keeps tracking aircraft (history) but no longer refreshes the image (see 6.2).
+  - Web screen: turns on a page that shows **the same view as the Pi's screen in a browser**, on another port (8081 by default, adjustable in Settings, Web server; it must differ from the administration port, and the same password is asked). The "Open: port N" link appears under the option. The picture is redrawn in the browser in HTML5 (canvas) from a small data file (one per second): the Pi produces nothing while no browser is open, and takes no screenshot. It adapts to the window size (interface and map background resized), a double click goes full screen. The picture freezes with a message when the program is stopped or the screen is asleep. Files: `webscreen.html` (page) and `background.png` (background).
   - Screen schedule (shown only when a schedule is active): next scheduled action, with the time and the time left (for example "Next action: turn off at 23:00 (in 4 h 12 min)"). The "Edit" button opens the calendar.
   - Alert sound: mutes or unmutes the sound (disabled and greyed out if `sound = false` in `config.ini`).
 - Volume slider (0 to 100%), applied live at the next alert.
@@ -1335,6 +1336,7 @@ interval = 30
 |---|---|---|---|
 | `[server]` | `host` | `0.0.0.0` | Listening address. `127.0.0.1` limits access to the Pi itself. |
 | | `port` | 8080 | HTTP port (1 to 65535). |
+| | `screen_port` | 8081 | Port of the "Web screen" page (turned on in Control). Different from `port`. |
 | | `user` | `admin` | Login username. |
 | | `password` | empty | Password (HTTP Basic authentication). Empty: no protection, a warning is shown in Settings, Web server. |
 | `[app]` | `dir` | folder of `webadmin.py` | Application folder (where `config.ini`, `cache/` and the map script are). |

@@ -166,6 +166,8 @@ simulate_seconds = 3
 ; Adresse d'écoute : 0.0.0.0 = tout le réseau, 127.0.0.1 = le Pi seul
 host = 0.0.0.0
 port = 8080
+; Port de la page « Écran web » (la même vue que l'écran, dans un navigateur) ; elle s'active dans Pilotage
+screen_port = 8081
 user = admin
 ; Mot de passe de l'interface (vide = pas de protection, à éviter)
 password =

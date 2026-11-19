@@ -76,6 +76,10 @@ class Settings:
         except ValueError:
             self.PORT = 8080
         self.HOST = gs("server", "host", "0.0.0.0") or "0.0.0.0"
+        try:
+            self.SCREEN_PORT = ini.getint("server", "screen_port", fallback=8081)
+        except ValueError:
+            self.SCREEN_PORT = 8081
         self.USER = gs("server", "user", "admin")
         self.PASSWORD = ini.get("server", "password", fallback="")
         self.APP_DIR = os.path.abspath(os.path.expanduser(gs("app", "dir") or HERE))
@@ -326,6 +330,7 @@ PARAMS = [
 
     W("server", "server", "host", "text", "0.0.0.0", "Adresse d'écoute", "0.0.0.0 = tout le réseau, 127.0.0.1 = le Pi seul.", "Réseau", apply="web"),
     W("server", "server", "port", "int", 8080, "Port", "", "Réseau", apply="web", min=1, max=65535),
+    W("server", "server", "screen_port", "int", 8081, "Port de l'écran web", "Port de la page « Écran web » (la même vue que l'écran du Pi, dans un navigateur), qui s'active dans Pilotage. Il doit être différent du port de l'administration. Le même mot de passe est demandé.", "Réseau", apply="web", min=1, max=65535),
     W("server", "server", "user", "text", "admin", "Identifiant", "", "Accès"),
     W("server", "server", "password", "secret", "", "Mot de passe", "Vide : aucune protection. Le mot de passe circule en clair sur le réseau local.", "Accès"),
     W("paths", "app", "dir", "text", "", "Dossier de l'application", "Vide : dossier de webadmin.py.", "Application"),
@@ -602,6 +607,7 @@ def apply_settings(changes):
                              for c in changed))
     if any(c.startswith("web:") for c in changed):
         S.reload()
+        SCREENWEB.refresh()
         res["restart_web"] = (S.HOST, S.PORT) != BOUND
         if any(c.startswith("web:mqtt.") for c in changed):
             MQTT.restart(S.ini)
@@ -1929,6 +1935,7 @@ class Handler(BaseHTTPRequestHandler):
                 s["update_available"] = UPD.available()
                 s["update_can"] = UPD.can_update()
                 s["update_running"] = UPD.running()
+                s["webscreen"] = dict(on=bool(runtime_read().get("webscreen")), running=SCREENWEB.running(), port=S.SCREEN_PORT, error=SCREENWEB.error)
                 s["cpu"] = cpu["pct"]
                 s["now"] = now_info()
                 s["temp_limits"] = temp_limits()
@@ -2173,6 +2180,9 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("liste d'avions invalide")
                 history_delete(ids)
                 return self.send_json(dict(ok=True))
+            if path == "/api/webscreen":
+                webscreen_set(bool(body.get("enabled")))
+                return self.send_json(dict(ok=True, port=S.SCREEN_PORT))
             if path == "/api/types/ignore":
                 ignored_save(body.get("code", ""), bool(body.get("restore")))
                 return self.send_json(dict(ok=True))
@@ -2756,6 +2766,7 @@ function buildHome() {
   const box = $('#ctl'); box.innerHTML = ''; rows = {};
   const p = li('Programme Flight Display', ''); const tp = toggle(false, onProg); p.r.append(tp.label); rows.prog = {...p, t: tp}; box.append(p.r);
   const s = li('Écran', ''); const ts = toggle(true, onScreen); s.r.append(ts.label); rows.screen = {...s, t: ts}; const scr = $('#ctlScreen'); scr.innerHTML = ''; scr.append(s.r);
+  const wsr = li('Écran web', ''); const tw = toggle(false, onWebScreen); wsr.r.append(tw.label); rows.web = {...wsr, t: tw}; scr.append(wsr.r);
   const sc = li('Planning de l\'écran', ''); const eb = el('button', 'b s', 'Modifier'); eb.onclick = () => { go('cfg'); curCat = 'schedule'; renderMenu(); renderCat(); }; sc.r.append(eb); sc.r.style.display = 'none'; rows.sched = sc; scr.append(sc.r);
   const n = li('Son des alertes', ''); const tn = toggle(true, onSound); n.r.append(tn.label); rows.sound = {...n, t: tn}; box.append(n.r);
   const v = li('Volume', '', 'full'); const w = el('div', 'sl'); w.style.width = '100%';
@@ -2781,6 +2792,9 @@ function onProg(on, inp) {
 }
 function onScreen(on, inp) {
   busy(inp, async () => { const r = await api('/api/screen', {action: on ? 'on' : 'off'}); toast(r.message); });
+}
+function onWebScreen(on, inp) {
+  busy(inp, async () => { await api('/api/webscreen', {enabled: on}); toast(on ? 'Écran web activé' : 'Écran web coupé'); });
 }
 function onSound(on, inp) {
   busy(inp, async () => { await api('/api/sound', {muted: !on}); toast(on ? 'Son réactivé' : 'Son coupé'); });
@@ -2854,6 +2868,13 @@ async function pollStatus() {
       if (!rows.prog.t.input.disabled) rows.prog.t.input.checked = run;
       rows.prog.sub.textContent = run ? (s.paused ? tl("En fonctionnement, image en pause : l'écran est en veille") : tl('En fonctionnement')) : tl('Arrêté');
       if (!rows.screen.t.input.disabled) rows.screen.t.input.checked = !s.screen_off;
+      if (rows.web && s.webscreen) {  // écran web : la même vue que l'écran, dans un navigateur, sur un autre port
+        if (!rows.web.t.input.disabled) rows.web.t.input.checked = s.webscreen.on && s.webscreen.running;
+        const ws = s.webscreen, sub = rows.web.sub; sub.textContent = '';
+        if (ws.on && ws.running) { const a = el('a', null, _t('Ouvrir : port {0}', ws.port)); a.href = location.protocol + '//' + location.hostname + ':' + ws.port + '/'; a.target = '_blank'; a.rel = 'noopener'; sub.append(a); }
+        else if (ws.error) sub.textContent = ws.error;
+        else sub.textContent = tl('Désactivé : la même vue que l\'écran, dans un navigateur, sur un autre port');
+      }
       rows.screen.sub.textContent = s.screen_off ? (s.helper_old ? tl("En veille. Le script de veille est ancien : relancez l'installeur pour que le programme continue de tourner") : tl('En veille : le programme continue de suivre les avions sans rafraîchir l\'image')) : tl('Allumé');
       if (!rows.sound.t.input.disabled) rows.sound.t.input.checked = !s.muted && s.sound_enabled;
       rows.sound.t.input.disabled = !s.sound_enabled;
@@ -4610,6 +4631,145 @@ class Server(ThreadingHTTPServer):
     allow_reuse_address = True
 
 
+# ---------------------------------------------------------------- ecran web : la meme vue que l'ecran du Pi, dans un navigateur, sur un autre port
+SCENE_FILE = "/dev/shm/flightdisplay-scene.json" if os.path.isdir("/dev/shm") else os.path.join(S.APP_DIR, "cache", "scene.json")
+SCENE_REQ = SCENE_FILE[:-5] + ".req"
+_scr_page = {"m": 0.0, "d": b""}
+
+
+class ScreenHandler(BaseHTTPRequestHandler):
+    """Serveur de l'ecran web : la page (webscreen.html, dessin en HTML5), la scene courante (JSON), le fond de carte et les photos.
+    Aucune des fonctions de l'administration n'y est accessible. Meme mot de passe."""
+    server_version = "FlightDisplayScreen"
+    authorized = Handler.authorized
+
+    def log_message(self, fmt, *args):
+        pass
+
+    def reply(self, code, data=b"", ctype="text/plain", cache="no-store", gz=False):
+        self.send_response(code)
+        if code != 204:
+            self.send_header("Content-Type", ctype)
+        if gz:
+            self.send_header("Content-Encoding", "gzip")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", cache)
+        self.end_headers()
+        if data:
+            self.wfile.write(data)
+
+    def send_file(self, path, ctype, cache):
+        try:
+            with open(path, "rb") as fh:
+                data = fh.read()
+        except OSError:
+            return self.reply(404)
+        self.reply(200, data, ctype, cache)
+
+    def do_GET(self):
+        if not self.authorized():
+            return
+        path = urlparse(self.path).path
+        if path == "/":
+            p = os.path.join(HERE, "webscreen.html")
+            try:
+                m = os.path.getmtime(p)
+                if m != _scr_page["m"]:
+                    with open(p, "rb") as fh:
+                        _scr_page.update(m=m, d=fh.read())
+            except OSError:
+                return self.reply(404)
+            data = _scr_page["d"].replace(b"__LANG__", S.LANG.encode()).replace(b"__MSG__", tr("Pas d'image : le programme d'affichage est arrêté ou l'écran est en veille.").encode("utf-8"))
+            self.reply(200, data, "text/html; charset=utf-8")
+        elif path == "/scene.json":
+            try:
+                with open(SCENE_REQ, "w") as fh:  # « quelqu'un regarde » : le programme d'affichage produit alors la scene
+                    fh.write("1")
+            except OSError:
+                pass
+            try:
+                if time.time() - os.stat(SCENE_FILE).st_mtime > 10:
+                    return self.reply(204)
+                with open(SCENE_FILE, "rb") as fh:
+                    data = fh.read()
+            except OSError:
+                return self.reply(204)
+            gz = len(data) > 2048 and self.accepts_gzip()
+            self.reply(200, gzip.compress(data, 3) if gz else data, "application/json; charset=utf-8", gz=gz)
+        elif path == "/bg.png":
+            self.send_file(os.path.join(S.APP_DIR, "background.png"), "image/png", "max-age=86400")
+        else:
+            m = re.fullmatch(r"/photo/([cp])/([A-Za-z0-9_-][A-Za-z0-9._-]{0,63})", path)
+            if not m:
+                return self.reply(404)
+            base = os.path.join(S.APP_DIR, "cache") if m.group(1) == "c" else perso_dir()
+            self.send_file(os.path.join(base, m.group(2)), "image/jpeg", "no-cache")
+
+    accepts_gzip = Handler.accepts_gzip
+
+
+class ScreenWeb:
+    """Le serveur de l'ecran web, demarre et arrete depuis Pilotage."""
+
+    def __init__(self):
+        self.srv, self.port, self.error = None, None, ""
+
+    def running(self):
+        return self.srv is not None
+
+    def start(self):
+        if self.srv:
+            return
+        if S.SCREEN_PORT == S.PORT:
+            self.error = tr("Le port de l'écran web doit être différent de celui de l'administration.")
+            raise ValueError(self.error)
+        try:
+            srv = Server((S.HOST, S.SCREEN_PORT), ScreenHandler)
+        except OSError as e:
+            self.error = tr("Port {0} indisponible : {1}", S.SCREEN_PORT, e.strerror or e)
+            raise ValueError(self.error)
+        self.srv, self.port, self.error = srv, S.SCREEN_PORT, ""
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+
+    def stop(self):
+        if self.srv:
+            srv, self.srv = self.srv, None
+            threading.Thread(target=lambda: (srv.shutdown(), srv.server_close()), daemon=True).start()
+
+    def refresh(self):
+        """Apres un changement de reglages : redemarre sur le nouveau port si besoin."""
+        if self.srv and self.port != S.SCREEN_PORT:
+            self.stop()
+            try:
+                time.sleep(0.3)
+                self.start()
+            except ValueError:
+                pass
+
+
+SCREENWEB = ScreenWeb()
+
+
+def runtime_set(key, value):
+    with rt_lock:
+        d = runtime_read()
+        d[key] = value
+        os.makedirs(os.path.dirname(S.RUNTIME), exist_ok=True)
+        tmp = S.RUNTIME + f".{os.getpid()}.tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(d, fh)
+        os.replace(tmp, S.RUNTIME)
+
+
+def webscreen_set(enabled):
+    """Active ou coupe l'ecran web : le choix est garde dans runtime.json (lu aussi par le programme d'affichage)."""
+    if enabled:
+        SCREENWEB.start()  # leve ValueError si le port est pris : rien n'est enregistre
+    else:
+        SCREENWEB.stop()
+    runtime_set("webscreen", bool(enabled))
+
+
 if __name__ == "__main__":
     if not S.PASSWORD:
         print("ATTENTION : aucun mot de passe défini dans config.ini (section [server])", flush=True)
@@ -4619,5 +4779,11 @@ if __name__ == "__main__":
     threading.Thread(target=cache_loop, daemon=True).start()
     MQTT.configure(S.ini)
     MQTT.start()
+    if runtime_read().get("webscreen"):
+        try:
+            SCREENWEB.start()
+            print(f"Écran web sur http://{S.HOST}:{S.SCREEN_PORT}", flush=True)
+        except ValueError as e:
+            print("Écran web non démarré :", e, flush=True)
     print(f"Administration sur http://{S.HOST}:{S.PORT}  (app : {S.APP_DIR})", flush=True)
     Server((S.HOST, S.PORT), Handler).serve_forever()

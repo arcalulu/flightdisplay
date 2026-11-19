@@ -1135,6 +1135,7 @@ Dans l'onglet « Avions vus », un badge violet « ⇄ 2 » repère les avions v
 - Commandes à bascule, comme dans Réglages d'iOS ou Home Assistant :
   - Programme Flight Display : démarre ou arrête le service. C'est le seul moyen d'arrêter le programme. Quand l'écran est en veille, le programme continue de tourner : la tuile « Programme » du haut de la page affiche « image en pause (écran en veille) » à la place des images par seconde, et la ligne de l'interrupteur « En fonctionnement, image en pause ».
   - Écran : veille et réveil. La veille n'arrête pas le programme : il suit toujours les avions (historique) mais ne rafraîchit plus l'image (voir 6.2).
+  - Écran web : active une page qui montre **la même vue que l'écran du Pi dans un navigateur**, sur un autre port (8081 par défaut, réglable dans Réglages, Serveur web ; il doit différer de celui de l'administration, et le même mot de passe est demandé). Le lien « Ouvrir : port N » apparaît sous l'option. L'image est redessinée dans le navigateur en HTML5 (canvas) à partir d'un petit fichier de données (un par seconde) : le Pi ne produit rien tant qu'aucun navigateur n'est ouvert, et ne fait aucune capture d'écran. Elle s'adapte à la taille de la fenêtre (interface et fond de carte redimensionnés), un double clic passe en plein écran. L'image se fige avec un message quand le programme est arrêté ou l'écran en veille. Fichiers : `webscreen.html` (page) et `background.png` (fond).
   - Planning de l'écran (affiché seulement quand un planning est actif) : prochaine action programmée, avec l'heure et le temps restant (par exemple « Prochaine action : extinction à 23:00 (dans 4 h 12 min) »). Le bouton « Modifier » ouvre le calendrier.
   - Son des alertes : coupe ou réactive le son (désactivé et grisé si `sound = false` dans `config.ini`).
 - Curseur de volume (0 à 100 %), appliqué en direct à la prochaine alerte.
@@ -1335,6 +1336,7 @@ interval = 30
 |---|---|---|---|
 | `[server]` | `host` | `0.0.0.0` | Adresse d'écoute. `127.0.0.1` limite l'accès au Pi lui-même. |
 | | `port` | 8080 | Port HTTP (1 à 65535). |
+| | `screen_port` | 8081 | Port de la page « Écran web » (activée dans Pilotage). Différent de `port`. |
 | | `user` | `admin` | Identifiant de connexion. |
 | | `password` | vide | Mot de passe (authentification HTTP Basic). Vide : pas de protection, un avertissement s'affiche dans Réglages, Serveur web. |
 | `[app]` | `dir` | dossier de `webadmin.py` | Dossier de l'application (où se trouvent `config.ini`, `cache/`, le script de carte). |

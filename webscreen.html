@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="__LANG__"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flight display</title>
+<style>
+html,body{margin:0;height:100%;background:#0a0e14;overflow:hidden}
+canvas{display:block;width:100vw;height:100vh}
+#m{position:fixed;left:0;right:0;top:45%;text-align:center;color:#8a9db6;font:16px system-ui,sans-serif;display:none;padding:0 20px}
+</style></head>
+<body><canvas id="c"></canvas><div id="m">__MSG__</div>
+<script>
+// Ecran web : la même vue que l'écran du Pi, redessinée ici en HTML5 (canvas) à partir de /scene.json (un petit fichier par seconde).
+// Le dessin suit celui du programme d'affichage (main.py) et s'adapte à la taille de la fenêtre : tout est redimensionné, nettement.
+const cv = document.getElementById('c'), ctx = cv.getContext('2d'), msgBox = document.getElementById('m');
+let SC = null, recv = 0, bg = null, bgV = -1, smooth = {}, lastT = performance.now(), lastDraw = 0, photos = {};
+
+function fit() { const d = window.devicePixelRatio || 1; cv.width = Math.round(innerWidth * d); cv.height = Math.round(innerHeight * d); }
+addEventListener('resize', fit); fit();
+document.addEventListener('dblclick', () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen(); });
+
+async function poll() {
+  try {
+    const r = await fetch('/scene.json?' + Date.now(), {cache: 'no-store'});
+    if (r.status === 200) {
+      SC = await r.json(); recv = performance.now();
+      if (SC.cfg.bg_v !== bgV) { bgV = SC.cfg.bg_v; bg = new Image(); bg.src = '/bg.png?v=' + bgV; }
+      msgBox.style.display = 'none';
+    } else { SC = null; msgBox.style.display = 'block'; }
+  } catch (e) { SC = null; msgBox.style.display = 'block'; }
+  setTimeout(poll, 1000);
+}
+
+function getPhoto(ref) {
+  let p = photos[ref];
+  if (!p) {
+    if (Object.keys(photos).length > 20) photos = {};
+    p = photos[ref] = {img: new Image(), ok: false};
+    p.img.onload = () => { p.ok = true; };
+    p.img.src = '/photo/' + ref;
+  }
+  return p;
+}
+
+const hCache = {};
+function fontH(font) {
+  if (!hCache[font]) { ctx.font = font; const m = ctx.measureText('Hgyp'); hCache[font] = Math.ceil((m.fontBoundingBoxAscent + m.fontBoundingBoxDescent) || parseInt(font.match(/(\d+)px/)[1]) * 1.17); }
+  return hCache[font];
+}
+function textW(font, txt) { ctx.font = font; return ctx.measureText(txt).width; }
+function fitLine(pieces, maxw) {  // garde la ligne dans maxw pixels : le texte qui dépasse est coupé et terminé par « … »
+  const out = []; let used = 0;
+  for (const p of pieces) {
+    const w = textW(p.font, p.txt);
+    if (used + w <= maxw) { out.push(p); used += w; continue; }
+    const ell = '…', room = maxw - used;
+    if (room > textW(p.font, ell)) {
+      let lo = 0, hi = p.txt.length;
+      while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (textW(p.font, p.txt.slice(0, mid).trimEnd() + ell) <= room) lo = mid; else hi = mid - 1; }
+      if (lo > 0) out.push({txt: p.txt.slice(0, lo).trimEnd() + ell, font: p.font, col: p.col});
+    }
+    break;
+  }
+  return out;
+}
+
+function draw(C, now, dt) {
+  const W = C.w, H = C.h, S = v => Math.max(1, Math.round(v * C.ui));
+  const F = (size, bold, italic) => (italic ? 'italic ' : '') + (bold ? 'bold ' : '') + size + 'px "DejaVu Sans", Verdana, "Segoe UI", Arial, sans-serif';
+  const SZ = {small: Math.max(10, S(17)), medium: S(22), large: S(26)};
+  const fSmall = F(SZ.small), fMid = F(SZ.medium), lw = Math.max(1, S(2));
+  const toXY = (la, lo) => [W / 2 + (lo - C.lon) * 111320 * C.cosl / C.mpp, H / 2 - (la - C.lat) * 110574 / C.mpp];
+  const text = (font, col, txt, x, y) => { ctx.font = font; ctx.fillStyle = col; ctx.textBaseline = 'top'; ctx.fillText(txt, x, y); };
+  const circle = (x, y, r, col, w) => { ctx.beginPath(); ctx.arc(x, y, r, 0, 2 * Math.PI); if (w) { ctx.lineWidth = w; ctx.strokeStyle = col; ctx.stroke(); } else { ctx.fillStyle = col; ctx.fill(); } };
+  const RED = '#ff4646', WHITE = '#ffffff', GREY = '#bec8d2';
+
+  if (bg && bg.complete && bg.naturalWidth) ctx.drawImage(bg, 0, 0, W, H);
+  const [hx0, hy0] = toXY(C.lat, C.lon), hx = Math.trunc(hx0), hy = Math.trunc(hy0);
+  const ar = Math.max(2, Math.trunc(C.alert.km * 1000 / C.mpp)), alertOn = C.alert.on && SC.alert;
+  if (alertOn) {  // halo rouge qui pulse sur la zone d'alerte
+    const p = (1 - Math.cos(2 * Math.PI * now / C.alert.pulse)) / 2;
+    circle(hx, hy, ar, 'rgba(255,40,40,' + ((C.alert.a_min + (C.alert.a_max - C.alert.a_min) * p) / 255).toFixed(3) + ')');
+  }
+  for (let i = 0; i < C.rings.n; i++) {  // cercles de distance
+    const km = C.rings.first + i * C.rings.step;
+    if (km * 1000 > C.rings.radius) break;
+    const rr = Math.trunc(km * 1000 / C.mpp);
+    circle(hx, hy, rr, C.rings.col, C.rings.w);
+    if (C.rings.labels) {
+      const t = (Math.round(km * 100) / 100) + ' km', tw = textW(fSmall, t), th = fontH(fSmall), ty = hy - rr - th - 2;
+      if (ty >= 0) text(fSmall, C.rings.txt, t, hx - tw / 2, ty);
+      else if (hx + rr + 4 + tw < W) text(fSmall, C.rings.txt, t, hx + rr + 4, hy - th / 2);
+    }
+  }
+  if (alertOn) circle(hx, hy, ar, RED, lw);
+  circle(hx, hy, S(5), '#ffc83c');
+
+  // avions : position estimée (cap et vitesse), lissée
+  const vis = [], f = 1 - Math.pow(0.75, dt * C.fps);
+  for (const a of SC.air) {
+    const d = a.sp * 0.514444 * Math.max(0, Math.min(now - a.ts, C.stale)), h = a.hd * Math.PI / 180;
+    const la = a.la + d * Math.cos(h) / 110574, lo = a.lo + d * Math.sin(h) / (111320 * C.cosl);
+    let pd = smooth[a.id];
+    if (!pd || Math.abs(pd[0] - la) > 0.05 || Math.abs(pd[1] - lo) > 0.05) pd = [la, lo]; else pd = [pd[0] + (la - pd[0]) * f, pd[1] + (lo - pd[1]) * f];
+    smooth[a.id] = pd;
+    const [x, y] = toXY(pd[0], pd[1]);
+    if (x > -S(50) && x < W + S(50) && y > -S(50) && y < H + S(50)) vis.push({a, x, y});
+  }
+  if (Object.keys(smooth).length > 300) smooth = {};
+
+  const placed = [], inter = (r, q) => r.x < q.x + q.w && q.x < r.x + r.w && r.y < q.y + q.h && q.y < r.y + r.h;
+  // avions au sol (tableau en bas à droite)
+  let gnd = null;
+  if (SC.ground) {
+    const g = SC.ground, rh = fontH(fMid) + S(4), th = fontH(fSmall), h = th + rh * g.rows.length + S(18), gw = C.ground_w;
+    gnd = {x: W - S(30) - gw, y: H - S(40) - h, w: gw, h, g, rh, th}; placed.push(gnd);
+  }
+  // panneau photo
+  let pnl = null;
+  if (SC.panel) {
+    const P = SC.panel, PW = C.panel_w, pf = k => F(SZ[C.pnl[k].size], C.pnl[k].bold, C.pnl[k].italic);
+    const PCOL = {model: WHITE, registration: WHITE, callsign: WHITE, airline: '#dce1e6', route: '#dce1e6', altitude: '#ff9696', speed: '#ff9696', credit: '#8c96a0'};
+    const ph = P.photo ? getPhoto(P.photo) : null, phOk = ph && ph.ok, phH = phOk ? Math.trunc(PW * ph.img.naturalHeight / ph.img.naturalWidth) : Math.trunc(PW * 0.6);
+    let lines = [];
+    if (P.alert) lines.push([{txt: P.alert, font: fSmall, col: '#ff6e6e'}]);
+    for (const ln of P.lines) {
+      const pieces = [];
+      ln.forEach(([txt, k], i) => { if (i) pieces.push({txt: '  ·  ', font: pf(ln[i - 1][1]), col: '#dce1e6'}); pieces.push({txt, font: pf(k), col: PCOL[k]}); });
+      lines.push(pieces);
+    }
+    lines = lines.map(l => fitLine(l, PW)).filter(l => l.length).map(l => ({l, lh: Math.max(...l.map(p => fontH(p.font)))}));
+    const textH = lines.reduce((s, x) => s + x.lh + 2, 0), M = S(30), pw = PW + S(20), phh = phH + textH + S(26);
+    const rects = [{x: W - pw - M, y: M}, {x: M, y: M}, {x: W - pw - M, y: H - phh - S(40)}, {x: M, y: H - phh - S(40)}];
+    const r = rects[P.corner] || rects[0];
+    pnl = {x: r.x, y: r.y, w: pw, h: phh, PW, phH, ph: phOk ? ph.img : null, text: P.ph_text, lines};
+    placed.push(pnl);
+  }
+
+  // traces, avions, étiquettes
+  const WHITE_K = {model: 1, registration: 1, callsign: 1};
+  for (const {a, x, y} of vis) {
+    const hl = !!SC.panel && a.id === SC.panel.key;
+    if (a.tr.length > 1) {
+      ctx.beginPath(); a.tr.forEach((p, i) => { const q = toXY(p[0], p[1]); if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); }); ctx.lineTo(x, y);
+      ctx.lineWidth = lw; ctx.strokeStyle = hl ? C.col.trail_panel : '#5a82aa'; ctx.stroke();
+    }
+    const pc = hl ? C.col.panel : a.col, t = a.hd * Math.PI / 180, cs = Math.cos(t), sn = Math.sin(t);
+    ctx.beginPath();
+    (C.shapes[a.cat] || C.shapes.narrow).forEach(([px, py], i) => { const X = x + (px * cs - py * sn) * C.icon, Y = y + (px * sn + py * cs) * C.icon; if (i) ctx.lineTo(X, Y); else ctx.moveTo(X, Y); });
+    ctx.closePath(); ctx.fillStyle = pc; ctx.fill();
+    if (a.cat === 'heli') circle(Math.trunc(x), Math.trunc(y), Math.max(S(6), Math.trunc(9 * C.icon)), pc, 1);
+    if (a.mlat) { const fm = F(Math.max(10, S(15)), true); text(fm, pc, 'M', x - S(12) - textW(fm, 'M'), y - S(12) - fontH(fm)); }
+    if (!a.lbl.length) continue;
+    // étiquette : première position libre parmi 4 (droite haut, droite bas, gauche haut, gauche bas)
+    const rows = a.lbl.map(line => {
+      const parts = []; let prev = null;
+      for (const [txt, k] of line) {
+        const fnt = F(SZ[C.lbl[k].size], C.lbl[k].bold, C.lbl[k].italic);
+        if (prev) parts.push({txt: '  ·  ', font: prev, col: GREY});
+        parts.push({txt, font: fnt, col: WHITE_K[k] ? WHITE : GREY}); prev = fnt;
+      }
+      parts.forEach(p => { p.w = textW(p.font, p.txt); p.h = fontH(p.font); });
+      return {parts, h: Math.max(...parts.map(p => p.h)), w: parts.reduce((s, p) => s + p.w, 0)};
+    });
+    const w = Math.max(...rows.map(r => r.w)) + S(14), h = rows.reduce((s, r) => s + r.h, 0) + S(10);
+    const dx = S(22), up = S(6), dn = S(10);
+    const cands = [[x + dx, y - h - up], [x + dx, y + dn], [x - w - dx, y - h - up], [x - w - dx, y + dn]];
+    let pos = cands[0];
+    for (const c of cands) { const r = {x: c[0], y: c[1], w, h}; if (!placed.some(q => inter(r, q)) && r.x >= 0 && r.y >= 0 && r.x + w <= W && r.y + h <= H) { pos = c; break; } }
+    placed.push({x: pos[0], y: pos[1], w, h});
+    ctx.fillStyle = hl ? 'rgba(70,14,14,0.745)' : 'rgba(10,14,20,0.667)'; ctx.fillRect(pos[0], pos[1], w, h);
+    let yy = pos[1] + S(5);
+    for (const r of rows) { let xx = pos[0] + S(7); for (const p of r.parts) { text(p.font, p.col, p.txt, xx, yy + r.h - p.h); xx += p.w; } yy += r.h; }
+  }
+
+  if (pnl) {  // panneau photo
+    ctx.fillStyle = 'rgba(10,14,20,0.843)'; ctx.fillRect(pnl.x, pnl.y, pnl.w, pnl.h);
+    ctx.lineWidth = lw; ctx.strokeStyle = RED; ctx.strokeRect(pnl.x + lw / 2, pnl.y + lw / 2, pnl.w - lw, pnl.h - lw);
+    const px = pnl.x + S(10), py = pnl.y + S(10);
+    if (pnl.ph) ctx.drawImage(pnl.ph, px, py, pnl.PW, pnl.phH);
+    else { ctx.fillStyle = '#1c222a'; ctx.fillRect(px, py, pnl.PW, pnl.phH); ctx.textAlign = 'center'; text(fMid, '#8c96a0', pnl.text, px + pnl.PW / 2, py + pnl.phH / 2 - fontH(fMid) / 2); ctx.textAlign = 'left'; }
+    let ty = py + pnl.phH + S(6);
+    for (const {l, lh} of pnl.lines) { let x = px; for (const p of l) { text(p.font, p.col, p.txt, x, ty + lh - fontH(p.font)); x += textW(p.font, p.txt); } ty += lh + 2; }
+  }
+  if (gnd) {  // avions au sol
+    ctx.fillStyle = 'rgba(10,14,20,0.784)'; ctx.fillRect(gnd.x, gnd.y, gnd.w, gnd.h);
+    ctx.lineWidth = 1; ctx.strokeStyle = '#3c4655'; ctx.strokeRect(gnd.x + 0.5, gnd.y + 0.5, gnd.w - 1, gnd.h - 1);
+    text(fSmall, '#8c96a0', C.ground_title.replace('{0}', gnd.g.total), gnd.x + S(10), gnd.y + S(6));
+    let y = gnd.y + gnd.th + S(12);
+    for (const [cs, airline, model, where] of gnd.g.rows) {
+      text(fMid, WHITE, cs.slice(0, 9), gnd.x + S(10), y); text(fMid, '#dce1e6', airline.slice(0, 18), gnd.x + S(125), y);
+      text(fSmall, '#aab4be', model.slice(0, 20), gnd.x + S(345), y + S(3)); text(fMid, '#ffd278', where.slice(0, 20), gnd.x + S(520), y); y += gnd.rh;
+    }
+  }
+  // barre d'état : icône son coupé, message, crédits
+  let tx = S(12);
+  if (SC.muted) {
+    const k = S(24) / 26, X = S(12), Y = H - S(30), c = '#cdd2da';
+    ctx.fillStyle = c; ctx.beginPath(); [[3, 10], [8, 10], [15, 4], [15, 22], [8, 16], [3, 16]].forEach(([u, v], i) => { if (i) ctx.lineTo(X + u * k, Y + v * k); else ctx.moveTo(X + u * k, Y + v * k); }); ctx.fill();
+    ctx.strokeStyle = c; ctx.lineWidth = Math.max(1, Math.trunc(2 * k)); ctx.beginPath(); ctx.moveTo(X + 18 * k, Y + 9 * k); ctx.lineTo(X + 20.5 * k, Y + 13 * k); ctx.lineTo(X + 18 * k, Y + 17 * k); ctx.stroke();
+    ctx.lineCap = 'round'; ctx.strokeStyle = '#0a0e14'; ctx.lineWidth = Math.max(3, Math.trunc(5 * k)); ctx.beginPath(); ctx.moveTo(X + 4 * k, Y + 3 * k); ctx.lineTo(X + 23 * k, Y + 23 * k); ctx.stroke();
+    ctx.strokeStyle = RED; ctx.lineWidth = Math.max(2, Math.trunc(3 * k)); ctx.stroke(); ctx.lineCap = 'butt';
+    tx += S(32);
+  }
+  const cw = textW(fSmall, C.credits), cx = W - cw - S(12), room = Math.max(0, Math.min(textW(fSmall, SC.msg), cx - tx - S(16)));
+  ctx.save(); ctx.beginPath(); ctx.rect(tx, 0, room, H); ctx.clip(); text(fSmall, '#6e7882', SC.msg, tx, H - S(24)); ctx.restore();
+  text(fSmall, '#8c96a0', C.credits, cx, H - S(24));
+}
+
+function frame(t) {
+  requestAnimationFrame(frame);
+  if (t - lastDraw < 45) return;  // ~20 images par seconde au plus
+  const dt = Math.min(0.25, (t - lastT) / 1000); lastT = t; lastDraw = t;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#0a0e14'; ctx.fillRect(0, 0, cv.width, cv.height);
+  if (!SC) return;
+  const C = SC.cfg, k = Math.min(cv.width / C.w, cv.height / C.h);  // la vue entière s'adapte à la fenêtre
+  ctx.setTransform(k, 0, 0, k, (cv.width - C.w * k) / 2, (cv.height - C.h * k) / 2);
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, C.w, C.h); ctx.clip();
+  try { draw(C, SC.t + (performance.now() - recv) / 1000, dt); } catch (e) { console.error(e); }
+  ctx.restore();
+}
+poll(); requestAnimationFrame(frame);
+</script></body></html>

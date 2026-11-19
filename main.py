@@ -171,6 +171,86 @@ def live_pack(pairs, zone=()):
     return {str(k): [s.get("callsign", ""), int(s.get("alt") or 0), int(s.get("speed") or 0), bool(s.get("ground")), s.get("code", ""), s.get("reg", ""), k in zone] for k, s in pairs}
 
 
+# Ecran web (webadmin, autre port) : le navigateur redessine la carte en HTML5 a partir de ces donnees (webscreen.html). Le Pi n'envoie
+# qu'un petit fichier JSON par seconde, et seulement si l'ecran web est active ET qu'un navigateur le demande (webadmin touche SCENE_REQ).
+SCENE_FILE = "/dev/shm/flightdisplay-scene.json" if os.path.isdir("/dev/shm") else os.path.join(CACHE, "scene.json")
+SCENE_REQ = SCENE_FILE[:-5] + ".req"
+SCENE_EVERY = 1.0
+_sc = {"t": 0.0, "cfg": None}
+
+
+def scene_wanted(now):
+    if not rt["webscreen"] or now - _sc["t"] < SCENE_EVERY:
+        return False
+    try:
+        return now - os.stat(SCENE_REQ).st_mtime < 6
+    except OSError:
+        return False
+
+
+def _hexc(c):
+    return "#%02x%02x%02x" % tuple(int(v) for v in c)
+
+
+def scene_cfg():
+    """Reglages d'affichage utiles au navigateur (calcules une fois)."""
+    if _sc["cfg"] is None:
+        try:
+            bg_v = int(os.path.getmtime("background.png"))
+        except OSError:
+            bg_v = 0
+        _sc["cfg"] = dict(
+            w=W, h=H, mpp=MPP, lat=LAT, lon=LON, cosl=COSL, ui=UI, icon=ICON, fps=FPS, stale=STALE, bg_v=bg_v,
+            shapes={k: [[round(x, 3), round(y, 3)] for x, y in v] for k, v in SHAPES.items()},
+            rings=dict(n=RING_N, first=RING_FIRST, step=RING_STEP, radius=RADIUS_M, col=_hexc(RING_COL), txt=_hexc(RING_TXT), w=RING_W, labels=RING_LABELS),
+            alert=dict(on=ALERT_ON, km=ALERT_KM, pulse=ALERT_PULSE, a_min=ALERT_A_MIN, a_max=ALERT_A_MAX),
+            col=dict(panel=_hexc(PLANE_PANEL), trail_panel=_hexc(TRAIL_PANEL)),
+            lbl={k: dict(bold=v["bold"], italic=v["italic"], size=v["size"]) for k, v in LBL.items()},
+            pnl={k: dict(bold=v["bold"], italic=v["italic"], size=v["size"]) for k, v in PNL.items()},
+            panel_w=PANEL_W, ground_w=G_W, credits=CREDITS, ground_title=tr("AU SOL ({0})", "{0}"))
+    return _sc["cfg"]
+
+
+def photo_ref(p):
+    """Photo d'un avion pour le navigateur : « c/<fichier> » (cache) ou « p/<fichier> » (photo personnelle), servie par webadmin."""
+    if not p:
+        return ""
+    n = os.path.basename(p)
+    return ("p/" if PERSO_DIR in p.replace("\\", "/").split("/") else "c/") + n
+
+
+def scene_publish(now, vis, gnd, zone_ids, cur_key, corner, dist_of, msg, alert_visible):
+    """Scene courante pour l'ecran web : avions affiches (position, trace, etiquette, couleur), panneau photo, avions au sol, barre d'etat."""
+    air = []
+    for k, s, d, x, y in vis:
+        reg = s.get("reg")
+        man = s.get("cat")
+        cat = man if man in SHAPES else ("ulm" if is_ulm(reg) else category(s["code"]))
+        if s.get("mil") and not man and cat not in ("ulm", "heli"):
+            cat = "mil"
+        air.append(dict(id=k, la=round(s["lat"], 5), lo=round(s["lon"], 5), sp=round(s["speed"]), hd=round(s["heading"]), ts=round(s["t"], 1), cat=cat,
+                        col=_hexc(plane_color(s)), mlat=1 if s.get("mlat") else 0, lbl=label_lines(s, d),
+                        tr=[[round(a, 4), round(b, 4)] for a, b in s["trail"]]))
+    panel = None
+    if cur_key:
+        for k, s, d, x, y in vis:
+            if k == cur_key:
+                alert = tr("ALERTE  \u00b7  à {0} km de la maison", f"{dist_of.get(cur_key, 0):.1f}") if cur_key in zone_ids else ""
+                panel = dict(key=k, corner=corner, lines=panel_lines(s, d), alert=alert, photo=photo_ref((d or {}).get("photo_path")),
+                             ph_text=tr("Photo indisponible") if d else tr("Chargement des détails..."))
+                break
+    ground = dict(total=len(gnd), rows=[ground_row(s, d) for _, s, d in gnd[:G_MAX]]) if (GROUND_ON and gnd) else None
+    scene = dict(t=round(now, 2), cfg=scene_cfg(), air=air, panel=panel, ground=ground, zone=sorted(zone_ids), alert=bool(alert_visible), muted=bool(rt["muted"]), msg=msg)
+    try:
+        tmp = SCENE_FILE + f".{os.getpid()}.tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(scene, fh, ensure_ascii=False, separators=(",", ":"))
+        os.replace(tmp, SCENE_FILE)
+        _sc["t"] = now
+    except OSError:
+        pass
+
+
 def fps_publish(fps, aircraft=0, ground=0, zone=0, paused=False, live=None):
     """Etat en direct lu par webadmin : images par seconde, avions en vol / au sol / dans la zone d'alerte."""
     try:
@@ -339,7 +419,7 @@ def history_flush():
         pass
 
 
-rt = {"muted": False, "volume": ALERT_VOL, "seq": 0, "mtime": 0, "checked": 0.0}
+rt = {"muted": False, "webscreen": False, "volume": ALERT_VOL, "seq": 0, "mtime": 0, "checked": 0.0}
 
 
 def rt_refresh(first=False):
@@ -358,6 +438,7 @@ def rt_refresh(first=False):
         with open(RUNTIME_FILE, encoding="utf-8") as fh:
             d = json.load(fh)
         rt["muted"] = bool(d.get("muted", False))
+        rt["webscreen"] = bool(d.get("webscreen", False))  # ecran web active dans webadmin
         v = d.get("volume")
         rt["volume"] = max(0.0, min(1.0, float(v))) if isinstance(v, (int, float)) else ALERT_VOL
         seq = int(d.get("test_seq", 0))
@@ -919,7 +1000,7 @@ def clean_cache(days=3):
             pass
 
 
-from aircraft_types import SHAPES, BUILTIN, read_extra, perso_find, is_ulm, norm_reg, read_manual, MANUAL_FILE, history_limit
+from aircraft_types import SHAPES, BUILTIN, PERSO_DIR, read_extra, perso_find, is_ulm, norm_reg, read_manual, MANUAL_FILE, history_limit
 CATEGORY = dict(BUILTIN)
 CATEGORY.update(read_extra("types_extra.txt"))
 _unknown = set()
@@ -1397,6 +1478,8 @@ def main():
         st = f_small.render(f"{msg}", True, (110, 120, 130))
         screen.blit(st, (tx, H - S(24)), area=pygame.Rect(0, 0, max(0, min(st.get_width(), cx - tx - S(16))), st.get_height()))
         screen.blit(cr, (cx, H - S(24)))
+        if scene_wanted(now):
+            scene_publish(now, vis, gnd, zone_ids, cur_key, corner, dist_of, msg, alert_visible)
         pygame.display.flip()
         fps_n += 1
         t_fps = time.time()
