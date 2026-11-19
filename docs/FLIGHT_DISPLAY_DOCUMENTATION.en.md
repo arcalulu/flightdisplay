@@ -815,6 +815,8 @@ Automatic protection: after a 429 error, the interval is multiplied by 1.5 (maxi
 | `altitude_unit` | ft | `ft`, `m` | Displayed altitude unit. |
 | `speed_unit` | kmh | `kmh`, `kt` | Displayed speed unit. |
 | `max_altitude_ft` | 0 | 0 to 100000 | Higher aircraft are neither tracked nor displayed (0 = no limit). Their number appears in the status line. Also applies to the alert. |
+| `show_trail` | true | true / false | Shows the trail (recent path) behind each aircraft on the Pi's screen. |
+| `[webscreen] show_trail` | true | true / false | Same choice for the "Web screen" page, independent of `show_trail`. |
 | `icon_scale` | 1.25 | 0.3 to 5 | Aircraft icon size. |
 | `plane_color_panel` | `#ff4646` | `#rrggbb` | Color of the aircraft whose photo is shown in the panel (its trail takes a matching shade). |
 | `plane_color_known` | `#ffd250` | `#rrggbb` | Color of the other aircraft, whose type is known. |

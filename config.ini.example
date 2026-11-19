@@ -81,6 +81,8 @@ fps = 10
 altitude_unit = ft
 speed_unit = kmh
 max_altitude_ft = 0
+; show_trail : false masque la trace des avions sur l'ecran (pour l'ecran web : [webscreen] show_trail)
+show_trail = true
 icon_scale = 1.25
 ; Couleurs des avions (#rrggbb) : avion du panneau photo, autres avions, avions de type inconnu
 plane_color_panel = #ff4646

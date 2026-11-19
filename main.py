@@ -123,6 +123,8 @@ CREDITS = "\u00a9 OpenStreetMap contributors  \u00b7  \u00a9 CARTO  \u00b7  Flig
 ROTATE = cfg.getfloat("panel", "rotate_seconds", fallback=12)
 PANEL_SHOW = cfg.getboolean("panel", "show", fallback=True)  # panneau photo affiche sur l'ecran du Pi
 WEB_PANEL = cfg.getboolean("webscreen", "show_panel", fallback=True)  # ... et sur l'ecran web
+SHOW_TRAIL = cfg.getboolean("display", "show_trail", fallback=True)  # trace derriere chaque avion, sur l'ecran du Pi
+WEB_TRAIL = cfg.getboolean("webscreen", "show_trail", fallback=True)  # ... et sur l'ecran web
 # Contenu du panneau photo (section [panel_content]) : ordre, visibilite, taille, gras, italique, meme ligne
 PANEL_FIELDS = ("model", "registration", "callsign", "airline", "route", "altitude", "speed", "credit")
 _PNL_DEF = {"model": (True, "large", True, False), "registration": (True, "large", True, True), "callsign": (False, "large", True, True),
@@ -243,7 +245,7 @@ def scene_publish(now, vis, gnd, zone_ids, cur_key, corner, dist_of, msg, alert_
             cat = "mil"
         air.append(dict(id=k, la=round(s["lat"], 5), lo=round(s["lon"], 5), sp=round(s["speed"]), hd=round(s["heading"]), ts=round(s["t"], 1), cat=cat,
                         col=_hexc(plane_color(s)), mlat=1 if s.get("mlat") else 0, lbl=label_lines(s, d),
-                        tr=[[round(a, 4), round(b, 4)] for a, b in s["trail"]]))
+                        tr=[[round(a, 4), round(b, 4)] for a, b in s["trail"]] if WEB_TRAIL else []))
     panel = None
     if cur_key and WEB_PANEL:
         for k, s, d, x, y in vis:
@@ -1486,7 +1488,7 @@ def main():
 
         for k, s, d, x, y in vis:
             hl = panel is not None and k == cur_key
-            if len(s["trail"]) > 1:
+            if SHOW_TRAIL and len(s["trail"]) > 1:
                 pts = [to_xy(*p) for p in s["trail"]] + [(x, y)]
                 pygame.draw.lines(screen, TRAIL_PANEL if hl else (90, 130, 170), False, pts, lw)
             pc = PLANE_PANEL if hl else plane_color(s)

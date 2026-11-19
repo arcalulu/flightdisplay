@@ -815,6 +815,8 @@ Protection automatique : après une erreur 429, l'intervalle est multiplié par 
 | `altitude_unit` | ft | `ft`, `m` | Unité d'altitude affichée. |
 | `speed_unit` | kmh | `kmh`, `kt` | Unité de vitesse affichée. |
 | `max_altitude_ft` | 0 | 0 à 100000 | Les avions plus hauts ne sont ni suivis ni affichés (0 = pas de limite). Leur nombre apparaît dans la ligne d'état. S'applique aussi à l'alerte. |
+| `show_trail` | true | true / false | Affiche la trace (chemin récent) derrière chaque avion sur l'écran du Pi. |
+| `[webscreen] show_trail` | true | true / false | Même choix pour la page « Écran web », indépendant de `show_trail`. |
 | `icon_scale` | 1.25 | 0.3 à 5 | Taille des icônes d'avion. |
 | `plane_color_panel` | `#ff4646` | `#rrggbb` | Couleur de l'avion dont la photo est affichée dans le panneau (sa traînée prend une teinte assortie). |
 | `plane_color_known` | `#ffd250` | `#rrggbb` | Couleur des autres avions, dont le type est connu. |

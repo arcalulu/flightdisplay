@@ -293,6 +293,8 @@ PARAMS = [
     C("display", "display", "speed_unit", "choice", "kmh", "Unité de vitesse", "", "Unités", options=["kmh", "kt"]),
     C("display", "display", "max_altitude_ft", "int", 0, "Altitude maximale suivie (ft)", "0 = pas de limite. Les avions plus hauts sont ignorés.", "Filtre et icônes", min=0, max=100000),
     C("display", "display", "icon_scale", "float", 1.25, "Taille des icônes", "", "Filtre et icônes", min=0.3, max=5),
+    C("display", "display", "show_trail", "bool", True, "Afficher la trace des avions sur l'écran", "Trait qui suit le chemin récent de chaque avion. Décochez pour ne le tracer nulle part sur l'écran du Pi.", "Traces"),
+    C("display", "webscreen", "show_trail", "bool", True, "Afficher la trace des avions sur l'écran web", "Même choix pour la page « Écran web », indépendant de l'écran du Pi.", "Traces"),
     C("display", "display", "plane_color_panel", "color", "#ff4646", "Avion affiché dans le panneau", "L'avion dont la photo est montrée dans le panneau.", "Couleurs des avions"),
     C("display", "display", "plane_color_known", "color", "#ffd250", "Autres avions", "Avions dont le type d'avion est connu.", "Couleurs des avions"),
     C("display", "display", "plane_color_unknown", "color", "#ffaa5a", "Avions de type inconnu", "Types absents de la liste (voir Types d'avion).", "Couleurs des avions"),
