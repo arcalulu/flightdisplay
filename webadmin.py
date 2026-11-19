@@ -4614,6 +4614,7 @@ async function loadLogs(force) {
   try { const r = await api('/api/logs?lines=' + $('#logN').value); logText = r.text; renderLogs(); } catch (e) { if (force) toast(e.message, true); }
 }
 async function startBuild() {
+  if (Object.keys(edits).length) { toast(tl("Enregistrez d'abord les modifications (barre en bas de la page) : la carte est construite avec les réglages enregistrés."), true); return; }
   if (!confirm('Lancer la reconstruction de la carte ?')) return;
   try { await api('/api/build', {stop_display: $('#stopDisp').checked}); $('#mapHint').style.display = 'none'; pollBuild(); } catch (e) { toast(e.message, true); }
 }
