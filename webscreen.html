@@ -4,14 +4,39 @@
 <style>
 html,body{margin:0;height:100%;background:#0a0e14;overflow:hidden}
 canvas{display:block;width:100vw;height:100vh}
+#s{position:fixed;right:14px;bottom:34px;background:#1c2530;color:#cfe0f5;border:1px solid #3c4655;border-radius:4px;padding:8px 12px;font:14px system-ui,sans-serif;cursor:pointer;display:none}
+#s:hover{background:#26323f}
 #m{position:fixed;left:0;right:0;top:45%;text-align:center;color:#8a9db6;font:16px system-ui,sans-serif;display:none;padding:0 20px}
 </style></head>
-<body><canvas id="c"></canvas><div id="m">__MSG__</div>
+<body><canvas id="c"></canvas><div id="m">__MSG__</div><button id="s">&#128266; __SND__</button>
 <script>
 // Ecran web : la même vue que l'écran du Pi, redessinée ici en HTML5 (canvas) à partir de /scene.json (un petit fichier par seconde).
 // Le dessin suit celui du programme d'affichage (main.py) et s'adapte à la taille de la fenêtre : tout est redimensionné, nettement.
 const cv = document.getElementById('c'), ctx = cv.getContext('2d'), msgBox = document.getElementById('m');
 let SC = null, recv = 0, bg = null, bgV = -1, smooth = {}, lastT = performance.now(), lastDraw = 0, photos = {}, PF = {key: '', last: null, prev: null, t0: 0}, lblSide = {}, lblCache = {};
+
+// Son des alertes : le même carillon que le Pi (3 notes), joué par le navigateur quand le programme d'affichage le déclenche.
+// Les navigateurs exigent un clic avant de jouer un son : le bouton active l'audio.
+let AC = null, chimeN = null;
+const sBtn = document.getElementById('s');
+sBtn.onclick = () => { try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); AC.resume(); sBtn.style.display = 'none'; chime(0.3); } catch (e) {} };
+function chime(vol) {
+  if (!AC) return;
+  let t = AC.currentTime + 0.02;
+  for (const [f, d] of [[659, 0.2], [880, 0.2], [1175, 0.5]]) {
+    for (const [mul, amp] of [[1, 1], [2, 0.3]]) {
+      const o = AC.createOscillator(), g = AC.createGain(); o.frequency.value = f * mul;
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.38 * amp * vol, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + d + 0.02);
+    }
+    t += d;
+  }
+}
+function onChime(c) {
+  sBtn.style.display = (c.on && !AC) ? 'block' : 'none';
+  if (chimeN !== null && c.n !== chimeN && c.on && AC && !(SC && SC.muted)) chime(c.vol);
+  chimeN = c.n;
+}
 
 function fit() { const d = window.devicePixelRatio || 1; cv.width = Math.round(innerWidth * d); cv.height = Math.round(innerHeight * d); }
 addEventListener('resize', fit); fit();
@@ -21,7 +46,7 @@ async function poll() {
   try {
     const r = await fetch('/scene.json?' + Date.now(), {cache: 'no-store'});
     if (r.status === 200) {
-      SC = await r.json(); recv = performance.now();
+      SC = await r.json(); recv = performance.now(); if (SC.chime) onChime(SC.chime);
       if (SC.cfg.bg_v !== bgV) { bgV = SC.cfg.bg_v; bg = new Image(); bg.src = (SC.cfg.bg_url || '/bg.png') + '?v=' + bgV; }
       msgBox.style.display = 'none';
     } else { SC = null; msgBox.style.display = 'block'; }

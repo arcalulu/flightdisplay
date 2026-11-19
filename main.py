@@ -250,7 +250,7 @@ def scene_publish(now, vis, gnd, zone_ids, cur_key, corner, dist_of, msg, alert_
                              ph_text=tr("Photo indisponible") if d else tr("Chargement des détails..."))
                 break
     ground = dict(total=len(gnd), rows=[ground_row(s, d) for _, s, d in gnd[:G_MAX]]) if (GROUND_ON and gnd) else None
-    scene = dict(t=round(now, 2), cfg=scene_cfg(), air=air, panel=panel, ground=ground, zone=sorted(zone_ids), alert=bool(alert_visible), muted=bool(rt["muted"]), msg=msg)
+    scene = dict(t=round(now, 2), cfg=scene_cfg(), air=air, panel=panel, ground=ground, zone=sorted(zone_ids), alert=bool(alert_visible), muted=bool(rt["muted"]), chime=dict(n=CHIME_SEQ[0], vol=round(rt["volume"], 2), on=bool(ALERT_SOUND)), msg=msg)
     try:
         tmp = SCENE_FILE + f".{os.getpid()}.tmp"
         with open(tmp, "w", encoding="utf-8") as fh:
@@ -507,10 +507,14 @@ def make_chime(rate=22050):
 
 CHIME = make_chime() if ALERT_SOUND else b""
 _snd_busy = [False]
+CHIME_SEQ = [0]  # compte les sons d'alerte : l'ecran web (navigateur) joue le meme son quand ce compteur change
 
 
 def play_alert():
-    if not ALERT_SOUND or rt["muted"] or _snd_busy[0]:
+    if not ALERT_SOUND or rt["muted"]:
+        return
+    CHIME_SEQ[0] += 1
+    if _snd_busy[0]:
         return
     _snd_busy[0] = True
 

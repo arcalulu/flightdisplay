@@ -4699,7 +4699,7 @@ class ScreenHandler(BaseHTTPRequestHandler):
                         _scr_page.update(m=m, d=fh.read())
             except OSError:
                 return self.reply(404)
-            data = _scr_page["d"].replace(b"__LANG__", S.LANG.encode()).replace(b"__MSG__", tr("Pas d'image : le programme d'affichage est arrêté ou l'écran est en veille.").encode("utf-8"))
+            data = _scr_page["d"].replace(b"__SND__", tr("Activer le son des alertes").encode("utf-8")).replace(b"__LANG__", S.LANG.encode()).replace(b"__MSG__", tr("Pas d'image : le programme d'affichage est arrêté ou l'écran est en veille.").encode("utf-8"))
             self.reply(200, data, "text/html; charset=utf-8")
         elif path == "/scene.json":
             try:

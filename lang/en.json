@@ -978,6 +978,7 @@
   "0 : la même taille que la carte de l'écran. Les deux ratios peuvent être différents. Demande de reconstruire la carte.": "0: same size as the screen map. The two ratios can differ. Requires rebuilding the map.",
   "Taille de la carte de l'écran web": "Web screen map size",
   "Résolution de la carte affichée par l'écran web (page « Écran web » de Pilotage). Elle peut avoir une taille et un ratio différents de ceux de l'écran du Pi : la zone couverte reste le rayon de la carte, mesuré sur la hauteur. 0 : la même que l'écran.": "Resolution of the map shown by the web screen (\"Web screen\" page in Control). It can have a different size and ratio from the Pi's screen: the covered area stays the map radius, measured on the height. 0: same as the screen.",
+  "Activer le son des alertes": "Turn on alert sound",
   "Aucun résultat": "No result",
   "La carte n'a pas pu être chargée (accès à internet nécessaire depuis ce navigateur). Vous pouvez toujours saisir les valeurs dans les champs ci-dessous.": "The map could not be loaded (this browser needs internet access). You can still type the values in the fields below.",
   "pygame (LGPL), requests (Apache 2.0), Pillow (MIT-CMU), paho-mqtt (EPL 2.0 ou BSD 3-Clause), polices DejaVu. Dans webadmin : Leaflet (BSD 2-Clause), pour la carte de choix de la position.": "pygame (LGPL), requests (Apache 2.0), Pillow (MIT-CMU), paho-mqtt (EPL 2.0 or BSD 3-Clause), DejaVu fonts. In webadmin: Leaflet (BSD 2-Clause), for the position picker map.",
