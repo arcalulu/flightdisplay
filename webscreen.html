@@ -13,7 +13,7 @@ canvas{display:block;width:100vw;height:100vh}
 // Ecran web : la même vue que l'écran du Pi, redessinée ici en HTML5 (canvas) à partir de /scene.json (un petit fichier par seconde).
 // Le dessin suit celui du programme d'affichage (main.py) et s'adapte à la taille de la fenêtre : tout est redimensionné, nettement.
 const cv = document.getElementById('c'), ctx = cv.getContext('2d'), msgBox = document.getElementById('m');
-let SC = null, recv = 0, bg = null, bgV = -1, smooth = {}, lastT = performance.now(), lastDraw = 0, photos = {}, PF = {key: '', last: null, prev: null, t0: 0}, lblSide = {}, lblCache = {};
+let SC = null, recv = 0, bg = null, bgV = -1, smooth = {}, lastT = performance.now(), lastDraw = 0, photos = {}, PF = {key: '', last: null, prev: null, had: false, t0: 0}, lblSide = {}, lblCache = {};
 
 // Son des alertes : le même carillon que le Pi (3 notes), joué par le navigateur quand le programme d'affichage le déclenche.
 // Les navigateurs exigent un clic avant de jouer un son : le bouton active l'audio.
@@ -225,12 +225,12 @@ function draw(C, now, dt) {
   };
   {  // fondu entre deux panneaux (autre avion, autre photo, apparition, disparition)
     const key = pnl ? SC.panel.key + '|' + SC.panel.photo + '|' + (pnl.ph ? 1 : 0) : '', tn = performance.now();
-    if (key !== PF.key) { PF.prev = PF.last; PF.t0 = tn; PF.key = key; }
+    if (key !== PF.key) { PF.prev = PF.last; PF.had = !!PF.last; PF.t0 = tn; PF.key = key; }
     PF.last = pnl;
-    const a = Math.min(1, (tn - PF.t0) / 450), e = a * a * (3 - 2 * a);
-    if (PF.prev && a < 1) drawPanel(PF.prev, pnl ? 1 : 1 - e);
-    else PF.prev = null;
-    if (pnl) drawPanel(pnl, PF.prev ? e : 1);
+    const sm = v => { v = Math.max(0, Math.min(1, v)); return v * v * (3 - 2 * v); }, el = (tn - PF.t0) / 500;  // 0,5 s pour disparaître, puis 0,5 s pour réapparaître
+    if (PF.prev) { if (el < 1) drawPanel(PF.prev, 1 - sm(el)); else PF.prev = null; }
+    const an = sm(PF.had ? el - 1 : el);
+    if (pnl && an > 0) drawPanel(pnl, an);
   }
   if (gnd) {  // avions au sol
     ctx.fillStyle = 'rgba(10,14,20,0.784)'; ctx.fillRect(gnd.x, gnd.y, gnd.w, gnd.h);

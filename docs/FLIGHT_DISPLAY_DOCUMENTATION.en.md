@@ -866,7 +866,8 @@ Items: `model` (model; before the details are loaded: type code), `registration`
 | `<item>_bold` | false | Bold. |
 | `<item>_italic` | false | Italic (synthetic: the Pi's font has no italic variant). |
 | `<item>_same_line` | registration, callsign, speed: true; the others: false | On the same line as the previous visible item. |
-| `scale` | `100` | Size of all the labels, as a % of the size chosen for each item (20 to 200). In webadmin: "Size" tab, "Label size" slider. Followed by the web screen too. |
+| `scale` | `100` | Size of all the labels, as a % of the size chosen for each item (20 to 200). In webadmin: "Size" tab, "Label size" slider. For the Pi's screen. |
+| `[webscreen] label_scale` | `100` | Same setting (20 to 200) for the "Web screen" page, independent of `scale`. "Size" tab, "Label size on the web screen" slider. |
 
 ### 8.8 `[ground]` — category "Aircraft on the ground"
 

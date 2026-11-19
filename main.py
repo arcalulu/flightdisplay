@@ -217,7 +217,7 @@ def scene_cfg():
             col=dict(panel=_hexc(PLANE_PANEL), trail_panel=_hexc(TRAIL_PANEL)),
             lbl={k: dict(bold=v["bold"], italic=v["italic"], size=v["size"]) for k, v in LBL.items()},
             pnl={k: dict(bold=v["bold"], italic=v["italic"], size=v["size"]) for k, v in PNL.items()},
-            lbl_scale=LBL_SCALE, panel_w=sw(cfg.getint("panel", "width", fallback=480)), ground_w=sw(cfg.getint("ground", "width", fallback=780)), credits=CREDITS, ground_title=tr("AU SOL ({0})", "{0}"))
+            lbl_scale=max(0.2, min(2.0, cfg.getint("webscreen", "label_scale", fallback=100) / 100.0)), panel_w=sw(cfg.getint("panel", "width", fallback=480)), ground_w=sw(cfg.getint("ground", "width", fallback=780)), credits=CREDITS, ground_title=tr("AU SOL ({0})", "{0}"))
     return _sc["cfg"]
 
 

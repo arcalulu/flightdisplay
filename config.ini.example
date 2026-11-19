@@ -228,3 +228,9 @@ base_topic = flightdisplay
 discovery_prefix = homeassistant
 device_name = Flight display
 interval = 30
+
+; Ecran web : resolution propre de la carte (0 = comme l ecran) et taille des etiquettes en %
+[webscreen]
+width = 0
+height = 0
+label_scale = 100
