@@ -58,8 +58,9 @@ function getPhoto(ref) {
   let p = photos[ref];
   if (!p) {
     if (Object.keys(photos).length > 20) photos = {};
-    p = photos[ref] = {img: new Image(), ok: false};
+    p = photos[ref] = {img: new Image(), ok: false, err: false, t0: performance.now()};
     p.img.onload = () => { p.ok = true; };
+    p.img.onerror = () => { p.err = true; };
     p.img.src = '/photo/' + ref;
   }
   return p;
@@ -158,8 +159,10 @@ function draw(C, now, dt) {
     const textH = lines.reduce((s, x) => s + x.lh + 2, 0), M = S(30), pw = PW + S(20), phh = phH + textH + S(26);
     const rects = [{x: W - pw - M, y: M}, {x: M, y: M}, {x: W - pw - M, y: H - phh - S(40)}, {x: M, y: H - phh - S(40)}];
     const r = rects[P.corner] || rects[0];
-    pnl = {x: r.x, y: r.y, w: pw, h: phh, PW, phH, ph: phOk ? ph.img : null, text: P.ph_text, lines};
-    placed.push(pnl);
+    pnl = {x: r.x, y: r.y, w: pw, h: phh, PW, phH, ph: phOk ? ph.img : null, text: P.ph_text, lines, k: P.key + '|' + P.photo};
+    // photo en cours de chargement : on garde l'ancien panneau (ou rien) au lieu d'afficher « photo indisponible » une fraction de seconde
+    if (ph && !phOk && !ph.err && performance.now() - ph.t0 < 4000) pnl = PF.last && PF.last.k !== undefined && SC.panel ? PF.last : null;
+    if (pnl) placed.push(pnl);
   }
 
   // traces, avions, étiquettes
@@ -224,7 +227,7 @@ function draw(C, now, dt) {
     ctx.restore();
   };
   {  // fondu entre deux panneaux (autre avion, autre photo, apparition, disparition)
-    const key = pnl ? SC.panel.key + '|' + SC.panel.photo + '|' + (pnl.ph ? 1 : 0) : '', tn = performance.now();
+    const key = pnl ? pnl.k : '', tn = performance.now();
     if (key !== PF.key) { PF.prev = PF.last; PF.had = !!PF.last; PF.t0 = tn; PF.key = key; }
     PF.last = pnl;
     const sm = v => { v = Math.max(0, Math.min(1, v)); return v * v * (3 - 2 * v); }, el = (tn - PF.t0) / 500;  // 0,5 s pour disparaître, puis 0,5 s pour réapparaître
