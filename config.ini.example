@@ -116,6 +116,8 @@ route_same_line = true
 [label]
 ; Étiquettes à côté des avions : ordre, affichage (show_*), taille (small, medium, large), gras, italique, même ligne
 ; Réglage conseillé depuis webadmin (Réglages, Étiquettes des avions). Seules les valeurs modifiées sont utiles.
+; scale : taille des étiquettes en % (curseur de webadmin), 100 = inchangé
+scale = 100
 show_registration = true
 order = model,callsign,registration,airline,route,altitude,speed
 registration_same_line = true

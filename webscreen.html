@@ -153,7 +153,7 @@ function draw(C, now, dt) {
     const rows = a.lbl.map(line => {
       const parts = []; let prev = null;
       for (const [txt, k] of line) {
-        const fnt = F(SZ[C.lbl[k].size], C.lbl[k].bold, C.lbl[k].italic);
+        const fnt = F(Math.max(8, Math.round(SZ[C.lbl[k].size] * C.lbl_scale)), C.lbl[k].bold, C.lbl[k].italic);
         if (prev) parts.push({txt: '  ·  ', font: prev, col: GREY});
         parts.push({txt, font: fnt, col: WHITE_K[k] ? WHITE : GREY}); prev = fnt;
       }

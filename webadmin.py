@@ -299,6 +299,7 @@ PARAMS = [
     C("position", "display", "width", "int", 1920, "Largeur de la carte (px)", "Taille de l'image de fond. Demande de reconstruire la carte.", "Taille de la carte", min=320, max=7680, needs_map=True),
     C("position", "display", "height", "int", 1080, "Hauteur de la carte (px)", "Taille de l'image de fond. Demande de reconstruire la carte.", "Taille de la carte", min=240, max=4320, needs_map=True),
     *LABEL_PARAMS,
+    C("label", "label", "scale", "int", 100, "Taille des étiquettes", "Agrandit ou réduit toutes les étiquettes à côté des avions, en pourcentage de la taille choisie pour chaque élément (100 % = inchangé).", "Taille", min=50, max=250, ui="slider", step=5, unit="%"),
     *PANEL_PARAMS,
     C("panel", "panel", "width", "int", 480, "Largeur (px, base 1080p)", "", "Fiche photo", min=200, max=1200),
     C("panel", "panel", "rotate_seconds", "float", 12, "Rotation entre avions (s)", "", "Fiche photo", min=3, max=120),
@@ -3044,7 +3045,7 @@ function renderCatBase() {
     const extra = cat.groups.some(g => g.params.some(p => !p.editor));
     if (!extra) { if (cat.note) box.append(el('p', 'note', cat.note)); return renderFields(box, cat); }
     const tab = fieldTab[cat.id] || 'content', tabs = el('div', 'seg'); tabs.style.margin = '4px 0 12px';
-    for (const [v, t] of [['content', 'Contenu du texte'], ['size', 'Taille et angles']]) { const b = el('button', tab === v ? 'on' : '', t); b.onclick = () => { fieldTab[cat.id] = v; renderCat(); }; tabs.append(b); }
+    for (const [v, t] of [['content', 'Contenu du texte'], ['size', cat.id === 'label' ? 'Taille' : 'Taille et angles']]) { const b = el('button', tab === v ? 'on' : '', t); b.onclick = () => { fieldTab[cat.id] = v; renderCat(); }; tabs.append(b); }
     box.append(tabs);
     if (tab === 'content') { if (cat.editor.note) box.append(el('p', 'note', cat.editor.note)); return renderFields(box, cat); }
     renderGroups(box, cat); return;

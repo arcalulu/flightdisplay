@@ -865,6 +865,7 @@ Items: `model` (model; before the details are loaded: type code), `registration`
 | `<item>_bold` | false | Bold. |
 | `<item>_italic` | false | Italic (synthetic: the Pi's font has no italic variant). |
 | `<item>_same_line` | registration, callsign, speed: true; the others: false | On the same line as the previous visible item. |
+| `scale` | `100` | Size of all the labels, as a % of the size chosen for each item (50 to 250). In webadmin: "Size" tab, "Label size" slider. Followed by the web screen too. |
 
 ### 8.8 `[ground]` — category "Aircraft on the ground"
 
@@ -1170,7 +1171,7 @@ On a computer, a menu on the left lists the categories; on a phone, it becomes a
 | Program | Map and position | config.ini | Latitude, longitude, radius, map size (width and height), CARTO API key (hidden), then the "Map rebuild" section (see below). |
 | | Flightradar24 | config.ini | Request frequency, position validity. |
 | | Display | config.ini | Full screen, frames per second, units, altitude filter, icon size. |
-| | Aircraft labels | config.ini | Editor: preview, order, display, size, bold, italic, "same line" (8.7). |
+| | Aircraft labels | config.ini | Two tabs: "Text content" (editor: preview, order, display, size, bold, italic, "same line") and "Size" (slider for the size of all the labels) (8.7). |
 | | Photo panel | config.ini | Two tabs: "Text content" (editor with a fixed preview: order, display, size, bold, italic, "same line", photographer credit) and "Size and corners" (width, rotation, allowed corners). See 8.6. |
 | | Aircraft on the ground | config.ini | List, filters, landing. |
 | | Proximity alert | config.ini | Zone, sound and volume, red tint, altitude range, startup (sound at launch, simulation). |

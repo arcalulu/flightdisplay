@@ -865,6 +865,7 @@ Petits panneaux affichés à côté de chaque avion sur la carte (le grand panne
 | `<élément>_bold` | false | Gras. |
 | `<élément>_italic` | false | Italique (synthétique : la police du Pi n'a pas de variante italique). |
 | `<élément>_same_line` | registration, callsign, speed : true ; les autres : false | Sur la même ligne que l'élément visible précédent. |
+| `scale` | `100` | Taille de toutes les étiquettes, en % de la taille choisie pour chaque élément (50 à 250). Dans webadmin : onglet « Taille », curseur « Taille des étiquettes ». Suivi aussi par l'écran web. |
 
 ### 8.8 `[ground]` — catégorie « Avions au sol »
 
@@ -1170,7 +1171,7 @@ Sur ordinateur, un menu à gauche liste les catégories ; sur téléphone, il de
 | Programme | Carte et position | config.ini | Latitude, longitude, rayon, taille de la carte (largeur et hauteur), clé API CARTO (masquée), puis la section « Reconstruction de la carte » (voir plus bas). |
 | | Flightradar24 | config.ini | Fréquence des requêtes, validité des positions. |
 | | Affichage | config.ini | Plein écran, images par seconde, unités, filtre d'altitude, taille des icônes. |
-| | Étiquettes des avions | config.ini | Éditeur : aperçu, ordre, affichage, taille, gras, italique, « même ligne » (8.7). |
+| | Étiquettes des avions | config.ini | Deux onglets : « Contenu du texte » (éditeur : aperçu, ordre, affichage, taille, gras, italique, « même ligne ») et « Taille » (curseur de la taille de toutes les étiquettes) (8.7). |
 | | Panneau photo | config.ini | Deux onglets : « Contenu du texte » (éditeur avec aperçu fixe : ordre, affichage, taille, gras, italique, « même ligne », crédit du photographe) et « Taille et angles » (largeur, rotation, angles autorisés). Voir 8.6. |
 | | Avions au sol | config.ini | Liste, filtres, atterrissage. |
 | | Alerte de proximité | config.ini | Zone, son et volume, teinte rouge, plage d'altitude, démarrage (son au lancement, simulation). |
