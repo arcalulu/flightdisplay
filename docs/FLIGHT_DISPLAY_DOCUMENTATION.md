@@ -865,7 +865,7 @@ Petits panneaux affichés à côté de chaque avion sur la carte (le grand panne
 | `<élément>_bold` | false | Gras. |
 | `<élément>_italic` | false | Italique (synthétique : la police du Pi n'a pas de variante italique). |
 | `<élément>_same_line` | registration, callsign, speed : true ; les autres : false | Sur la même ligne que l'élément visible précédent. |
-| `scale` | `100` | Taille de toutes les étiquettes, en % de la taille choisie pour chaque élément (50 à 250). Dans webadmin : onglet « Taille », curseur « Taille des étiquettes ». Suivi aussi par l'écran web. |
+| `scale` | `100` | Taille de toutes les étiquettes, en % de la taille choisie pour chaque élément (20 à 200). Dans webadmin : onglet « Taille », curseur « Taille des étiquettes ». Suivi aussi par l'écran web. |
 
 ### 8.8 `[ground]` — catégorie « Avions au sol »
 

@@ -115,7 +115,7 @@ for _k, (_show, _size, _same) in _LBL_DEF.items():
                    same=cfg.getboolean("label", _k + "_same_line", fallback=_same))
 _ord = [x.strip() for x in cfg.get("label", "order", fallback="").split(",") if x.strip() in LABEL_FIELDS]
 LBL_ORDER = list(dict.fromkeys(_ord)) + [k for k in LABEL_FIELDS if k not in _ord]
-LBL_SCALE = max(0.5, min(2.5, cfg.getint("label", "scale", fallback=100) / 100.0))  # taille des etiquettes (curseur de webadmin, en %)
+LBL_SCALE = max(0.2, min(2.0, cfg.getint("label", "scale", fallback=100) / 100.0))  # taille des etiquettes (curseur de webadmin, en %)
 PANEL_W = S(cfg.getint("panel", "width", fallback=480))
 # Attributions exigees par les fournisseurs (OpenStreetMap : ODbL, CARTO : conditions du fond de carte) : ne pas retirer
 CREDITS = "\u00a9 OpenStreetMap contributors  \u00b7  \u00a9 CARTO  \u00b7  Flightradar24"
@@ -1152,7 +1152,7 @@ def main():
         c = LBL[k]
         key = (c["size"], c["bold"], c["italic"])
         if key not in font_cache:
-            f = mk(max(8, int(round(SIZES[c["size"]] * LBL_SCALE))), c["bold"])
+            f = mk(max(5, int(round(SIZES[c["size"]] * LBL_SCALE))), c["bold"])
             f.set_italic(c["italic"])
             font_cache[key] = f
         return font_cache[key]
