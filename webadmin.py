@@ -2453,6 +2453,8 @@ pre{margin:0;padding:10px;background:#080b10;border:1px solid var(--line);border
 pre .e{color:#ff8a84}pre .w{color:#e3b341}pre .m{color:var(--mut)}
 .bar{position:fixed;left:0;right:0;bottom:calc(52px + env(safe-area-inset-bottom));padding:8px 12px;background:#0e141bf2;backdrop-filter:blur(8px);border-top:1px solid var(--line);z-index:7;display:none}
 .hasbar main{padding-bottom:130px}
+.lnk{display:inline-flex;align-items:center;gap:6px;margin-top:6px;padding:5px 12px;border-radius:8px;background:#16202c;border:1px solid var(--line);color:var(--acc);font-size:13px;font-weight:600;text-decoration:none;transition:background .15s,border-color .15s}
+.lnk:hover{background:#1d2b3b;border-color:var(--acc)}
 .bar.on{display:block}.bar .in{max-width:1100px;margin:0 auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.bar .in span{flex:1 1 100%;font-size:12px;color:var(--mut)}.bar .in #barTxt{font-size:14px;font-weight:600;color:var(--txt)}.bar .in button{flex:1}
 .hint{background:#2a2108;border:1px solid #5a4410;color:#f0d78c;padding:10px 12px;border-radius:10px;margin-bottom:12px;display:none;font-size:14px}
 .hint .btns{display:flex;gap:8px;margin-top:8px}.hint .btns button{flex:1}
@@ -2881,7 +2883,7 @@ async function pollStatus() {
       if (rows.web && s.webscreen) {  // écran web : la même vue que l'écran, dans un navigateur, sur un autre port
         if (!rows.web.t.input.disabled) rows.web.t.input.checked = s.webscreen.on && s.webscreen.running;
         const ws = s.webscreen, sub = rows.web.sub; sub.textContent = '';
-        if (ws.on && ws.running) { const a = el('a', null, _t('Ouvrir : port {0}', ws.port)); a.href = location.protocol + '//' + location.hostname + ':' + ws.port + '/'; a.target = '_blank'; a.rel = 'noopener'; sub.append(a); }
+        if (ws.on && ws.running) { const a = el('a', 'lnk', _t('Ouvrir : port {0}', ws.port) + '  ↗'); a.href = location.protocol + '//' + location.hostname + ':' + ws.port + '/'; a.target = '_blank'; a.rel = 'noopener'; sub.append(a); }
         else if (ws.error) sub.textContent = ws.error;
         else sub.textContent = tl('Désactivé : la même vue que l\'écran, dans un navigateur, sur un autre port');
       }
