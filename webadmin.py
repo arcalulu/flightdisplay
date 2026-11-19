@@ -605,9 +605,10 @@ def apply_settings(changes):
         if errors:
             raise ValueError(" ; ".join(errors))
         changed = write_changes([(f, sec, key, v) for f, todo in plans.items() for (sec, key, v) in todo])
-    res = dict(changed=changed, restart_app=any(c.startswith("config:") for c in changed), restart_web=False,
-               needs_map=any(SPEC.get((c.split(":")[0], c.split(":")[1].split(".")[0], c.split(".", 1)[1].lower()), {}).get("needs_map")
-                             for c in changed))
+    nm = lambda c: bool(SPEC.get((c.split(":")[0], c.split(":")[1].split(".")[0], c.split(".", 1)[1].lower()), {}).get("needs_map"))
+    # les reglages de la carte ne relancent pas le programme : la reconstruction de la carte le fera (avant, il tournerait avec une carte qui ne correspond plus)
+    res = dict(changed=changed, restart_app=any(c.startswith("config:") and not nm(c) for c in changed), restart_web=False,
+               needs_map=any(nm(c) for c in changed))
     if any(c.startswith("web:") for c in changed):
         S.reload()
         SCREENWEB.refresh()
@@ -2907,7 +2908,7 @@ function setEdit(p, v, clear) {
 }
 function applyNeeds() {
   const n = {app: false, web: false};
-  for (const p of allParams()) if (p.id in edits) { if (p.apply === 'app') n.app = true; if (p.apply === 'web') n.web = true; }
+  for (const p of allParams()) if (p.id in edits) { if (p.apply === 'app' && !p.needs_map) n.app = true; if (p.apply === 'web') n.web = true; }
   return n;
 }
 function updateBar() {
