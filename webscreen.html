@@ -59,7 +59,8 @@ function getPhoto(ref) {
   if (!p) {
     if (Object.keys(photos).length > 20) photos = {};
     p = photos[ref] = {img: new Image(), ok: false, err: false, t0: performance.now()};
-    p.img.onload = () => { p.ok = true; };
+    // decode() : la photo est décodée avant d'être montrée, sinon le premier dessin d'une grande image fige l'affichage un instant
+    p.img.onload = () => { (p.img.decode ? p.img.decode() : Promise.resolve()).then(() => { p.ok = true; }, () => { p.err = true; }); };
     p.img.onerror = () => { p.err = true; };
     p.img.src = '/photo/' + ref;
   }
@@ -71,7 +72,22 @@ function fontH(font) {
   if (!hCache[font]) { ctx.font = font; const m = ctx.measureText('Hgyp'); hCache[font] = Math.ceil((m.fontBoundingBoxAscent + m.fontBoundingBoxDescent) || parseInt(font.match(/(\d+)px/)[1]) * 1.17); }
   return hCache[font];
 }
-function textW(font, txt) { ctx.font = font; return ctx.measureText(txt).width; }
+const wCache = new Map();  // largeurs de texte mémorisées : measureText est lent et appelé pour chaque texte à chaque image
+function textW(font, txt) {
+  const k = font + '|' + txt; let w = wCache.get(k);
+  if (w === undefined) { if (wCache.size > 4000) wCache.clear(); ctx.font = font; w = ctx.measureText(txt).width; wCache.set(k, w); }
+  return w;
+}
+const phCache = new WeakMap();  // photo mise à la taille du panneau une fois pour toutes (pas de réduction d'une grande image à chaque image)
+function scaledPhoto(img, w, h, k) {
+  const key = Math.round(w * k) + 'x' + Math.round(h * k); let c = phCache.get(img);
+  if (!c || c.key !== key) {
+    const cv2 = document.createElement('canvas'); cv2.width = Math.max(1, Math.round(w * k)); cv2.height = Math.max(1, Math.round(h * k));
+    const g = cv2.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(img, 0, 0, cv2.width, cv2.height);
+    c = {key, cv: cv2}; phCache.set(img, c);
+  }
+  return c.cv;
+}
 function fitLine(pieces, maxw) {  // garde la ligne dans maxw pixels : le texte qui dépasse est coupé et terminé par « … »
   const out = []; let used = 0;
   for (const p of pieces) {
@@ -220,7 +236,7 @@ function draw(C, now, dt) {
     ctx.fillStyle = 'rgba(10,14,20,0.843)'; ctx.fillRect(pnl.x, pnl.y, pnl.w, pnl.h);
     ctx.lineWidth = lw; ctx.strokeStyle = RED; ctx.strokeRect(pnl.x + lw / 2, pnl.y + lw / 2, pnl.w - lw, pnl.h - lw);
     const px = pnl.x + S(10), py = pnl.y + S(10);
-    if (pnl.ph) ctx.drawImage(pnl.ph, px, py, pnl.PW, pnl.phH);
+    if (pnl.ph) ctx.drawImage(scaledPhoto(pnl.ph, pnl.PW, pnl.phH, CK), px, py, pnl.PW, pnl.phH);
     else { ctx.fillStyle = '#1c222a'; ctx.fillRect(px, py, pnl.PW, pnl.phH); ctx.textAlign = 'center'; text(fMid, '#8c96a0', pnl.text, px + pnl.PW / 2, py + pnl.phH / 2 - fontH(fMid) / 2); ctx.textAlign = 'left'; }
     let ty = py + pnl.phH + S(6);
     for (const {l, lh} of pnl.lines) { let x = px; for (const p of l) { text(p.font, p.col, p.txt, x, ty + lh - fontH(p.font)); x += textW(p.font, p.txt); } ty += lh + 2; }
