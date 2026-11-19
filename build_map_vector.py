@@ -23,6 +23,7 @@ if WEB:
         print("Ecran web : meme resolution que l'ecran, pas de carte supplementaire.")
         raise SystemExit
     print(f"Carte de l'ecran web : {W} x {H}", flush=True)
+    STYLE = dict(STYLE, road_width=STYLE["road_width"] * H / H_PI)  # les routes gardent la meme epaisseur relative a la hauteur de la carte
 # Mode apercu (webadmin) : "--preview DOSSIER" + un JSON sur l'entree standard {lat, lon, radius_km, width, height, style, presets}.
 # Image reduite, tuiles gardees dans DOSSIER/tiles, un fichier par theme demande plus "current.png".
 PREVIEW = "--preview" in sys.argv
