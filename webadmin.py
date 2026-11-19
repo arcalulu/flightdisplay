@@ -298,6 +298,8 @@ PARAMS = [
     C("display", "display", "plane_color_unknown", "color", "#ffaa5a", "Avions de type inconnu", "Types absents de la liste (voir Types d'avion).", "Couleurs des avions"),
     C("position", "display", "width", "int", 1920, "Largeur de la carte (px)", "Taille de l'image de fond. Demande de reconstruire la carte.", "Taille de la carte", min=320, max=7680, needs_map=True),
     C("position", "display", "height", "int", 1080, "Hauteur de la carte (px)", "Taille de l'image de fond. Demande de reconstruire la carte.", "Taille de la carte", min=240, max=4320, needs_map=True),
+    C("position", "webscreen", "width", "int", 0, "Largeur de la carte de l'écran web (px)", "0 : la même taille que la carte de l'écran. Sinon, la carte de l'écran web est construite à cette taille (le rayon couvert reste celui de la hauteur). Demande de reconstruire la carte.", "Taille de la carte de l'écran web", min=0, max=7680, needs_map=True),
+    C("position", "webscreen", "height", "int", 0, "Hauteur de la carte de l'écran web (px)", "0 : la même taille que la carte de l'écran. Les deux ratios peuvent être différents. Demande de reconstruire la carte.", "Taille de la carte de l'écran web", min=0, max=4320, needs_map=True),
     *LABEL_PARAMS,
     C("label", "label", "scale", "int", 100, "Taille des étiquettes", "Agrandit ou réduit toutes les étiquettes à côté des avions, en pourcentage de la taille choisie pour chaque élément (100 % = inchangé).", "Taille", min=20, max=200, ui="slider", step=5, unit="%"),
     *PANEL_PARAMS,
@@ -1618,14 +1620,19 @@ def build_worker(stop_display):
             stopped, out = run(S.SUDO + [S.SYSTEMCTL, "stop", S.SERVICE])
             log(out or ("ok" if stopped else "échec de l'arrêt"))
         log("$ " + os.path.basename(S.PYTHON) + " -u " + S.BUILD_SCRIPT)
-        p = subprocess.Popen([S.PYTHON, "-u", S.BUILD_SCRIPT], cwd=S.APP_DIR, stdout=subprocess.PIPE,
-                             stderr=subprocess.STDOUT, text=True, bufsize=1, errors="replace")
-        b["proc"] = p
-        for line in p.stdout:
-            log(line.rstrip())
-        rc = p.wait()
-        if b["cancel"]:
-            log("Construction annulée.")
+        for extra in ([], ["--web"]):  # la carte de l'ecran, puis celle de l'ecran web (si sa resolution est differente)
+            if extra:
+                log("$ " + os.path.basename(S.PYTHON) + " -u " + S.BUILD_SCRIPT + " --web")
+            p = subprocess.Popen([S.PYTHON, "-u", S.BUILD_SCRIPT] + extra, cwd=S.APP_DIR, stdout=subprocess.PIPE,
+                                 stderr=subprocess.STDOUT, text=True, bufsize=1, errors="replace")
+            b["proc"] = p
+            for line in p.stdout:
+                log(line.rstrip())
+            rc = p.wait()
+            if b["cancel"]:
+                log("Construction annulée.")
+            if rc != 0 or b["cancel"]:
+                break
     except Exception as e:
         log("Erreur : " + str(e))
     finally:
@@ -2977,8 +2984,9 @@ function renderCat() {
   renderCatBase();
   if ((curCat === 'position' || curCat === 'mapstyle') && mb) { const box = $('#catbox'); box.appendChild(el('h2', 't', 'Reconstruction de la carte')); box.appendChild(mb); pollBuild(); }
 }
-function renderGroups(box, cat) {
+function renderGroups(box, cat, only) {
   for (const g of cat.groups) {
+    if (only && !only(g)) continue;
     const ps = g.params.filter(p => !p.editor);
     if (!ps.length) continue;
     if (g.name) box.append(el('h2', 't', g.name));
@@ -3061,8 +3069,19 @@ function renderCatBase() {
   }
   if (cat.note) box.append(el('p', 'note', cat.note));
   if (cat.id === 'server') { const w = el('div', 'hint', "Aucun mot de passe n'est défini : toute personne du réseau local peut piloter le Raspberry Pi. Définissez-en un ci-dessous."); w.id = 'authWarn'; w.style.display = (lastSt && !lastSt.auth) ? 'block' : 'none'; box.append(w); }  
-  if (cat.id === 'position') renderMapPicker(box);
-  renderGroups(box, cat);
+  let only = null;
+  if (cat.id === 'position') {  // deux onglets : la carte de l'écran du Pi, et celle de l'écran web (autre résolution possible)
+    const isWeb = g => g.params.some(p => p.id.startsWith('config:webscreen.')), tab = fieldTab.position || 'screen', tabs = el('div', 'seg'); tabs.style.margin = '4px 0 12px';
+    for (const [v, t] of [['screen', 'Écran'], ['web', 'Écran web']]) { const b = el('button', tab === v ? 'on' : '', t); b.onclick = () => { fieldTab.position = v; renderCat(); }; tabs.append(b); }
+    box.insertBefore(tabs, box.children[1] || null);
+    if (tab === 'web') {
+      box.append(el('p', 'note', "Résolution de la carte affichée par l'écran web (page « Écran web » de Pilotage). Elle peut avoir une taille et un ratio différents de ceux de l'écran du Pi : la zone couverte reste le rayon de la carte, mesuré sur la hauteur. 0 : la même que l'écran."));
+      renderGroups(box, cat, isWeb); return;
+    }
+    only = g => !isWeb(g);
+    renderMapPicker(box);
+  }
+  renderGroups(box, cat, only);
   if (cat.id === 'position' || cat.id === 'storage') ringVis();
   if (cat.id === 'alert') linkSync();
   if (cat.id === 'online') {
@@ -4699,6 +4718,8 @@ class ScreenHandler(BaseHTTPRequestHandler):
             self.reply(200, gzip.compress(data, 3) if gz else data, "application/json; charset=utf-8", gz=gz)
         elif path == "/bg.png":
             self.send_file(os.path.join(S.APP_DIR, "background.png"), "image/png", "max-age=86400")
+        elif path == "/bgweb.png":
+            self.send_file(os.path.join(S.APP_DIR, "background_web.png"), "image/png", "max-age=86400")
         else:
             m = re.fullmatch(r"/photo/([cp])/([A-Za-z0-9_-][A-Za-z0-9._-]{0,63})", path)
             if not m:

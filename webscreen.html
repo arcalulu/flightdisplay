@@ -22,7 +22,7 @@ async function poll() {
     const r = await fetch('/scene.json?' + Date.now(), {cache: 'no-store'});
     if (r.status === 200) {
       SC = await r.json(); recv = performance.now();
-      if (SC.cfg.bg_v !== bgV) { bgV = SC.cfg.bg_v; bg = new Image(); bg.src = '/bg.png?v=' + bgV; }
+      if (SC.cfg.bg_v !== bgV) { bgV = SC.cfg.bg_v; bg = new Image(); bg.src = (SC.cfg.bg_url || '/bg.png') + '?v=' + bgV; }
       msgBox.style.display = 'none';
     } else { SC = null; msgBox.style.display = 'block'; }
   } catch (e) { SC = null; msgBox.style.display = 'block'; }

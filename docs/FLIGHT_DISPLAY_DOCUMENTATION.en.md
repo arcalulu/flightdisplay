@@ -821,6 +821,7 @@ Automatic protection: after a 429 error, the interval is multiplied by 1.5 (maxi
 | `plane_color_unknown` | `#ffaa5a` | `#rrggbb` | Color of aircraft whose type is not in the list (default icon). |
 | `width` | required | 320 to 7680 | Map width in pixels (map). |
 | `height` | required | 240 to 4320 | Map height in pixels (map). |
+| `[webscreen] width`, `height` | 0 | 0 to 7680 / 0 to 4320 | Resolution of the web screen map ("Web screen" tab of Map and position). 0: same as the screen. Another size or ratio is possible: the covered radius is still measured on the height. Rebuilding then also produces `background_web.png` and `map_meta_web.json` (`build_map_vector.py --web`). |
 
 `width` and `height` are read by `build_map_vector.py`, which uses them to set the size of the background image. `main.py` does not read them: it takes the real size from `map_meta.json`, produced at build time. Changing these values therefore only takes effect after rebuilding the map. In webadmin, these two settings are in the "Map and position" category (group "Map size"), with those of the position. When the Pi detects the connected screen, this group shows its maximum resolution (read from the video output) with a "Use for the map" button that copies the width and height into the two fields. On a Raspberry Pi Zero, a warning reminds you that rebuilding a large map can take several minutes.
 

@@ -196,19 +196,28 @@ def _hexc(c):
 def scene_cfg():
     """Reglages d'affichage utiles au navigateur (calcules une fois)."""
     if _sc["cfg"] is None:
+        w, h, mpp, bg_file, bg_url = W, H, MPP, "background.png", "/bg.png"
+        try:  # carte propre a l'ecran web (resolution differente), si elle a ete construite pour la resolution demandee
+            mw = json.load(open("map_meta_web.json"))
+            if (mw["w"], mw["h"]) == (cfg.getint("webscreen", "width", fallback=0) or W, cfg.getint("webscreen", "height", fallback=0) or H) and os.path.exists("background_web.png"):
+                w, h, mpp, bg_file, bg_url = mw["w"], mw["h"], mw["mpp"], "background_web.png", "/bgweb.png"
+        except (OSError, ValueError, KeyError):
+            pass
         try:
-            bg_v = int(os.path.getmtime("background.png"))
+            bg_v = int(os.path.getmtime(bg_file))
         except OSError:
             bg_v = 0
+        ui = h / 1080.0
+        sw = lambda v: max(1, int(round(v * ui)))
         _sc["cfg"] = dict(
-            w=W, h=H, mpp=MPP, lat=LAT, lon=LON, cosl=COSL, ui=UI, icon=ICON, fps=FPS, stale=STALE, bg_v=bg_v,
+            w=w, h=h, mpp=mpp, lat=LAT, lon=LON, cosl=COSL, ui=ui, icon=cfg.getfloat("display", "icon_scale", fallback=1.25) * ui, fps=FPS, stale=STALE, bg_v=bg_v, bg_url=bg_url,
             shapes={k: [[round(x, 3), round(y, 3)] for x, y in v] for k, v in SHAPES.items()},
             rings=dict(n=RING_N, first=RING_FIRST, step=RING_STEP, radius=RADIUS_M, col=_hexc(RING_COL), txt=_hexc(RING_TXT), w=RING_W, labels=RING_LABELS),
             alert=dict(on=ALERT_ON, km=ALERT_KM, pulse=ALERT_PULSE, a_min=ALERT_A_MIN, a_max=ALERT_A_MAX),
             col=dict(panel=_hexc(PLANE_PANEL), trail_panel=_hexc(TRAIL_PANEL)),
             lbl={k: dict(bold=v["bold"], italic=v["italic"], size=v["size"]) for k, v in LBL.items()},
             pnl={k: dict(bold=v["bold"], italic=v["italic"], size=v["size"]) for k, v in PNL.items()},
-            lbl_scale=LBL_SCALE, panel_w=PANEL_W, ground_w=G_W, credits=CREDITS, ground_title=tr("AU SOL ({0})", "{0}"))
+            lbl_scale=LBL_SCALE, panel_w=sw(cfg.getint("panel", "width", fallback=480)), ground_w=sw(cfg.getint("ground", "width", fallback=780)), credits=CREDITS, ground_title=tr("AU SOL ({0})", "{0}"))
     return _sc["cfg"]
 
 

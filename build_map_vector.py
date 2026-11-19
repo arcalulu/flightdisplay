@@ -11,6 +11,18 @@ LAT = cfg.getfloat("position", "latitude"); LON = cfg.getfloat("position", "long
 RADIUS_M = cfg.getfloat("position", "radius_km") * 1000
 W = cfg.getint("display", "width"); H = cfg.getint("display", "height")
 STYLE = mapstyle.from_config(cfg)
+# Mode « --web » : la carte de l'ecran web, avec sa propre resolution ([webscreen] width / height, 0 = comme l'ecran) -> background_web.png + map_meta_web.json
+WEB = "--web" in sys.argv
+W_PI, H_PI = W, H
+if WEB:
+    W = cfg.getint("webscreen", "width", fallback=0) or W
+    H = cfg.getint("webscreen", "height", fallback=0) or H
+    if (W, H) == (W_PI, H_PI):
+        for f in ("background_web.png", "map_meta_web.json"):
+            if os.path.exists(f): os.remove(f)
+        print("Ecran web : meme resolution que l'ecran, pas de carte supplementaire.")
+        raise SystemExit
+    print(f"Carte de l'ecran web : {W} x {H}", flush=True)
 # Mode apercu (webadmin) : "--preview DOSSIER" + un JSON sur l'entree standard {lat, lon, radius_km, width, height, style, presets}.
 # Image reduite, tuiles gardees dans DOSSIER/tiles, un fichier par theme demande plus "current.png".
 PREVIEW = "--preview" in sys.argv
@@ -29,6 +41,7 @@ CITIES = cfg.getboolean("cities", "show", fallback=True)
 KINDS = [k.strip() for k in cfg.get("cities", "kinds", fallback="city,town").split(",")]
 MAXN = cfg.getint("cities", "max_labels", fallback=25)
 FSIZE = cfg.getint("cities", "font_size", fallback=20)
+if WEB: FSIZE = max(8, round(FSIZE * H / H_PI))
 if PREVIEW:
     CITIES = bool(CREQ.get("show", CITIES))
     if isinstance(CREQ.get("kinds"), list): KINDS = [str(k) for k in CREQ["kinds"]]
@@ -250,6 +263,6 @@ if PREVIEW:
 
 img, cnt = make(STYLE)
 print(cnt, "noms de lieux dessinés")
-img.resize((W, H), Image.LANCZOS).save("background.png", optimize=True)
-json.dump({"lat": LAT, "lon": LON, "mpp": MPP, "w": W, "h": H, "zoom": Z}, open("map_meta.json", "w"))
+img.resize((W, H), Image.LANCZOS).save("background_web.png" if WEB else "background.png", optimize=True)
+json.dump({"lat": LAT, "lon": LON, "mpp": MPP, "w": W, "h": H, "zoom": Z}, open("map_meta_web.json" if WEB else "map_meta.json", "w"))
 print("OK, zoom", Z, {k: len(v) for k, v in draw_list.items() if v})

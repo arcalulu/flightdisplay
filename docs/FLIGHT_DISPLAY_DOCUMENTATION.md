@@ -821,6 +821,7 @@ Protection automatique : après une erreur 429, l'intervalle est multiplié par 
 | `plane_color_unknown` | `#ffaa5a` | `#rrggbb` | Couleur des avions dont le type est absent de la liste (icône par défaut). |
 | `width` | obligatoire | 320 à 7680 | Largeur de la carte en pixels (carte). |
 | `height` | obligatoire | 240 à 4320 | Hauteur de la carte en pixels (carte). |
+| `[webscreen] width`, `height` | 0 | 0 à 7680 / 0 à 4320 | Résolution de la carte de l'écran web (onglet « Écran web » de Carte et position). 0 : comme l'écran. Autre taille ou autre ratio possible : le rayon couvert reste mesuré sur la hauteur. La reconstruction produit alors aussi `background_web.png` et `map_meta_web.json` (`build_map_vector.py --web`). |
 
 `width` et `height` sont lues par `build_map_vector.py`, qui s'en sert pour fixer la taille de l'image de fond. `main.py` ne les lit pas : il prend la taille réelle dans `map_meta.json`, produit à la construction. Changer ces valeurs n'a donc d'effet qu'après avoir reconstruit la carte. Dans webadmin, ces deux réglages se trouvent dans la catégorie « Carte et position » (groupe « Taille de la carte »), avec ceux de la position. Quand le Pi détecte l'écran branché, ce groupe affiche sa résolution maximale (lue sur la sortie vidéo) avec un bouton « Utiliser pour la carte » qui reporte largeur et hauteur dans les deux champs. Sur un Raspberry Pi Zero, un avertissement rappelle que la reconstruction d'une grande carte peut durer plusieurs minutes.
 
