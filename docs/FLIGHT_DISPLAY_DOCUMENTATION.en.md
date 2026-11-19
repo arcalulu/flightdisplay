@@ -1019,6 +1019,8 @@ When an aircraft in flight enters the alert circle (`[alert] radius_km`) and res
 
 The distance is measured on the ground, with an exit margin of 10% of the radius to avoid repeated alerts. An aircraft already in alert keeps a 10% margin on the altitude bounds. The sound is only played when an aircraft enters, never twice in parallel.
 
+**On-demand test**: in Settings, Proximity alert, the "Test the alert and the flashing now" button simulates an alert for 10 seconds (chime, flashing, alert panel) on the aircraft closest to the center of the map, on the screen and on the web screen, with a "Proximity alert test" banner at the bottom. The display program must be running and an aircraft must be visible.
+
 **When the program starts**: an aircraft already in the zone triggers a real alert, as at any other time. To test the sound and the tint without an aircraft, two independent options exist (section 8.9): "Sound when the program starts" (one chime) and "Simulate an alert at startup" (red tint and chime). There are never two chimes at once.
 
 ### 9.5 Sound control while running
