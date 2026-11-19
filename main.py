@@ -1311,6 +1311,10 @@ def main():
                     if ASLEEP_WEB and ALERT_SOUND and not rt["muted"]:
                         CHIME_SEQ[0] += 1  # seul le navigateur joue le carillon : l'ecran du Pi reste en veille
             zone_ids = zone_now
+            if rt["atest_req"]:  # test d'alerte demande pendant la veille : seul l'ecran web le montre (et le joue)
+                rt["atest_req"] = False; ATEST["until"] = now + ATEST_SEC; ATEST["key"] = None
+                if ALERT_SOUND and not rt["muted"]:
+                    CHIME_SEQ[0] += 1
             if now - paused_pub >= 2.0:
                 fps_publish(0, len(air_now), 0, len(zone_ids), paused=True, live=live_pack(air_now, zone_ids)); paused_pub = now
             if scene_wanted(now):  # ecran web : la vue est publiee meme quand l'ecran du Pi est en veille (le panneau photo reste dans son coin par defaut)
@@ -1334,7 +1338,14 @@ def main():
                     cur_key = keys[(keys.index(cur_key) + 1) % len(keys)]; cur_t = now
                 if corner not in PANEL_ALLOWED:
                     corner = PANEL_ALLOWED[0]
-                scene_publish(now, vis_s, gnd_s, zone_ids if ASLEEP_WEB else set(), cur_key, corner, dist_s, tr("{0} avion(s) en vol", len(vis_s)) + "  ·  " + tr("écran en veille"), bool(ASLEEP_WEB and ALERT_ON and zone_ids))
+                zs, av = (zone_ids if ASLEEP_WEB else set()), bool(ASLEEP_WEB and ALERT_ON and zone_ids)
+                if now < ATEST["until"] and vis_s:
+                    cx_, cy_ = to_xy(LAT, LON)
+                    if ATEST["key"] not in [v[0] for v in vis_s]:
+                        ATEST["key"] = min(vis_s, key=lambda v: math.hypot(v[3] - cx_, v[4] - cy_))[0]
+                    zs = set(zs) | {ATEST["key"]}; av = True
+                    keys = [ATEST["key"]]; cur_key = ATEST["key"]
+                scene_publish(now, vis_s, gnd_s, zs, cur_key, corner, dist_s, tr("{0} avion(s) en vol", len(vis_s)) + "  ·  " + tr("écran en veille"), av)
             fps_n, fps_t0 = 0, now
             clock.tick(2)
             continue
